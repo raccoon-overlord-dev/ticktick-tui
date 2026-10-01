@@ -1,0 +1,23 @@
+# ~/.config/ttui/config.toml  (defaults shown)
+[appearance]
+theme            = "terminal"   # terminal | colorful | lotr | <custom file in ~/.config/ttui/themes/>
+background       = "solid"      # solid | transparent | blur   (transparent/blur = don't paint bg; terminal composites)
+priority_headers = "rule"       # rule | label | tab
+focused_panel    = "border"     # border | title
+nerd_font_icons  = true
+
+[layout]
+columns        = "auto"         # auto | 3 | 2 | 1   (auto: 3 ≥ 120 cols, 2 ≥ 80, else 1)
+show_completed = true
+
+[tasks]
+due_label        = true         # right-aligned due label on task rows (toggle: t)
+sort_in_priority = "due"        # due | title | created
+week_start       = "mon"        # mon | sun
+
+[keys]
+keymap = "vim+arrows"           # vim+arrows | arrows
+
+[account]
+server     = "ticktick.com"     # ticktick.com | dida365.com
+sync_every = "5m"               # 1m | 5m | 15m | manual

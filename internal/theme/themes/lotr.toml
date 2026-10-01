@@ -1,0 +1,23 @@
+# ticktick-tui theme: lotr
+name = "lotr"
+separator = "✦"
+
+[colors]
+base      = "#0e120f"
+surface   = "#1a201b"
+surface2  = "#242c25"
+line      = "#323c33"
+dim       = "#6b7566"
+muted     = "#7f8c78"
+sub       = "#a9b09f"
+text      = "#e9ecdf"
+accent    = "#ecd08a"
+secondary = "#a7dcae"
+ok        = "#b9d0a0"
+info      = "#cbbd92"
+error     = "#f0a585"
+warn      = "#d6e6bd"
+p_high    = "#f0a585"
+p_med     = "#d6e6bd"
+p_low     = "#a9c9d6"
+p_none    = "#6b7566"

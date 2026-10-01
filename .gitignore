@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+LOCAL-NOTES.md
+auth.toml
+/dist/
+/ttui
+requirements.md
+design_handoff_ticktick_tui/
+SPEC.md

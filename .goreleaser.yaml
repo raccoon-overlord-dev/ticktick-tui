@@ -1,0 +1,22 @@
+# GoReleaser config. Releases are built locally with `make dist` and uploaded by hand (see docs/usage.md).
+# Archive names carry no version so install.sh can use .../releases/latest/download/<name>.
+version: 2
+
+builds:
+  - main: ./cmd/ttui
+    binary: ttui
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+
+archives:
+  - formats: [tar.gz]
+    name_template: "ttui_{{ .Os }}_{{ .Arch }}"
+    files: [README.md, LICENSE*]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc

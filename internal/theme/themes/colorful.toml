@@ -1,0 +1,23 @@
+# ticktick-tui theme: colorful
+name = "colorful"
+separator = "·"
+
+[colors]
+base      = "#111115"
+surface   = "#1b1b22"
+surface2  = "#26262f"
+line      = "#34343f"
+dim       = "#6f6c80"
+muted     = "#8a879a"
+sub       = "#aaa8b8"
+text      = "#ecebf2"
+accent    = "#cdbdff"
+secondary = "#ffc9ad"
+ok        = "#b6efc9"
+info      = "#aed6ff"
+error     = "#ffb3c1"
+warn      = "#ffe6a3"
+p_high    = "#ffb3c1"
+p_med     = "#ffe6a3"
+p_low     = "#aed6ff"
+p_none    = "#6f6c80"

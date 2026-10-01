@@ -1,0 +1,25 @@
+# ticktick-tui theme: terminal
+# Roles map to ANSI indices (0-15) so ttui inherits the terminal's own palette.
+# An empty value means the terminal's default foreground/background.
+name = "terminal"
+separator = "·"
+
+[colors]
+base      = ""
+surface   = ""
+surface2  = "0"
+line      = "8"
+dim       = "8"
+muted     = "8"
+sub       = "7"
+text      = ""
+accent    = "5"
+secondary = "3"
+ok        = "2"
+info      = "4"
+error     = "1"
+warn      = "3"
+p_high    = "1"
+p_med     = "3"
+p_low     = "4"
+p_none    = "8"
