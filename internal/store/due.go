@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"ttui/internal/api"
@@ -19,12 +20,27 @@ func DueTime(t *api.Task) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	if t.IsAllDay && t.TimeZone != "" {
-		if loc, err := time.LoadLocation(t.TimeZone); err == nil {
+		if loc, err := loadLocation(t.TimeZone); err == nil {
 			d = d.In(loc)
 			return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.Local), true
 		}
 	}
 	return d.In(time.Local), true
+}
+
+var zones sync.Map // time zone name → *time.Location
+
+// loadLocation caches time.LoadLocation, which reads and parses the zoneinfo file on every call;
+// DueTime runs for every task many times per frame.
+func loadLocation(name string) (*time.Location, error) {
+	if loc, ok := zones.Load(name); ok {
+		return loc.(*time.Location), nil
+	}
+	loc, err := time.LoadLocation(name)
+	if err == nil {
+		zones.Store(name, loc)
+	}
+	return loc, err
 }
 
 // DayDiff is the number of calendar days from now's date to the due date (negative = overdue).
