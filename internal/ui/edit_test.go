@@ -5,11 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"ttui/internal/api"
 	"ttui/internal/auth"
 	"ttui/internal/config"
 	"ttui/internal/parse"
 	"ttui/internal/store"
+	"ttui/internal/theme"
 )
 
 func testApp(t *testing.T) *App {
@@ -54,5 +57,19 @@ func TestCreateReplacesTempID(t *testing.T) {
 	b.onOpDone(opDoneMsg{op: b.queue[0], err: errors.New("boom")})
 	if b.st.Task(tmp) != nil {
 		t.Fatal("failed create not removed")
+	}
+}
+
+// After a line break the cursor must sit at column 0 of the new line.
+func TestNotesCursorAfterNewline(t *testing.T) {
+	th, err := theme.Load("terminal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := newInput("hello")
+	in.insert("\n")
+	ls := in.lines(pen{th: th}, "text", 40)
+	if len(ls) != 2 || ansi.Strip(ls[1]) != " " {
+		t.Fatalf("got %q", ls)
 	}
 }

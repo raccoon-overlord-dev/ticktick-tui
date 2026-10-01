@@ -12,6 +12,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"ttui/internal/api"
 	"ttui/internal/auth"
@@ -124,7 +125,15 @@ func (a *App) tick() tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
+// Init also asks the terminal for Unicode mode 2027. Bubble Tea only asks by itself
+// outside SSH or for a few known TERMs; without a reply its renderer counts emoji
+// like ⚠️ as 1 cell while lipgloss and the terminal use 2, so rows spill into the
+// next column. A reply switches the renderer to grapheme widths.
 func (a *App) Init() tea.Cmd {
+	return tea.Batch(tea.Raw(ansi.RequestModeUnicodeCore), a.start())
+}
+
+func (a *App) start() tea.Cmd {
 	if a.demo {
 		a.screen = screenMain
 		return a.tick()

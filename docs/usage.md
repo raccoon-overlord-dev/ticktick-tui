@@ -141,9 +141,9 @@ Developer commands read `.env` (see `.env.example`):
 
 Releases are built locally and uploaded by hand:
 
-1. `git tag v0.1.0 && git push origin v0.1.0`
-2. `make test && make dist`: [GoReleaser](https://goreleaser.com) (`.goreleaser.yaml`) writes four `ttui_<os>_<arch>.tar.gz` archives and `checksums.txt` to `dist/`
-3. GitHub → Releases → Draft a new release → pick the tag → attach those five files → Publish
+1. `make test`, then `git tag vX.Y.Z && git push origin vX.Y.Z`
+2. `make dist`: [GoReleaser](https://goreleaser.com) (`.goreleaser.yaml`) writes four `ttui_<os>_<arch>.tar.gz` archives and `checksums.txt` to `dist/`
+3. `gh release create vX.Y.Z dist/ttui_*.tar.gz dist/checksums.txt --title vX.Y.Z` (or GitHub → Releases → Draft a new release → attach those five files → Publish). Not a draft or pre-release, or `install.sh` won't find it.
 
 `install.sh` downloads them from the latest release.
 

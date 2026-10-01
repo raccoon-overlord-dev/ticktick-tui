@@ -94,8 +94,17 @@ func (t *textInput) lines(p pen, role string, width int) []string {
 	if t.cur < len(t.r) && t.r[t.cur] == '\n' { // cursor on a line break: show it at line end
 		cur, after = lipgloss.NewStyle().Reverse(true).Render(" ")+"\n", string(t.r[t.cur+1:])
 	}
+	// Style line by line: Render on a multi-line string pads every line to the widest one,
+	// which pushed the cursor right after a line break.
+	render := func(s string) string {
+		ls := strings.Split(s, "\n")
+		for i, l := range ls {
+			ls[i] = p.s(role).Render(l)
+		}
+		return strings.Join(ls, "\n")
+	}
 	var out []string
-	for _, l := range strings.Split(p.s(role).Render(before)+cur+p.s(role).Render(after), "\n") {
+	for _, l := range strings.Split(render(before)+cur+render(after), "\n") {
 		out = append(out, strings.Split(ansi.Hardwrap(l, width, true), "\n")...)
 	}
 	return out

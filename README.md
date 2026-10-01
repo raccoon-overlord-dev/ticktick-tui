@@ -35,6 +35,10 @@ ttui
 A [Nerd Font](https://www.nerdfonts.com) is recommended for icons (you can switch them off in Settings).
 Keys, quick-add syntax, configuration and themes: see **[docs/usage.md](docs/usage.md)**.
 
+## Known issues
+
+- On some setups (seen on Omarchy + Ghostty, not on macOS + Ghostty), pressing `↓` with the first task selected draws that task twice. It's only visual: the task isn't duplicated in TickTick.
+
 ## How it's built
 
 - **Go** with [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lip Gloss](https://github.com/charmbracelet/lipgloss): a single static binary, no runtime to install.
