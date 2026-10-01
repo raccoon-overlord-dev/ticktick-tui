@@ -19,10 +19,10 @@ import (
 // op is one queued write. Edits apply to the store at once; ops are sent one at a time
 // (writes are serialized) and reverted if the API rejects them.
 type op struct {
-	kind   string // create | update | complete
+	kind   string // create | update | complete | move
 	taskID string
 	before *api.Task      // state to restore on failure; nil for create
-	fields map[string]any // update fields, or the create body
+	fields map[string]any // update fields, the create body, or the move's "from" and "to"
 }
 
 type (
@@ -73,6 +73,11 @@ func (a *App) pump() tea.Cmd {
 			if err = c.CompleteTask(ctx, pid, id); err == nil {
 				// re-read: a repeating task stays open with its next due date
 				t, err = c.GetTask(ctx, pid, id)
+			}
+		case "move":
+			to := o.fields["to"].(string)
+			if err = c.MoveTask(ctx, o.fields["from"].(string), to, id); err == nil {
+				t, err = c.GetTask(ctx, to, id)
 			}
 		}
 		return opDoneMsg{o, t, err}
@@ -243,6 +248,97 @@ func (a *App) toggleCheck(t *api.Task, i int) tea.Cmd {
 	return a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
 }
 
+// addItem appends a checklist item; the server assigns its id.
+func (a *App) addItem(t *api.Task, title string) tea.Cmd {
+	items := append(slices.Clone(t.Items), api.Item{Title: title})
+	return a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
+}
+
+// movePicker opens the list menu for t (m, or ⏎ on the List field).
+func (a *App) movePicker(t *api.Task) {
+	var items []cmdItem
+	for _, id := range a.allLists() {
+		if id != "inbox" && !strings.HasPrefix(id, "p:") {
+			continue
+		}
+		it := a.listItem(id, nil)
+		if (id == "inbox" && store.IsInbox(t.ProjectID)) || id == "p:"+t.ProjectID {
+			it.hint = "current"
+		}
+		it.run = func() tea.Cmd { return a.moveTask(t, id) }
+		items = append(items, it)
+	}
+	a.openPick("move to", items)
+}
+
+func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
+	to := strings.TrimPrefix(list, "p:")
+	if list == "inbox" {
+		if to = a.st.InboxID(); to == "" {
+			a.flashError("✗ Inbox id unknown until a task in the Inbox has synced")
+			return nil
+		}
+	}
+	if to == t.ProjectID {
+		return nil
+	}
+	if _, ok := a.idMap[t.ID]; strings.HasPrefix(t.ID, "tmp-") && !ok {
+		a.setFlash("still saving this task · try again in a moment")
+		return nil
+	}
+	before := store.Clone(*t)
+	from := t.ProjectID
+	t.ProjectID = to
+	name, _, _ := a.listMeta(list)
+	a.setFlash("moved to " + name)
+	return a.enqueue(op{kind: "move", taskID: t.ID, before: &before, fields: map[string]any{"from": from, "to": to}})
+}
+
+// duePicker opens the due date menu for t (d, or ⏎ on the Due field): the dates from
+// config due_menu, No date, and Custom… for the text editor.
+func (a *App) duePicker(t *api.Task) {
+	now := time.Now()
+	var items []cmdItem
+	for _, s := range a.cfg.Tasks.DueMenu {
+		d, err := parse.ParseDue(s, now)
+		if err != nil || d == nil {
+			continue
+		}
+		hint := d.At(now).Format("Mon 2 Jan")
+		if d.HasTime {
+			hint += d.At(now).Format(" 15:04")
+		}
+		items = append(items, cmdItem{icon: a.icon("\uf017", "~"), iconRole: "secondary", label: s, hint: hint,
+			run: func() tea.Cmd {
+				// a date without a time keeps the task's time, as in the web app
+				if at, ok := store.DueTime(t); ok && !d.HasTime && !t.IsAllDay {
+					at = at.In(now.Location())
+					d.H, d.M, d.HasTime = at.Hour(), at.Minute(), true
+				}
+				a.setFlash("due → " + s)
+				return a.setDue(t, d)
+			}})
+	}
+	items = append(items,
+		cmdItem{icon: "×", iconRole: "dim", label: "No date", run: func() tea.Cmd { a.setFlash("due date cleared"); return a.setDue(t, nil) }},
+		cmdItem{icon: "…", iconRole: "dim", label: "Custom", hint: "tomorrow 17:00, fri, +3d", run: func() tea.Cmd { a.startEdit("due"); return nil }})
+	a.openPick("due", items)
+}
+
+// setDue sets or clears (d nil) t's due date; no time means all-day.
+func (a *App) setDue(t *api.Task, d *parse.Due) tea.Cmd {
+	f := dueFields(d, time.Now())
+	return a.update(t, f, func(t *api.Task) {
+		t.DueDate, _ = f["dueDate"].(string)
+		t.StartDate = t.DueDate
+		if d != nil {
+			t.IsAllDay, t.TimeZone = !d.HasTime, localZone()
+		} else {
+			t.RepeatFlag = "" // the server drops the repeat rule with the date
+		}
+	})
+}
+
 var repeats = []struct{ label, rule string }{
 	{"never", ""},
 	{"Daily", "RRULE:FREQ=DAILY;INTERVAL=1"},
@@ -327,16 +423,11 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 			a.setFlash(err.Error() + " · try: tomorrow 17:00, fri, 2026-10-08")
 			return nil, false
 		}
-		f := dueFields(d, time.Now())
-		cmd = a.update(t, f, func(t *api.Task) {
-			t.DueDate, _ = f["dueDate"].(string)
-			t.StartDate = t.DueDate
-			if d != nil {
-				t.IsAllDay, t.TimeZone = !d.HasTime, localZone()
-			} else {
-				t.RepeatFlag = "" // the server drops the repeat rule with the date
-			}
-		})
+		cmd = a.setDue(t, d)
+	case "additem":
+		if v = strings.TrimSpace(v); v != "" {
+			cmd = a.addItem(t, v)
+		}
 	}
 	a.edit = ""
 	a.setFlash("saved")
@@ -387,6 +478,7 @@ func (a *App) startEdit(field string) {
 		}
 	case "notes":
 		v = t.Content
+	case "additem":
 	default:
 		return
 	}
@@ -405,14 +497,16 @@ func (a *App) activate() tea.Cmd {
 		return nil
 	}
 	switch k := detailKeys(t)[a.df]; {
-	case k == "title" || k == "due" || k == "tags" || k == "notes":
+	case k == "title" || k == "tags" || k == "notes" || k == "additem":
 		a.startEdit(k)
+	case k == "due":
+		a.duePicker(t)
 	case k == "repeat":
 		return a.cycleRepeat(t)
 	case k == "priority":
 		return a.cyclePrio(t)
 	case k == "list":
-		a.setFlash("in " + a.st.ListPath(t.ProjectID) + " · moving tasks isn't supported yet")
+		a.movePicker(t)
 	case strings.HasPrefix(k, "c"):
 		var i int
 		fmt.Sscanf(k, "c%d", &i)

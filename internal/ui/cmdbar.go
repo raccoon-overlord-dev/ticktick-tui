@@ -16,9 +16,15 @@ import (
 
 // cmdBar is the centered command bar (handoff §2). The query's first character sets the mode.
 type cmdBar struct {
-	in  textInput
-	idx int
-	off int
+	in   textInput
+	idx  int
+	off  int
+	pick *picker // set: the bar is a menu (move to list, due date) filtered by the query
+}
+
+type picker struct {
+	label string // mode chip, e.g. "move to"
+	items []cmdItem
 }
 
 type cmdItem struct {
@@ -37,6 +43,10 @@ type cmdGroup struct {
 
 func (a *App) openCmd(q string) {
 	a.cmd, a.settings = &cmdBar{in: newInput(q)}, false
+}
+
+func (a *App) openPick(label string, items []cmdItem) {
+	a.cmd, a.settings = &cmdBar{in: newInput(""), pick: &picker{label, items}}, false
 }
 
 // cmdMode returns the mode ("search", "cmd", "add", "list", "tag") and the query without its prefix.
@@ -177,6 +187,14 @@ func (a *App) quickAdd(term string) parse.Add {
 }
 
 func (a *App) cmdData() (string, []cmdGroup) {
+	if pk := a.cmd.pick; pk != nil {
+		items := fuzzyPick(pk.items, func(c cmdItem) string { return c.label }, strings.TrimSpace(a.cmd.in.value()),
+			func(c cmdItem, pos []int) cmdItem { c.pos = pos; return c })
+		if len(items) == 0 {
+			return "pick", nil
+		}
+		return "pick", []cmdGroup{{strings.ToUpper(pk.label), items}}
+	}
 	mode, term := cmdMode(a.cmd.in.value())
 	var gs []cmdGroup
 	tasks := make([]*api.Task, 0, len(a.st.Tasks))
@@ -300,12 +318,19 @@ func (a *App) viewCmd() (string, int, int) {
 	w := min(78, a.w-4)
 	mode, gs := a.cmdData()
 	ml := modeLabel[mode]
+	if a.cmd.pick != nil {
+		ml = [2]string{a.cmd.pick.label, "accent"}
+	}
 
 	// input row
 	q := a.cmd.in.value()
 	input := a.cmd.in.view(p, "text", w-4-2-len(ml[0])-2)
 	if q == "" {
-		input = p.s("text").Reverse(true).Render(" ") + p.s("dim").Render("search tasks · > command · + add · @ list · # tag")
+		ph := "search tasks · > command · + add · @ list · # tag"
+		if a.cmd.pick != nil {
+			ph = "type to filter"
+		}
+		input = p.s("text").Reverse(true).Render(" ") + p.s("dim").Render(ph)
 	}
 	lines := []string{p.line(w, p.s("accent").Bold(true).Render("❯")+p.sp(1)+input, p.s(ml[1]).Render(ml[0])),
 		p.s("line").Render(strings.Repeat("─", w-2))}
@@ -346,7 +371,11 @@ func (a *App) viewCmd() (string, int, int) {
 
 	footer := []string{p.s("line").Render(strings.Repeat("─", w-2))}
 	var legend []string
-	for _, pf := range [][2]string{{">", "command"}, {"+", "add"}, {"@", "list"}, {"#", "tag"}} {
+	prefixes := [][2]string{{">", "command"}, {"+", "add"}, {"@", "list"}, {"#", "tag"}}
+	if a.cmd.pick != nil {
+		prefixes = nil
+	}
+	for _, pf := range prefixes {
 		role := "dim"
 		if q != "" && q[:1] == pf[0] {
 			role = "accent"

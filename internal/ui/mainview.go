@@ -303,7 +303,7 @@ func detailKeys(t *api.Task) []string {
 	for i := range t.Items {
 		k = append(k, fmt.Sprintf("c%d", i))
 	}
-	return append(k, "notes")
+	return append(k, "additem", "notes")
 }
 
 func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, int) {
@@ -396,6 +396,18 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 			}
 			lines = append(lines, ip.line(w, mark+ip.sp(1)+text, ""))
 		}
+	} else {
+		lines = append(lines, "")
+	}
+	ap := pick("additem")
+	if editing("additem") {
+		v := a.in.view(ap, "text", cw-2)
+		if a.in.value() == "" {
+			v += ap.s("dim").Render("new item · ⏎ add · esc done")
+		}
+		lines = append(lines, ap.line(w, ap.s("ok").Render("+")+ap.sp(1)+v, ""))
+	} else {
+		lines = append(lines, ap.line(w, ap.s("dim").Render("+ add checklist item"), ""))
 	}
 
 	// notes
@@ -490,7 +502,7 @@ func (a *App) viewMain() (string, [][2]string) {
 	n, lw, tw, dw := layout(a.w, a.cfg.Layout.Columns)
 	ef := a.effFocus(n)
 	paneH := a.h - 1
-	overlay := a.settings || a.cmd != nil || (n == 1 && a.sheet)
+	overlay := a.settings || a.help || a.cmd != nil || (n == 1 && a.sheet)
 	p := a.pen()
 	p.faint = overlay
 
@@ -541,15 +553,15 @@ func (a *App) viewMain() (string, [][2]string) {
 	var hints [][2]string
 	switch ef {
 	case "lists":
-		hints = [][2]string{{"j/k", "move"}, {"l", "open"}, {"␣", "fold"}, {"/", "search"}, {":", "command"}, {",", "settings"}, {"a", "add"}}
+		hints = [][2]string{{"j/k", "move"}, {"l", "open"}, {"␣", "fold"}, {"/", "search"}, {"?", "keys"}, {":", "command"}, {",", "settings"}, {"a", "add"}}
 	case "tasks":
 		done := "done"
 		if t := a.selTask(); t != nil && store.Done(t) {
 			done = "reopen"
 		}
-		hints = [][2]string{{"j/k", "move"}, {"⏎", "open"}, {"x", done}, {"p", "priority"}, {"a", "add"}, {"/", "search"}, {"t", "due labels"}, {":", "command"}, {",", "settings"}}
+		hints = [][2]string{{"j/k", "move"}, {"⏎", "open"}, {"x", done}, {"a", "add"}, {"?", "keys"}, {"d", "due"}, {"m", "move to"}, {"p", "priority"}, {"/", "search"}, {":", "command"}, {",", "settings"}}
 	default:
-		hints = [][2]string{{"j/k", "field"}, {"i", "edit"}, {"␣", "toggle"}, {"p", "priority"}, {"h", "back"}}
+		hints = [][2]string{{"j/k", "field"}, {"i", "edit"}, {"␣", "toggle"}, {"?", "keys"}, {"d", "due"}, {"m", "move to"}, {"c", "checklist"}, {"h", "back"}}
 	}
 
 	switch {
@@ -563,8 +575,11 @@ func (a *App) viewMain() (string, [][2]string) {
 		hints = [][2]string{{"↑↓", "select"}, {"⏎", "run"}, {"esc", "close"}}
 	case a.edit != "":
 		enter := "save"
-		if a.edit == "notes" {
+		switch a.edit {
+		case "notes":
 			enter = "newline"
+		case "additem":
+			enter = "add"
 		}
 		hints = [][2]string{{"esc", "save"}, {"⏎", enter}}
 		if n == 1 && a.sheet {
@@ -576,6 +591,11 @@ func (a *App) viewMain() (string, [][2]string) {
 		base = lipgloss.NewCompositor(lipgloss.NewLayer(base),
 			lipgloss.NewLayer(box).X((a.w-bw)/2).Y(max((paneH-bh)/2, 0)).Z(1)).Render()
 		hints = [][2]string{{"j/k", "move"}, {"h/l", "change"}, {"esc", "close"}}
+	case a.help:
+		box, bw, bh := a.viewHelp()
+		base = lipgloss.NewCompositor(lipgloss.NewLayer(base),
+			lipgloss.NewLayer(box).X((a.w-bw)/2).Y(max((paneH-bh)/2, 0)).Z(1)).Render()
+		hints = [][2]string{{"j/k", "scroll"}, {"esc", "close"}}
 	case n == 1 && a.sheet:
 		sh := max(paneH*68/100, 8)
 		sheet := detail(a.overlayPen(), tw, sh)
@@ -683,7 +703,7 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 			a.startEdit("title")
 		case "detail":
 			if t := a.selTask(); t != nil {
-				if k := detailKeys(t)[a.df]; k == "title" || k == "due" || k == "tags" || k == "notes" {
+				if k := detailKeys(t)[a.df]; k == "title" || k == "due" || k == "tags" || k == "notes" || k == "additem" {
 					a.startEdit(k)
 				} else {
 					return a.activate()
@@ -707,6 +727,21 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		a.toggleDueLabels()
 	case ",":
 		a.settings, a.sIdx = true, 1
+	case "?":
+		a.help, a.offHelp = true, 0
+	case "m", "d", "c":
+		t := a.selTask()
+		if t == nil || ef == "lists" {
+			return nil
+		}
+		switch key {
+		case "m":
+			a.movePicker(t)
+		case "d":
+			a.duePicker(t)
+		default:
+			a.startEdit("additem")
+		}
 	}
 	return nil
 }

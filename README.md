@@ -11,7 +11,7 @@ Inspired by [superfile](https://superfile.dev): clean, minimal, never leave the 
 
 - **Responsive layout**: lists · tasks · details at full width, two panes on smaller windows, one pane with a slide-up details sheet on narrow ones.
 - **Command bar** (`/`): fuzzy search across tasks, lists and commands; `+` quick add with natural language (`fri 5pm !med #errand @home`); `@` jump to a list; `#` filter by tag.
-- **Edit without leaving the keyboard**: complete (`x`, with undo), cycle priority (`p`), edit title, due date, tags and markdown notes inline, tick checklists, set repeats.
+- **Edit without leaving the keyboard**: complete (`x`, with undo), cycle priority (`p`), pick a due date (`d`), move to another list (`m`), add and tick checklist items (`c`), edit title, tags and markdown notes inline, set repeats. `?` lists every key.
 - **Instant and in sync**: edits show at once and are sent in the background; a background sync picks up changes from your other devices; startup renders from a local cache.
 - **Smart lists**: Today, Tomorrow, Next 7 Days, tags and filters, with tasks grouped High → Medium → Low → None.
 - **Looks like your terminal**: the default theme uses your terminal's own colors; `colorful` and `lotr` are built in, custom themes are one TOML file; transparent backgrounds let your terminal's blur show through.

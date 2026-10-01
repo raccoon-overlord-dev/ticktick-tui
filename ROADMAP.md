@@ -15,9 +15,7 @@ Ideas planned after v1. Not implemented yet.
 
 ## Tasks
 
-- Move a task to another list with a shortcut, e.g. Inbox → Today (API: `POST /task/move`; the details "List" field currently only shows the list).
-- Add checklist items to a task from the TUI (today checklists can only be viewed and ticked).
-- Due date shortcut: opens a menu like the web UI (Tomorrow, Next week, …); the default options are configurable in Settings.
+- Edit `due_menu` from Settings (today it's in `config.toml` only).
 - Manual task order, like the GUI: overrides the list's sort for that task.
 - Sorting revamp matching the web UI: Group by + Sort by + Order.
 - Repeat rules in quick add (e.g. `every week`); today a repeat is set from the details pane.
@@ -32,7 +30,6 @@ Ideas planned after v1. Not implemented yet.
 
 - Cursor blink while editing notes.
 - Better insert mode for task details.
-- `?` opens a panel listing all shortcuts.
 - (To be confirmed) pane shortcuts: `L` Lists, `C` current list, `D` Details.
 
 ## Distribution

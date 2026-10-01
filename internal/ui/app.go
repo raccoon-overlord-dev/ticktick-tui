@@ -12,7 +12,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"ttui/internal/api"
 	"ttui/internal/auth"
@@ -72,8 +71,7 @@ type App struct {
 	demo   bool         // `ttui dev demo`: fake data, no API
 	err    string       // main-screen sync error
 
-	auth      authScreen
-	graphemes bool // terminal answered the mode 2027 query: the renderer counts widths like lipgloss
+	auth authScreen
 
 	// main screen
 	focus                         string // lists | tasks | detail
@@ -85,6 +83,8 @@ type App struct {
 	folded                        map[string]bool
 	settings                      bool
 	sIdx                          int
+	help                          bool // ? shortcuts panel
+	offHelp                       int
 	offLists, offTasks, offDetail int
 	cmd                           *cmdBar // command bar, nil when closed
 	edit, editID                  string  // inline edit: field (title|due|tags|notes) and task
@@ -126,14 +126,7 @@ func (a *App) tick() tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-// Init also asks the terminal for Unicode mode 2027 (Bubble Tea only asks outside SSH or
-// for a few known TERMs). A reply switches the renderer to grapheme widths; without one
-// View falls back to wcSafe.
 func (a *App) Init() tea.Cmd {
-	return tea.Batch(tea.Raw(ansi.RequestModeUnicodeCore), a.start())
-}
-
-func (a *App) start() tea.Cmd {
 	if a.demo {
 		a.screen = screenMain
 		return a.tick()
@@ -150,11 +143,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.w, a.h = msg.Width, msg.Height
-		return a, nil
-	case tea.ModeReportMsg: // same check Bubble Tea uses to switch its renderer
-		if msg.Mode == ansi.ModeUnicodeCore && (msg.Value == ansi.ModeReset || msg.Value == ansi.ModeSet || msg.Value == ansi.ModePermanentlySet) {
-			a.graphemes = true
-		}
 		return a, nil
 	case tickMsg:
 		a.now, a.spin = time.Time(msg), a.spin+1
@@ -202,6 +190,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.editKey(k)
 		case a.settings:
 			return a, a.settingsKey(k)
+		case a.help:
+			return a, a.helpKey(k)
 		default:
 			return a, a.mainKey(k)
 		}
@@ -216,6 +206,10 @@ func (a *App) setFlash(s string) {
 func (a *App) editKey(k tea.KeyPressMsg) tea.Cmd {
 	key := k.String()
 	switch {
+	case key == "enter" && a.edit == "additem" && strings.TrimSpace(a.in.value()) != "":
+		cmd, _ := a.commitEdit()
+		a.startEdit("additem") // stay open for the next item
+		return cmd
 	case key == "esc" || key == "ctrl+s" || key == "ctrl+enter" || (key == "enter" && a.edit != "notes"):
 		cmd, _ := a.commitEdit()
 		return cmd
@@ -348,7 +342,9 @@ func (a *App) View() tea.View {
 		switch {
 		case a.cmd != nil:
 			mode, modeRole = "SEARCH", "info"
-			if m, _ := cmdMode(a.cmd.in.value()); m == "cmd" {
+			if m, _ := cmdMode(a.cmd.in.value()); a.cmd.pick != nil {
+				mode, modeRole = "SELECT", "accent"
+			} else if m == "cmd" {
 				mode, modeRole = "COMMAND", "secondary"
 			}
 		case a.edit != "":
@@ -358,10 +354,7 @@ func (a *App) View() tea.View {
 		}
 	}
 	content := body + "\n" + a.statusBar(mode, modeRole, hints)
-	if !a.graphemes {
-		content = wcSafe(content)
-	}
-	v.SetContent(content)
+	v.SetContent(wcSafe(content))
 	return v
 }
 

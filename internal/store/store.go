@@ -109,6 +109,17 @@ func Clone(t api.Task) api.Task {
 
 func IsInbox(projectID string) bool { return strings.HasPrefix(projectID, "inbox") }
 
+// InboxID is the Inbox's real project id ("inbox<user id>"), read from a task in it;
+// the API has no other way to get it. Empty if no synced task is in the Inbox.
+func (s *Store) InboxID() string {
+	for _, t := range s.Tasks {
+		if IsInbox(t.ProjectID) && t.ProjectID != "inbox" { // "inbox" is the placeholder of a task still being created
+			return t.ProjectID
+		}
+	}
+	return ""
+}
+
 func Done(t *api.Task) bool { return t.Status != 0 }
 
 // TasksFor returns the tasks (open and done) that belong to list id.

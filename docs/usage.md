@@ -52,9 +52,12 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `g` / `G` | Top / bottom |
 | `h` `l` / `←` `→` | Previous / next pane; `l` opens a list, a folder or a task |
 | `1` `2` `3`, `tab` | Focus lists / tasks / details, cycle panes |
-| `⏎` | Open; on a detail field: edit it, or cycle Repeat / Priority, or tick a checklist item |
+| `⏎` | Open; on a detail field: edit it, pick a due date or list, cycle Repeat / Priority, or tick a checklist item |
 | `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). In lists, `space` folds a folder |
 | `p` | Cycle priority High → Medium → Low → None |
+| `d` | Due date menu: the dates in `due_menu`, No date, or Custom (type one). A date without a time keeps the task's time |
+| `m` | Move the task to another list |
+| `c` | Add checklist items: `⏎` adds one and opens the next, `esc` finishes |
 | `i` / `e` | Edit the title (tasks) or the field under the cursor (details). `esc` or `⏎` saves; in notes `⏎` is a newline and `esc` / `ctrl+s` saves (`ctrl+⏎` also saves where the terminal passes it through; Omarchy uses it for fullscreen) |
 | `a` / `n` | Quick add |
 | `/`, `ctrl+k` | Search |
@@ -63,6 +66,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `t` | Toggle due-date labels |
 | `ctrl+r` | Sync now |
 | `,` | Settings |
+| `?` | All keys |
 | `esc` / `q` | Back / quit |
 
 ### Command bar
@@ -72,7 +76,7 @@ The first character picks the mode: nothing = search, `>` commands, `+` quick ad
 Quick add understands `call mom tomorrow 17:00 !high #errand @home`:
 
 - priority `!high` `!med` `!low` (or `!h` `!m` `!l`, `!3` `!2` `!1`)
-- day `today`, `tomorrow`/`tmr`, weekday names (`fri` = next Friday), `2026-10-08`; time `17:00` or `5pm` (a time alone means today)
+- day `today`, `tomorrow`/`tmr`, weekday names (`fri` = next Friday), `+3d` (in 3 days), `2026-10-08`; time `17:00` or `5pm` (a time alone means today)
 - `#tag`, `@list` (prefix of the list name)
 
 Without a list, tasks go to the current list or Inbox. Adding from Today or Tomorrow defaults the day.
@@ -95,6 +99,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | `layout` | `columns` | `auto` · `3` · `2` · `1` |
 | | `show_completed` | `true` · `false` |
 | `tasks` | `due_label`, `sort_in_priority`, `week_start` | `true`/`false`; `due`·`title`·`created`; `mon`·`sun` |
+| | `due_menu` | dates offered by `d`, in quick-add syntax: `["today", "tomorrow", "+2d", "mon", "+7d"]` (config file only) |
 | `keys` | `keymap` | `vim+arrows` · `arrows` |
 | `account` | `sync_every` | `1m` · `5m` · `15m` · `manual` |
 
@@ -112,7 +117,7 @@ These come from TickTick's public API (details in [`docs/api-notes.md`](api-note
 - No Trash and no attachments: the API doesn't expose them.
 - Smart lists (Today, Tomorrow, Next 7 Days) and filters are computed in ttui, not read from your TickTick filters.
 - Completed tasks cover the last 7 days.
-- Tasks can't be moved between lists yet.
+- Moving a task to the Inbox needs at least one task already in the Inbox (that's the only way the API reveals its id).
 - The API allows 100 requests a minute; ttui retries with backoff when it hits the limit.
 - dida365.com accounts aren't supported.
 - OAuth sign-ins last about 180 days (no refresh token); ttui asks you to sign in again when one expires.

@@ -149,7 +149,7 @@ type Task struct {
 }
 
 type Item struct {
-	ID     string `json:"id"`
+	ID     string `json:"id,omitempty"` // empty for a new item: the server assigns one
 	Title  string `json:"title"`
 	Status int    `json:"status"`
 }
@@ -224,6 +224,12 @@ func (c *Client) UpdateTask(ctx context.Context, id, projectID string, f map[str
 
 func (c *Client) CompleteTask(ctx context.Context, projectID, id string) error {
 	return c.Do(ctx, http.MethodPost, "/project/"+projectID+"/task/"+id+"/complete", nil, nil)
+}
+
+// MoveTask moves a task to another list (POST /task/move).
+func (c *Client) MoveTask(ctx context.Context, fromProjectID, toProjectID, id string) error {
+	body := []map[string]string{{"fromProjectId": fromProjectID, "toProjectId": toProjectID, "taskId": id}}
+	return c.Do(ctx, http.MethodPost, "/task/move", body, nil)
 }
 
 func (c *Client) GetTask(ctx context.Context, projectID, id string) (*Task, error) {

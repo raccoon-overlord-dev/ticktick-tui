@@ -188,8 +188,9 @@ func layout(cols int, setting string) (n int, lists, tasks, detail int) {
 
 // wcSafe rewrites the grapheme clusters whose width differs between grapheme and wcwidth
 // counting (⚠️, ♻️, 👨🏻‍💻…) as their first rune plus padding to the same grapheme width.
-// Layout is measured in graphemes, but until the terminal confirms mode 2027 Bubble Tea's
-// renderer counts with wcwidth, and the mismatch pushed rows into the next column.
+// Layout is measured in graphemes, but Bubble Tea's renderer counts with wcwidth unless the
+// terminal confirms mode 2027, and even then Ghostty misdrew them: rows spilled into the
+// next column. Applied to every frame so terminals can't disagree on those clusters.
 func wcSafe(s string) string {
 	var b strings.Builder
 	var state byte

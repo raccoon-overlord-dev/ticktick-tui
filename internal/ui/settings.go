@@ -197,3 +197,68 @@ func padRight(s string, n int) string {
 	}
 	return s
 }
+
+// helpKeys is the ? panel. Keep it in sync with the Keys table in docs/usage.md.
+var helpKeys = []struct{ sec, key, desc string }{
+	{sec: "MOVE"},
+	{key: "j k  ↓ ↑", desc: "Move; in lists, moving selects the list"},
+	{key: "g G", desc: "Top / bottom"},
+	{key: "h l  ← →", desc: "Previous / next pane; l opens"},
+	{key: "1 2 3  tab", desc: "Focus lists / tasks / details, cycle panes"},
+	{key: "⏎", desc: "Open; on a field: edit, pick, cycle or tick"},
+	{key: "esc", desc: "Back"},
+	{sec: "TASKS"},
+	{key: "x  ␣", desc: "Complete / reopen (x right after: undo)"},
+	{key: "p", desc: "Cycle priority"},
+	{key: "i e", desc: "Edit the title or the field under the cursor"},
+	{key: "d", desc: "Due date menu"},
+	{key: "m", desc: "Move to another list"},
+	{key: "c", desc: "Add checklist items"},
+	{key: "t", desc: "Toggle due-date labels"},
+	{sec: "EVERYWHERE"},
+	{key: "a n", desc: "Quick add"},
+	{key: "/  ctrl+k", desc: "Search"},
+	{key: ":", desc: "Commands"},
+	{key: "@ #", desc: "Jump to a list / tag"},
+	{key: "ctrl+r", desc: "Sync now"},
+	{key: ",", desc: "Settings"},
+	{key: "?", desc: "This panel"},
+	{key: "q", desc: "Quit"},
+	{sec: "EDITING"},
+	{key: "⏎  esc", desc: "Save"},
+	{key: "notes", desc: "⏎ newline · esc or ctrl+s save"},
+	{key: "checklist", desc: "⏎ add and type the next · esc done"},
+}
+
+func (a *App) helpKey(k tea.KeyPressMsg) tea.Cmd {
+	vim := a.cfg.Keys.Keymap != "arrows"
+	switch key := k.String(); {
+	case key == "down" || (vim && key == "j"):
+		a.offHelp++
+	case key == "up" || (vim && key == "k"):
+		a.offHelp = max(a.offHelp-1, 0)
+	case key == "esc" || key == "?" || key == "q":
+		a.help = false
+	}
+	return nil
+}
+
+// viewHelp renders the shortcuts panel and returns it with its size.
+func (a *App) viewHelp() (string, int, int) {
+	p := a.overlayPen()
+	w := min(64, a.w-4)
+	var lines []string
+	for i, r := range helpKeys {
+		if r.sec != "" {
+			if i > 0 {
+				lines = append(lines, "")
+			}
+			lines = append(lines, p.line(w, p.s("dim").Render(r.sec), ""))
+			continue
+		}
+		lines = append(lines, p.line(w, p.s("accent").Render(padRight(r.key, 12))+p.s("text").Render(trunc(r.desc, w-4-12)), ""))
+	}
+	body := window(lines, -1, max(a.h-1-2, 1), &a.offHelp)
+	h := len(body) + 2
+	return a.frame(p, frameOpts{w: w, h: h, title: "Keys", modal: true, topRight: "esc close", body: body}), w, h
+}

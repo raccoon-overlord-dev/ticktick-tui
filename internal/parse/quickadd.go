@@ -51,6 +51,9 @@ func ParseDay(w string, now time.Time) (int, bool) {
 		y, m, dd := now.Date()
 		return int(d.Sub(time.Date(y, m, dd, 0, 0, 0, 0, now.Location())).Hours() / 24), true
 	}
+	if n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(w, "+"), "d")); err == nil && w[0] == '+' && strings.HasSuffix(w, "d") {
+		return n, true // +3d = in 3 days
+	}
 	if len(w) < 3 {
 		return 0, false
 	}

@@ -24,7 +24,7 @@ func TestParseTime(t *testing.T) {
 }
 
 func TestParseDay(t *testing.T) {
-	for in, want := range map[string]int{"today": 0, "tmr": 1, "yesterday": -1, "fri": 2, "friday": 2, "wed": 7, "mon": 5, "sun": 4, "2026-10-08": 8, "2026-09-29": -1} {
+	for in, want := range map[string]int{"today": 0, "tmr": 1, "yesterday": -1, "fri": 2, "friday": 2, "wed": 7, "mon": 5, "sun": 4, "2026-10-08": 8, "2026-09-29": -1, "+7d": 7, "+0d": 0} {
 		if got, ok := ParseDay(in, now); !ok || got != want {
 			t.Errorf("ParseDay(%q) = %d %v, want %d", in, got, ok, want)
 		}

@@ -26,9 +26,10 @@ type Config struct {
 		ShowCompleted bool   `toml:"show_completed"`
 	} `toml:"layout"`
 	Tasks struct {
-		DueLabel       bool   `toml:"due_label"`
-		SortInPriority string `toml:"sort_in_priority"`
-		WeekStart      string `toml:"week_start"`
+		DueLabel       bool     `toml:"due_label"`
+		SortInPriority string   `toml:"sort_in_priority"`
+		WeekStart      string   `toml:"week_start"`
+		DueMenu        []string `toml:"due_menu"`
 	} `toml:"tasks"`
 	Keys struct {
 		Keymap string `toml:"keymap"`

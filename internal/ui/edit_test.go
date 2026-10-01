@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"ttui/internal/api"
@@ -71,5 +72,63 @@ func TestNotesCursorAfterNewline(t *testing.T) {
 	ls := in.lines(pen{th: th}, "text", 40)
 	if len(ls) != 2 || ansi.Strip(ls[1]) != " " {
 		t.Fatalf("got %q", ls)
+	}
+}
+
+func TestMoveTask(t *testing.T) {
+	a := testApp(t)
+	a.st.Projects = []api.Project{{ID: "work", Name: "Work"}}
+	a.taskID = "a"
+	a.movePicker(a.st.Task("a"))
+	if a.cmd == nil || len(a.cmd.pick.items) != 2 { // Inbox + Work
+		t.Fatalf("picker: %+v", a.cmd)
+	}
+	a.cmd.in = newInput("wor")
+	a.cmdKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if a.st.Task("a").ProjectID != "work" || a.queue[0].kind != "move" || a.queue[0].fields["from"] != "inbox1" {
+		t.Fatalf("not moved: %+v %+v", a.st.Task("a"), a.queue)
+	}
+	a.onOpDone(opDoneMsg{op: a.queue[0], err: errors.New("boom")})
+	if a.st.Task("a").ProjectID != "inbox1" {
+		t.Fatal("failed move not reverted")
+	}
+	a.moveTask(a.st.Task("a"), "p:work")
+	a.moveTask(a.st.Task("a"), "inbox") // the Inbox id comes from a synced task in it (none now)
+	if a.st.Task("a").ProjectID != "work" || a.flashRole != "error" {
+		t.Fatalf("moved to an unknown Inbox: %+v", a.st.Task("a"))
+	}
+}
+
+func TestAddChecklistItems(t *testing.T) {
+	a := testApp(t)
+	a.w, a.taskID = 160, "a"
+	a.startEdit("additem")
+	for _, s := range []string{"one", "two"} {
+		a.in = newInput(s)
+		a.editKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	}
+	if a.edit != "additem" { // stays open for the next item
+		t.Fatalf("editor closed: %q", a.edit)
+	}
+	a.editKey(tea.KeyPressMsg{Code: tea.KeyEscape})
+	items := a.st.Task("a").Items
+	if a.edit != "" || len(items) != 2 || items[1].Title != "two" || items[1].ID != "" {
+		t.Fatalf("items: %+v edit=%q", items, a.edit)
+	}
+}
+
+func TestDuePickerKeepsTime(t *testing.T) {
+	a := testApp(t)
+	task := a.st.Task("a")
+	task.DueDate, task.IsAllDay = time.Now().Add(-48*time.Hour).Format(api.DateLayout), false
+	at, _ := store.DueTime(task)
+	a.duePicker(task)
+	if n := len(a.cmd.pick.items); n != len(a.cfg.Tasks.DueMenu)+2 {
+		t.Fatalf("%d items", n)
+	}
+	a.cmdKey(tea.KeyPressMsg{Code: tea.KeyEnter}) // first entry: today
+	got, _ := store.DueTime(task)
+	if task.IsAllDay || got.Hour() != at.Hour() || got.Minute() != at.Minute() || got.YearDay() != time.Now().YearDay() {
+		t.Fatalf("due %v, want today at %s", got, at.Format("15:04"))
 	}
 }
