@@ -4,6 +4,9 @@ Ideas planned after v1. Not implemented yet.
 
 ## Known bugs
 
+- **Rows spill into the next column in Ghostty**: some task rows (seen with titles containing `⚠️`) draw wider than the pane, push into the next column, and the rows below shift (list names appear twice while scrolling). Fixed in Terminal.app, still there in Ghostty (macOS and Omarchy) as of v0.2.0. Alacritty on Omarchy is fine with v0.2.0, so this looks Ghostty-specific; parked as a known issue.
+  - Tried: Bubble Tea's renderer counts `⚠️`/`♻️`/`👨🏻‍💻` with wcwidth unless the terminal confirms mode 2027, while lipgloss uses grapheme widths. v0.1.2 queried mode 2027 (Ghostty answers `2027;1$y`, set); v0.1.3/v0.2.0 rewrite those clusters on every frame (`wcSafe` in `internal/ui/render.go`) so both counts agree. Terminal.app is fixed; Ghostty is not, so the cause there is something else.
+  - Next ideas: record the raw output in Ghostty (`script -q out.txt ./ttui`) and find the first row that goes wrong; check other glyphs on those rows (Nerd Font icons are private-use code points that Ghostty may draw 2 wide; `✓`); try Ghostty's `grapheme-width-method = legacy`; reproduce with a minimal Bubble Tea program and report upstream if it's the renderer.
 - **Duplicated first task on `↓`**: with the first task selected, pressing `↓` draws that task twice. It's only visual; the app/web UI shows one task. Seen on Omarchy + Ghostty, not on macOS + Ghostty, so it may not be a ttui issue.
 
 ## Mouse support
@@ -17,7 +20,6 @@ Ideas planned after v1. Not implemented yet.
 
 - Edit `due_menu` from Settings (today it's in `config.toml` only).
 - Manual task order, like the GUI: overrides the list's sort for that task.
-- Sorting revamp matching the web UI: Group by + Sort by + Order.
 - Repeat rules in quick add (e.g. `every week`); today a repeat is set from the details pane.
 - Completed history beyond the last 7 days.
 

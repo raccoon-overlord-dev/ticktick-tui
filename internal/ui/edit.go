@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"ttui/internal/api"
+	"ttui/internal/config"
 	"ttui/internal/parse"
 	"ttui/internal/store"
 )
@@ -294,6 +295,61 @@ func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
 	return a.enqueue(op{kind: "move", taskID: t.ID, before: &before, fields: map[string]any{"from": from, "to": to}})
 }
 
+var (
+	groupOpts = []string{"list", "date", "created", "tag", "priority", "none"}
+	sortOpts  = []string{"date", "created", "modified", "title", "tag", "priority"}
+	orderOpts = []string{"oldest", "newest"}
+	sortLabel = map[string]string{"list": "List", "date": "Date", "created": "Created Time", "modified": "Modified Time",
+		"title": "Title", "tag": "Tag", "priority": "Priority", "none": "None", "oldest": "Oldest First", "newest": "Newest First"}
+)
+
+// sortPicker opens the Group by / Sort by / Order menu for the current list (s). Picking an
+// option saves it as the list's own sort and reopens the menu at idx, so several can be set.
+func (a *App) sortPicker(idx int) {
+	if a.list == "completed" {
+		a.setFlash("completed tasks are sorted by completion time")
+		return
+	}
+	cur := a.sortFor(a.list)
+	_, own := a.cfg.Tasks.ListSort[a.list]
+	var items []cmdItem
+	add := func(group string, opts []string, field *string) {
+		for _, v := range opts {
+			it := cmdItem{icon: "·", iconRole: "dim", label: sortLabel[v], group: group}
+			if *field == v {
+				it.icon, it.iconRole, it.hint = "●", "accent", "current"
+			}
+			i := len(items)
+			it.run = func() tea.Cmd {
+				so := a.sortFor(a.list)
+				*map[string]*string{"group by": &so.GroupBy, "sort by": &so.SortBy, "order": &so.Order}[group] = v
+				if a.cfg.Tasks.ListSort == nil {
+					a.cfg.Tasks.ListSort = map[string]config.Sort{}
+				}
+				a.cfg.Tasks.ListSort[a.list] = so
+				a.save()
+				a.sortPicker(i)
+				return nil
+			}
+			items = append(items, it)
+		}
+	}
+	add("group by", groupOpts, &cur.GroupBy)
+	add("sort by", sortOpts, &cur.SortBy)
+	add("order", orderOpts, &cur.Order)
+	if own {
+		items = append(items, cmdItem{icon: "×", iconRole: "dim", label: "Use default", group: "this list", hint: "from Settings",
+			run: func() tea.Cmd {
+				delete(a.cfg.Tasks.ListSort, a.list)
+				a.save()
+				a.setFlash("sort → default")
+				return nil
+			}})
+	}
+	a.openPick("sort", items)
+	a.cmd.idx = idx
+}
+
 // duePicker opens the due date menu for t (d, or ⏎ on the Due field): the dates from
 // config due_menu, No date, and Custom… for the text editor.
 func (a *App) duePicker(t *api.Task) {
@@ -404,8 +460,8 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 			cmd = a.update(t, map[string]any{"title": v}, func(t *api.Task) { t.Title = v })
 		}
 	case "notes":
-		if v != t.Content {
-			cmd = a.update(t, map[string]any{"content": v}, func(t *api.Task) { t.Content = v })
+		if key, notes := t.Notes(); v != *notes {
+			cmd = a.update(t, map[string]any{key: v}, func(t *api.Task) { _, n := t.Notes(); *n = v })
 		}
 	case "tags":
 		var tags []string
@@ -477,7 +533,8 @@ func (a *App) startEdit(field string) {
 			v = "#" + strings.Join(t.Tags, " #")
 		}
 	case "notes":
-		v = t.Content
+		_, notes := t.Notes()
+		v = *notes
 	case "additem":
 	default:
 		return

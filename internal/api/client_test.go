@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -70,5 +71,16 @@ func TestClient(t *testing.T) {
 	c.Token = "wrong"
 	if _, err := c.Projects(ctx); !errors.As(err, &apiErr) || apiErr.Status != 401 {
 		t.Fatalf("want *Error 401, got %v", err)
+	}
+}
+
+func TestNotes(t *testing.T) {
+	var tasks []Task
+	json.Unmarshal([]byte(`[{"kind":"CHECKLIST","content":"","desc":"d"},{"kind":"TEXT","content":"c"}]`), &tasks)
+	if k, n := tasks[0].Notes(); k != "desc" || *n != "d" {
+		t.Errorf("checklist: got %s %q", k, *n)
+	}
+	if k, n := tasks[1].Notes(); k != "content" || *n != "c" {
+		t.Errorf("text: got %s %q", k, *n)
 	}
 }

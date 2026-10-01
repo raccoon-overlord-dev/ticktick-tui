@@ -176,7 +176,15 @@ func (a *App) groups() []store.Group {
 		}
 		return []store.Group{{Label: "Completed", Role: "ok", Done: true, Items: ts}}
 	}
-	return store.Groups(ts, a.cfg.Tasks.SortInPriority, a.cfg.Layout.ShowCompleted, a.now)
+	return a.st.TaskGroups(ts, a.sortFor(a.list), a.cfg.Layout.ShowCompleted, a.now)
+}
+
+// sortFor is the list's own sort (set with s), or the default from Settings.
+func (a *App) sortFor(list string) config.Sort {
+	if so, ok := a.cfg.Tasks.ListSort[list]; ok {
+		return so
+	}
+	return a.cfg.Tasks.Sort
 }
 
 func navTasks(gs []store.Group) []*api.Task {
@@ -212,7 +220,9 @@ func (a *App) tasksLines(p pen, w int, focused bool) (lines []string, sel, pos, 
 		if gi > 0 {
 			lines = append(lines, "")
 		}
-		lines = append(lines, a.groupHeader(p, g, w))
+		if g.Label != "" { // Group by: none
+			lines = append(lines, a.groupHeader(p, g, w))
+		}
 		for _, t := range g.Items {
 			total++
 			isSel := cur != nil && t.ID == cur.ID
@@ -427,10 +437,10 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		for _, l := range ls {
 			lines = append(lines, np.line(w, l, ""))
 		}
-	} else if strings.TrimSpace(t.Content) == "" {
+	} else if _, notes := t.Notes(); strings.TrimSpace(*notes) == "" {
 		lines = append(lines, np.line(w, np.s("dim").Render("no notes · i to write"), ""))
 	} else {
-		lines = append(lines, a.markdownLines(np, t.Content, w)...)
+		lines = append(lines, a.markdownLines(np, *notes, w)...)
 	}
 	return lines, sel
 }
@@ -725,6 +735,10 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		return a.syncNow()
 	case "t":
 		a.toggleDueLabels()
+	case "s":
+		if ef != "lists" {
+			a.sortPicker(0)
+		}
 	case ",":
 		a.settings, a.sIdx = true, 1
 	case "?":

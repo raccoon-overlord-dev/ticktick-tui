@@ -49,11 +49,14 @@ func DayDiff(t *api.Task, now time.Time) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	y1, m1, d1 := now.Date()
-	y2, m2, d2 := d.Date()
-	a := time.Date(y1, m1, d1, 12, 0, 0, 0, time.UTC)
-	b := time.Date(y2, m2, d2, 12, 0, 0, 0, time.UTC)
-	return int(b.Sub(a).Hours() / 24), true
+	return days(now, d), true
+}
+
+// days is the number of calendar days from a's date to b's date.
+func days(a, b time.Time) int {
+	y1, m1, d1 := a.Date()
+	y2, m2, d2 := b.Date()
+	return int(time.Date(y2, m2, d2, 12, 0, 0, 0, time.UTC).Sub(time.Date(y1, m1, d1, 12, 0, 0, 0, time.UTC)).Hours() / 24)
 }
 
 type Due struct {

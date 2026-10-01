@@ -64,6 +64,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `:` | Commands |
 | `@` / `#` | Jump to a list / tag |
 | `t` | Toggle due-date labels |
+| `s` | Group / sort this list: Group by, Sort by, Order (like the web app's sort menu); saved per list |
 | `ctrl+r` | Sync now |
 | `,` | Settings |
 | `?` | All keys |
@@ -98,7 +99,11 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | | `nerd_font_icons` | `true` · `false` (needs a [Nerd Font](https://www.nerdfonts.com); `false` uses ASCII) |
 | `layout` | `columns` | `auto` · `3` · `2` · `1` |
 | | `show_completed` | `true` · `false` |
-| `tasks` | `due_label`, `sort_in_priority`, `week_start` | `true`/`false`; `due`·`title`·`created`; `mon`·`sun` |
+| `tasks` | `due_label`, `week_start` | `true`/`false`; `mon`·`sun` |
+| | `group_by` | `list` · `date` · `created` · `tag` · `priority` · `none` (default for all lists) |
+| | `sort_by` | `date` · `created` · `modified` · `title` · `tag` · `priority` (default for all lists) |
+| | `order` | `oldest` · `newest` (default for all lists) |
+| | `list_sort` | per-list overrides written by `s`; "Use default" in the `s` menu removes one |
 | | `due_menu` | dates offered by `d`, in quick-add syntax: `["today", "tomorrow", "+2d", "mon", "+7d"]` (config file only) |
 | `keys` | `keymap` | `vim+arrows` · `arrows` |
 | `account` | `sync_every` | `1m` · `5m` · `15m` · `manual` |

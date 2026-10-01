@@ -30,10 +30,14 @@ Reproduce with `ttui dev raw METHOD PATH [JSON]` (reads `TTUI_DEV_TOKEN` from `.
 - **Partial updates work:** `POST /task/{id}` with only `id`, `projectId` and one field keeps all other fields (tags, items, content, dueDate).
 - Checklist toggle: send the full `items` array with the changed `status` (item statuses: `0` open, `1` done).
 - **Completing a recurring task** (`repeatFlag` set) keeps the same task id open with `dueDate` moved to the next occurrence, and creates a separate completed copy (new id, no `repeatFlag`) that appears in `/task/completed`.
-- `POST /task/move` takes `[{fromProjectId, toProjectId, taskId}]` and returns the moved tasks.
+- `POST /task/move` takes `[{fromProjectId, toProjectId, taskId}]` and returns the moved tasks. ttui ignores the response and re-reads the task with `GET /project/{to}/task/{id}`.
+- New checklist items can be sent without an `id` inside the full `items` array; the server assigns ids (used by `c`, verified in v0.2.0).
+- The Inbox's real project id (`inbox<user id>`) is only visible on tasks in it; there is no endpoint for it.
 - `POST /task/completed` takes `{projectIds?, startDate, endDate?}`; `POST /task/search` takes `{keywords, projectIds?, tags?, status?, dueFrom?, dueTo?}` (field is `keywords`, not `keyword`).
 - `content` round-trips markdown as-is. Task `desc` and `items` are omitted when empty.
-- Extra task fields seen: `columnId`, `columnName`, `progress`, `isFloating`, `createdTime`, `modifiedTime`, `etimestamp`.
+- **Checklist tasks** (`kind: "CHECKLIST"`) keep their description in `desc`, with `content` empty. Text tasks use `content`. ttui reads and writes whichever field matches `kind` (writing `desc` verified in v0.3.0).
+- Extra task fields seen: `columnId`, `columnName`, `progress`, `isFloating`, `createdTime`, `modifiedTime`, `etimestamp`. ttui reads `createdTime` and `modifiedTime` for grouping and sorting (`s`).
+- There is no API for the web app's per-list sort settings (Group by / Sort by / Order), so ttui keeps its own in `config.toml` (`[tasks.list_sort]`); they don't sync with the web app.
 
 ## OAuth (Phase 2)
 

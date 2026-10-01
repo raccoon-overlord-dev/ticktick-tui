@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"ttui/internal/api"
+	"ttui/internal/config"
 )
 
 // now is Wed 30 Sep 2026, 10:00 local.
@@ -72,7 +73,7 @@ func TestListsAndGroups(t *testing.T) {
 		{ID: "f", ProjectID: "p2", Title: "next week high", Priority: 5, DueDate: due(6, "")},
 		{ID: "g", ProjectID: "p2", Title: "done today", Status: 2, DueDate: due(0, ""), CompletedTime: "2026-09-30T08:00:00.000+0000"},
 	}
-	s := New([]api.Project{{ID: "p2", SortOrder: 2}, {ID: "p1", SortOrder: 1}, {ID: "px", Closed: true}}, nil, tasks, "", now)
+	s := New([]api.Project{{ID: "p2", Name: "Two", SortOrder: 2}, {ID: "p1", Name: "One", SortOrder: 1}, {ID: "px", Closed: true}}, nil, tasks, "", now)
 
 	ids := func(list string) string {
 		out := ""
@@ -99,22 +100,43 @@ func TestListsAndGroups(t *testing.T) {
 		t.Errorf("tags = %v", s.Tags)
 	}
 
-	gs := Groups(s.TasksFor("today", now), "due", true, now)
-	labels := ""
-	for _, g := range gs {
-		labels += g.Label + ":"
-		for _, t := range g.Items {
-			labels += t.ID
+	str := func(gs []Group) string {
+		out := ""
+		for _, g := range gs {
+			out += g.Label + ":"
+			for _, t := range g.Items {
+				out += t.ID
+			}
+			out += " "
 		}
-		labels += " "
+		return out
 	}
+	so := config.Sort{GroupBy: "priority", SortBy: "date", Order: "oldest"}
 	// High: timed before all-day; Medium: overdue; Completed last.
-	if labels != "High:ab Medium:c Completed:g " {
-		t.Errorf("groups = %q", labels)
+	if got := str(s.TaskGroups(s.TasksFor("today", now), so, true, now)); got != "High:ab Medium:c Completed:g " {
+		t.Errorf("groups = %q", got)
 	}
-	gs = Groups(s.TasksFor("today", now), "title", false, now)
+	gs := s.TaskGroups(s.TasksFor("today", now), config.Sort{GroupBy: "priority", SortBy: "title"}, false, now)
 	if gs[0].Items[0].ID != "b" || len(gs) != 2 {
 		t.Errorf("title sort / hide completed: %+v", gs)
+	}
+	var all []*api.Task
+	for i := range s.Tasks {
+		all = append(all, &s.Tasks[i])
+	}
+	for _, c := range []struct {
+		so   config.Sort
+		want string
+	}{
+		{config.Sort{GroupBy: "date", SortBy: "date"}, "Overdue:c Today:ab Tomorrow:d Next 7 days:f No date:e "},
+		{config.Sort{GroupBy: "list", SortBy: "date"}, "Inbox:a One:cbd Two:fe "},
+		{config.Sort{GroupBy: "tag", SortBy: "date"}, "#work:c No tag:abdfe "},
+		{config.Sort{GroupBy: "none", SortBy: "date", Order: "newest"}, ":fdbace "},
+		{config.Sort{GroupBy: "none", SortBy: "priority"}, ":abfcde "},
+	} {
+		if got := str(s.TaskGroups(all, c.so, false, now)); got != c.want {
+			t.Errorf("%+v = %q, want %q", c.so, got, c.want)
+		}
 	}
 }
 

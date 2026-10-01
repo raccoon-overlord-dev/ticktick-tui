@@ -26,10 +26,11 @@ type Config struct {
 		ShowCompleted bool   `toml:"show_completed"`
 	} `toml:"layout"`
 	Tasks struct {
-		DueLabel       bool     `toml:"due_label"`
-		SortInPriority string   `toml:"sort_in_priority"`
-		WeekStart      string   `toml:"week_start"`
-		DueMenu        []string `toml:"due_menu"`
+		DueLabel  bool            `toml:"due_label"`
+		WeekStart string          `toml:"week_start"`
+		DueMenu   []string        `toml:"due_menu"`
+		Sort                      // default for lists without their own
+		ListSort  map[string]Sort `toml:"list_sort,omitempty"` // per list, set with s; keyed by list ("inbox", "today", "p:<id>", "tag:<name>")
 	} `toml:"tasks"`
 	Keys struct {
 		Keymap string `toml:"keymap"`
@@ -38,6 +39,13 @@ type Config struct {
 		Server    string `toml:"server"`
 		SyncEvery string `toml:"sync_every"`
 	} `toml:"account"`
+}
+
+// Sort is how a task list is grouped and ordered, as in the web app's sort menu.
+type Sort struct {
+	GroupBy string `toml:"group_by"` // list | date | created | tag | priority | none
+	SortBy  string `toml:"sort_by"`  // date | created | modified | title | tag | priority
+	Order   string `toml:"order"`    // oldest | newest
 }
 
 // Dir is $XDG_CONFIG_HOME/ttui, or ~/.config/ttui (macOS included).

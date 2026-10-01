@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"ttui/internal/api"
+	"ttui/internal/config"
 )
 
 type Store struct {
@@ -243,23 +244,30 @@ type Group struct {
 	Role  string // theme role for the header
 	Done  bool
 	Items []*api.Task
+	rank  int
 }
 
-// Groups splits tasks into priority groups (High → None), then Completed if showCompleted.
-// sortBy is "due", "title" or "created".
-func Groups(tasks []*api.Task, sortBy string, showCompleted bool, now time.Time) []Group {
+// TaskGroups splits tasks by so.GroupBy (list, date, created, tag, priority, none), sorts each
+// group by so.SortBy and so.Order, then adds Completed (newest first) if showCompleted.
+func (s *Store) TaskGroups(tasks []*api.Task, so config.Sort, showCompleted bool, now time.Time) []Group {
 	var out []Group
-	for _, p := range []int{PrioHigh, PrioMed, PrioLow, PrioNone} {
-		g := Group{Label: PrioName(p), Role: PrioRole(p)}
-		for _, t := range tasks {
-			if !Done(t) && normPrio(t.Priority) == p {
-				g.Items = append(g.Items, t)
-			}
+	byKey := map[string]int{}
+	for _, t := range tasks {
+		if Done(t) {
+			continue
 		}
-		if len(g.Items) > 0 {
-			sortTasks(g.Items, sortBy, now)
-			out = append(out, g)
+		label, role, rank := s.groupOf(t, so.GroupBy, now)
+		i, ok := byKey[label]
+		if !ok {
+			i = len(out)
+			byKey[label] = i
+			out = append(out, Group{Label: label, Role: role, rank: rank})
 		}
+		out[i].Items = append(out[i].Items, t)
+	}
+	slices.SortStableFunc(out, func(a, b Group) int { return cmp.Or(cmp.Compare(a.rank, b.rank), cmp.Compare(a.Label, b.Label)) })
+	for _, g := range out {
+		sortTasks(g.Items, so, now)
 	}
 	if showCompleted {
 		g := Group{Label: "Completed", Role: "ok", Done: true}
@@ -276,6 +284,59 @@ func Groups(tasks []*api.Task, sortBy string, showCompleted bool, now time.Time)
 	return out
 }
 
+// groupOf returns t's group label, header role and group rank (lower comes first; equal ranks sort by label).
+func (s *Store) groupOf(t *api.Task, by string, now time.Time) (string, string, int) {
+	switch by {
+	case "list":
+		if IsInbox(t.ProjectID) {
+			return "Inbox", "accent", -1
+		}
+		rank := slices.IndexFunc(s.Projects, func(p api.Project) bool { return p.ID == t.ProjectID })
+		if rank < 0 {
+			rank = len(s.Projects)
+		}
+		return s.ListPath(t.ProjectID), "accent", rank
+	case "date":
+		d, ok := DayDiff(t, now)
+		switch {
+		case !ok:
+			return "No date", "dim", 5
+		case d < 0:
+			return "Overdue", "error", 0
+		case d == 0:
+			return "Today", "accent", 1
+		case d == 1:
+			return "Tomorrow", "accent", 2
+		case d <= 7:
+			return "Next 7 days", "accent", 3
+		}
+		return "Later", "accent", 4
+	case "created":
+		c, err := time.Parse(api.DateLayout, t.CreatedTime)
+		switch d := days(c.In(now.Location()), now); {
+		case err != nil:
+			return "Unknown", "dim", 4
+		case d <= 0:
+			return "Today", "accent", 0
+		case d == 1:
+			return "Yesterday", "accent", 1
+		case d <= 7:
+			return "Last 7 days", "accent", 2
+		}
+		return "Earlier", "accent", 3
+	case "tag":
+		// first tag only, so each task shows once
+		if len(t.Tags) == 0 {
+			return "No tag", "dim", 1
+		}
+		return "#" + strings.ToLower(t.Tags[0]), "secondary", 0
+	case "none":
+		return "", "", 0
+	}
+	p := normPrio(t.Priority)
+	return PrioName(p), PrioRole(p), -p
+}
+
 func normPrio(p int) int {
 	switch p {
 	case PrioHigh, PrioMed, PrioLow:
@@ -284,24 +345,57 @@ func normPrio(p int) int {
 	return PrioNone
 }
 
-func sortTasks(ts []*api.Task, by string, now time.Time) {
+// sortTasks sorts by so.SortBy; Order "newest" reverses it. Tasks missing the key (no date,
+// no tag) stay last either way. Ties fall back to due date, then created time.
+func sortTasks(ts []*api.Task, so config.Sort, now time.Time) {
+	dir := 1
+	if so.Order == "newest" {
+		dir = -1
+	}
+	due := func(t *api.Task) (int, bool) { d, ok := DayDiff(t, now); return d, ok }
+	byDue := func(a, b *api.Task) int {
+		da, _ := due(a)
+		db, _ := due(b)
+		return cmp.Or(cmp.Compare(da, db), cmp.Compare(clock(a), clock(b)))
+	}
+	// missing compares presence: tasks without the key go last regardless of dir
+	missing := func(okA, okB bool) int {
+		switch {
+		case okA == okB:
+			return 0
+		case okA:
+			return -1
+		}
+		return 1
+	}
 	slices.SortStableFunc(ts, func(a, b *api.Task) int {
-		switch by {
+		var c int
+		switch so.SortBy {
 		case "title":
-			return cmp.Compare(strings.ToLower(a.Title), strings.ToLower(b.Title))
+			c = dir * cmp.Compare(strings.ToLower(a.Title), strings.ToLower(b.Title))
 		case "created":
-			return cmp.Compare(a.CreatedTime, b.CreatedTime)
+			c = dir * cmp.Compare(a.CreatedTime, b.CreatedTime)
+		case "modified":
+			c = dir * cmp.Compare(a.ModifiedTime, b.ModifiedTime)
+		case "priority":
+			c = dir * cmp.Compare(normPrio(b.Priority), normPrio(a.Priority))
+		case "tag":
+			if c = missing(len(a.Tags) > 0, len(b.Tags) > 0); c == 0 && len(a.Tags) > 0 {
+				c = dir * cmp.Compare(strings.ToLower(a.Tags[0]), strings.ToLower(b.Tags[0]))
+			}
+		default: // date: day, then time of day (all-day last)
+			_, oka := due(a)
+			_, okb := due(b)
+			if c = missing(oka, okb); c == 0 {
+				c = dir * byDue(a, b)
+			}
 		}
-		// due: day (no date last), then time of day (all-day last), then created
-		da, oka := DayDiff(a, now)
-		db, okb := DayDiff(b, now)
-		if !oka {
-			da = 1 << 30
+		if c != 0 {
+			return c
 		}
-		if !okb {
-			db = 1 << 30
-		}
-		return cmp.Or(cmp.Compare(da, db), cmp.Compare(clock(a), clock(b)), cmp.Compare(a.CreatedTime, b.CreatedTime))
+		_, oka := due(a)
+		_, okb := due(b)
+		return cmp.Or(missing(oka, okb), byDue(a, b), cmp.Compare(a.CreatedTime, b.CreatedTime))
 	})
 }
 

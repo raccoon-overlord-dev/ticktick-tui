@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -30,7 +31,8 @@ type picker struct {
 type cmdItem struct {
 	icon, iconRole string
 	label          string
-	pos            []int // fuzzy-matched rune indexes
+	group          string // picker section header; empty: the picker's label
+	pos            []int  // fuzzy-matched rune indexes
 	hint           string
 	run            func() tea.Cmd
 	add            *parse.Add // quick-add preview
@@ -193,7 +195,15 @@ func (a *App) cmdData() (string, []cmdGroup) {
 		if len(items) == 0 {
 			return "pick", nil
 		}
-		return "pick", []cmdGroup{{strings.ToUpper(pk.label), items}}
+		var gs []cmdGroup
+		for _, it := range items {
+			label := strings.ToUpper(cmp.Or(it.group, pk.label))
+			if len(gs) == 0 || gs[len(gs)-1].label != label {
+				gs = append(gs, cmdGroup{label: label})
+			}
+			gs[len(gs)-1].items = append(gs[len(gs)-1].items, it)
+		}
+		return "pick", gs
 	}
 	mode, term := cmdMode(a.cmd.in.value())
 	var gs []cmdGroup

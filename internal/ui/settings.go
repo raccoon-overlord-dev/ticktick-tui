@@ -22,7 +22,7 @@ type setRow struct {
 var setRows = []setRow{
 	{sec: "APPEARANCE"},
 	{key: "theme", label: "Theme", opts: []string{"terminal", "colorful", "lotr"}, desc: "terminal inherits your emulator’s 16 ANSI colors"},
-	{key: "prio", label: "Priority headers", opts: []string{"rule", "label", "tab"}, desc: "How priority groups are separated in the task list"},
+	{key: "prio", label: "Group headers", opts: []string{"rule", "label", "tab"}, desc: "How task groups are separated in the task list"},
 	{key: "focus", label: "Focused panel", opts: []string{"border", "title"}, desc: "Accent border, or an inverted title chip"},
 	{key: "bg", label: "Background", opts: []string{"solid", "transparent", "blur"}, desc: "transparent/blur: ttui paints no background, so your terminal’s opacity + blur show through"},
 	{key: "icons", label: "Nerd Font icons", opts: []string{"on", "off"}, desc: "Off falls back to plain ASCII glyphs"},
@@ -31,7 +31,9 @@ var setRows = []setRow{
 	{key: "completed", label: "Show completed", opts: []string{"on", "off"}, desc: "Completed tasks collapse into a group at the end"},
 	{sec: "TASKS"},
 	{key: "due", label: "Due date on task row", opts: []string{"on", "off"}, desc: "Right-aligned due label on each task (t toggles)"},
-	{key: "sort", label: "Sort inside priority", opts: []string{"due", "title", "created"}, desc: "Order of tasks within each priority group"},
+	{key: "group", label: "Group by", opts: groupOpts, desc: "Default for all lists · s in the task list sets one list's own"},
+	{key: "sort", label: "Sort by", opts: sortOpts, desc: "Default for all lists · s in the task list sets one list's own"},
+	{key: "order", label: "Order", opts: orderOpts, desc: "Default for all lists · s in the task list sets one list's own"},
 	{key: "week", label: "Week starts on", opts: []string{"mon", "sun"}, desc: ""},
 	{sec: "KEYS"},
 	{key: "keymap", label: "Keymap", opts: []string{"vim + arrows", "arrows only"}, desc: "vim: hjkl, / search, : command · arrows + letters always work"},
@@ -45,7 +47,8 @@ func (a *App) field(key string) *string {
 	c := a.cfg
 	return map[string]*string{
 		"theme": &c.Appearance.Theme, "prio": &c.Appearance.PriorityHeaders, "focus": &c.Appearance.FocusedPanel,
-		"bg": &c.Appearance.Background, "columns": &c.Layout.Columns, "sort": &c.Tasks.SortInPriority,
+		"bg": &c.Appearance.Background, "columns": &c.Layout.Columns, "group": &c.Tasks.GroupBy,
+		"sort": &c.Tasks.SortBy, "order": &c.Tasks.Order,
 		"week": &c.Tasks.WeekStart, "keymap": &c.Keys.Keymap, "sync": &c.Account.SyncEvery,
 	}[key]
 }
@@ -215,6 +218,7 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "m", desc: "Move to another list"},
 	{key: "c", desc: "Add checklist items"},
 	{key: "t", desc: "Toggle due-date labels"},
+	{key: "s", desc: "Group / sort this list"},
 	{sec: "EVERYWHERE"},
 	{key: "a n", desc: "Quick add"},
 	{key: "/  ctrl+k", desc: "Search"},

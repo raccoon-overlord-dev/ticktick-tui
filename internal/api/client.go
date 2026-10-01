@@ -135,6 +135,8 @@ type Task struct {
 	ParentID      string   `json:"parentId,omitempty"`
 	Title         string   `json:"title"`
 	Content       string   `json:"content,omitempty"`
+	Desc          string   `json:"desc,omitempty"`
+	Kind          string   `json:"kind,omitempty"`
 	IsAllDay      bool     `json:"isAllDay,omitempty"`
 	StartDate     string   `json:"startDate,omitempty"`
 	DueDate       string   `json:"dueDate,omitempty"`
@@ -144,8 +146,18 @@ type Task struct {
 	Status        int      `json:"status"`
 	CompletedTime string   `json:"completedTime,omitempty"`
 	CreatedTime   string   `json:"createdTime,omitempty"`
+	ModifiedTime  string   `json:"modifiedTime,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 	Items         []Item   `json:"items,omitempty"`
+}
+
+// Notes returns the JSON key and field holding the task's description:
+// checklist tasks keep it in `desc`, all others in `content`.
+func (t *Task) Notes() (string, *string) {
+	if t.Kind == "CHECKLIST" {
+		return "desc", &t.Desc
+	}
+	return "content", &t.Content
 }
 
 type Item struct {

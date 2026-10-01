@@ -12,7 +12,9 @@ show_completed = true
 
 [tasks]
 due_label        = true         # right-aligned due label on task rows (toggle: t)
-sort_in_priority = "due"        # due | title | created
+group_by         = "priority"   # list | date | created | tag | priority | none
+sort_by          = "date"       # date | created | modified | title | tag | priority
+order            = "oldest"     # oldest | newest   (default for all lists; s in the task list sets one list's own)
 week_start       = "mon"        # mon | sun
 due_menu         = ["today", "tomorrow", "+2d", "mon", "+7d"]  # d menu: today, tomorrow, +Nd, weekday, 2026-10-08, optional 17:00
 

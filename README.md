@@ -13,7 +13,8 @@ Inspired by [superfile](https://superfile.dev): clean, minimal, never leave the 
 - **Command bar** (`/`): fuzzy search across tasks, lists and commands; `+` quick add with natural language (`fri 5pm !med #errand @home`); `@` jump to a list; `#` filter by tag.
 - **Edit without leaving the keyboard**: complete (`x`, with undo), cycle priority (`p`), pick a due date (`d`), move to another list (`m`), add and tick checklist items (`c`), edit title, tags and markdown notes inline, set repeats. `?` lists every key.
 - **Instant and in sync**: edits show at once and are sent in the background; a background sync picks up changes from your other devices; startup renders from a local cache.
-- **Smart lists**: Today, Tomorrow, Next 7 Days, tags and filters, with tasks grouped High → Medium → Low → None.
+- **Smart lists**: Today, Tomorrow, Next 7 Days, tags and filters.
+- **Group and sort like the web app** (`s`): group by list, date, created time, tag, priority or none; sort by date, created/modified time, title, tag or priority; oldest or newest first. Each list remembers its own choice.
 - **Looks like your terminal**: the default theme uses your terminal's own colors; `colorful` and `lotr` are built in, custom themes are one TOML file; transparent backgrounds let your terminal's blur show through.
 - **Simple sign-in**: browser OAuth, or paste an API token.
 
@@ -37,6 +38,7 @@ Keys, quick-add syntax, configuration and themes: see **[docs/usage.md](docs/usa
 
 ## Known issues
 
+- In Ghostty, some task rows (e.g. titles with `⚠️`) can spill into the next column and leave repeated rows while scrolling. Terminal.app and Alacritty are fine.
 - On some setups (seen on Omarchy + Ghostty, not on macOS + Ghostty), pressing `↓` with the first task selected draws that task twice. It's only visual: the task isn't duplicated in TickTick.
 
 ## How it's built
