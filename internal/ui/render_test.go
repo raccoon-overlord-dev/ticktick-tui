@@ -1,6 +1,10 @@
 package ui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/charmbracelet/x/ansi"
+)
 
 func TestLayout(t *testing.T) {
 	cases := []struct {
@@ -50,5 +54,15 @@ func TestWindow(t *testing.T) {
 	off = 10
 	if got := window(lines, -1, 3, &off); got[0] != "3" {
 		t.Fatalf("clamp: %v", got)
+	}
+}
+
+// Rows must measure the same with grapheme and wcwidth counting, or they spill into the next column.
+func TestWcSafe(t *testing.T) {
+	for _, s := range []string{"\x1b[1m✓ ⚠️ FIESTA ⚠️\x1b[0m", "👨🏻‍💻Coding", "♻️Other 🧔🪒", "plain àè"} {
+		got := wcSafe(s)
+		if ansi.StringWidth(got) != ansi.StringWidth(s) || ansi.StringWidthWc(got) != ansi.StringWidth(s) {
+			t.Errorf("wcSafe(%q) = %q", s, got)
+		}
 	}
 }

@@ -72,7 +72,8 @@ type App struct {
 	demo   bool         // `ttui dev demo`: fake data, no API
 	err    string       // main-screen sync error
 
-	auth authScreen
+	auth      authScreen
+	graphemes bool // terminal answered the mode 2027 query: the renderer counts widths like lipgloss
 
 	// main screen
 	focus                         string // lists | tasks | detail
@@ -125,10 +126,9 @@ func (a *App) tick() tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-// Init also asks the terminal for Unicode mode 2027. Bubble Tea only asks by itself
-// outside SSH or for a few known TERMs; without a reply its renderer counts emoji
-// like ⚠️ as 1 cell while lipgloss and the terminal use 2, so rows spill into the
-// next column. A reply switches the renderer to grapheme widths.
+// Init also asks the terminal for Unicode mode 2027 (Bubble Tea only asks outside SSH or
+// for a few known TERMs). A reply switches the renderer to grapheme widths; without one
+// View falls back to wcSafe.
 func (a *App) Init() tea.Cmd {
 	return tea.Batch(tea.Raw(ansi.RequestModeUnicodeCore), a.start())
 }
@@ -150,6 +150,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.w, a.h = msg.Width, msg.Height
+		return a, nil
+	case tea.ModeReportMsg: // same check Bubble Tea uses to switch its renderer
+		if msg.Mode == ansi.ModeUnicodeCore && (msg.Value == ansi.ModeReset || msg.Value == ansi.ModeSet || msg.Value == ansi.ModePermanentlySet) {
+			a.graphemes = true
+		}
 		return a, nil
 	case tickMsg:
 		a.now, a.spin = time.Time(msg), a.spin+1
@@ -352,7 +357,11 @@ func (a *App) View() tea.View {
 			mode, modeRole = "SETTINGS", "warn"
 		}
 	}
-	v.SetContent(body + "\n" + a.statusBar(mode, modeRole, hints))
+	content := body + "\n" + a.statusBar(mode, modeRole, hints)
+	if !a.graphemes {
+		content = wcSafe(content)
+	}
+	v.SetContent(content)
 	return v
 }
 

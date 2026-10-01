@@ -3,6 +3,7 @@ package ui
 import (
 	"image/color"
 	"strings"
+	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -183,4 +184,27 @@ func layout(cols int, setting string) (n int, lists, tasks, detail int) {
 		tasks = avail
 	}
 	return n, lists, tasks, detail
+}
+
+// wcSafe rewrites the grapheme clusters whose width differs between grapheme and wcwidth
+// counting (⚠️, ♻️, 👨🏻‍💻…) as their first rune plus padding to the same grapheme width.
+// Layout is measured in graphemes, but until the terminal confirms mode 2027 Bubble Tea's
+// renderer counts with wcwidth, and the mismatch pushed rows into the next column.
+func wcSafe(s string) string {
+	var b strings.Builder
+	var state byte
+	for len(s) > 0 {
+		seq, w, n, ns := ansi.DecodeSequence(s, state, nil)
+		if w > 0 && ansi.StringWidthWc(seq) != w {
+			r, _ := utf8.DecodeRuneInString(seq)
+			rw := ansi.StringWidthWc(string(r))
+			if rw > w {
+				r, rw = ' ', 1
+			}
+			seq = string(r) + strings.Repeat(" ", w-rw)
+		}
+		b.WriteString(seq)
+		s, state = s[n:], ns
+	}
+	return b.String()
 }
