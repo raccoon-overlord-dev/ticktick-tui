@@ -44,3 +44,5 @@ Keys, quick-add syntax, configuration and themes: see **[docs/usage.md](docs/usa
 
 Want to contribute or build it yourself? `make test`, `make build`, and `ttui dev demo` to try the UI on mock data (details in [docs/usage.md](docs/usage.md#development)).
 What's next: [ROADMAP.md](ROADMAP.md).
+
+License: [MIT](LICENSE).
