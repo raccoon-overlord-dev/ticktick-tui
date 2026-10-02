@@ -144,6 +144,9 @@ func (a *App) listsLines(p pen, w int, focused bool) ([]string, int) {
 			rp = p.on(a.selBg(focused))
 		}
 		labelRole := "text"
+		if strings.HasPrefix(r.list, "p:") && slices.Contains(a.cfg.Layout.SmartHidden, r.list[2:]) {
+			labelRole = "dim" // hidden from smart lists
+		}
 		if (cur && focused) || r.active {
 			labelRole = "accent"
 		}
@@ -311,10 +314,24 @@ func (a *App) taskLine(p pen, t *api.Task, w int, sel, focused bool) string {
 
 func detailKeys(t *api.Task) []string {
 	k := []string{"title", "due", "repeat", "list", "tags", "priority"}
-	for i := range t.Items {
+	for _, i := range itemOrder(t) {
 		k = append(k, fmt.Sprintf("c%d", i))
 	}
 	return append(k, "additem", "notes")
+}
+
+// itemOrder is the order checklist items are shown in: open ones first, then the done
+// ones, as in the web app. Only the display changes; t.Items keeps the server's order.
+func itemOrder(t *api.Task) []int {
+	var open, done []int
+	for i, it := range t.Items {
+		if it.Status != 0 {
+			done = append(done, i)
+		} else {
+			open = append(open, i)
+		}
+	}
+	return append(open, done...)
 }
 
 func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, int) {
@@ -357,7 +374,7 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 	lines = append(lines, "")
 
 	// fields
-	placeholder := map[string]string{"due": "e.g. tomorrow 17:00", "tags": "#tag #another"}
+	placeholder := map[string]string{"due": "e.g. tomorrow 17:00", "tags": "#tag #another", "repeat": "e.g. every 2 weeks, 3rd wed, last workday"}
 	field := func(k, label, value, role string) {
 		fp := pick(k)
 		v := fp.s(role).Render(trunc(value, cw-9))
@@ -375,6 +392,9 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		field("due", "Due", "—", "dim")
 	}
 	if r := store.RepeatLabel(t.RepeatFlag); r != "" {
+		if r == "Custom" || t.RepeatFrom == "1" {
+			r = parse.RepeatText(t.RepeatFlag, t.RepeatFrom == "1")
+		}
 		field("repeat", "Repeat", "↻ "+r, "text")
 	} else {
 		field("repeat", "Repeat", "never", "dim")
@@ -399,7 +419,8 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		fill := d * barW / n
 		lines = append(lines, "", p.line(w, p.s("sub").Render("Checklist ")+p.s("ok").Render(strings.Repeat("━", fill))+
 			p.s("line").Render(strings.Repeat("─", barW-fill))+p.sp(1)+p.s("sub").Render(fmt.Sprintf("%d/%d", d, n)), ""))
-		for i, it := range t.Items {
+		for _, i := range itemOrder(t) {
+			it := t.Items[i]
 			ip := pick(fmt.Sprintf("c%d", i))
 			mark, text := ip.s("muted").Render("○"), ip.s("text").Render(trunc(it.Title, cw-2))
 			if it.Status != 0 {
@@ -569,19 +590,28 @@ func (a *App) viewMain() (string, [][2]string) {
 	switch ef {
 	case "lists":
 		open := [2]string{"l", "open"}
+		hide := [2]string{}
 		if r := a.sideRow(); r != nil && r.folder != "" {
 			open = [2]string{"␣ ⏎", "open folder"}
 			if a.folderOpen(r.folder) {
 				open[1] = "close folder"
 			}
+		} else if r != nil && strings.HasPrefix(r.list, "p:") {
+			hide = [2]string{"H", "hide in smart"}
+			if slices.Contains(a.cfg.Layout.SmartHidden, strings.TrimPrefix(r.list, "p:")) {
+				hide[1] = "show in smart"
+			}
 		}
 		hints = [][2]string{{"j/k", "move"}, open, {"/", "search"}, {"?", "keys"}, {":", "command"}, {",", "settings"}, {"a", "add"}}
+		if hide[0] != "" {
+			hints = slices.Insert(hints, 2, hide)
+		}
 	case "tasks":
 		done := "done"
 		if t := a.selTask(); t != nil && store.Done(t) {
 			done = "reopen"
 		}
-		hints = [][2]string{{"j/k", "move"}, {"⏎", "open"}, {"x", done}, {"a", "add"}, {"?", "keys"}, {"d", "due"}, {"m", "move to"}, {"p", "priority"}, {"/", "search"}, {":", "command"}, {",", "settings"}}
+		hints = [][2]string{{"⏎", "open"}, {"x", done}, {"D", "delete"}, {"a", "add"}, {"?", "keys"}, {"d", "due"}, {"m", "move to"}, {"p", "priority"}, {"/", "search"}, {":", "command"}, {",", "settings"}}
 	default:
 		hints = [][2]string{{"j/k", "field"}, {"i", "edit"}, {"␣", "toggle"}, {"?", "keys"}, {"d", "due"}, {"m", "move to"}, {"c", "checklist"}, {"h", "back"}}
 	}
@@ -729,7 +759,7 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 			a.startEdit("title")
 		case "detail":
 			if t := a.selTask(); t != nil {
-				if k := detailKeys(t)[a.df]; k == "title" || k == "due" || k == "tags" || k == "notes" || k == "additem" {
+				if k := detailKeys(t)[a.df]; k == "title" || k == "due" || k == "repeat" || k == "tags" || k == "notes" || k == "additem" {
 					a.startEdit(k)
 				} else {
 					return a.activate()
@@ -757,16 +787,22 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "U":
 		a.askUpdate()
+	case "H":
+		if ef == "lists" {
+			a.toggleSmartHidden()
+		}
 	case ",":
 		a.settings, a.sIdx = true, 1
 	case "?":
 		a.help, a.offHelp = true, 0
-	case "m", "d", "c":
+	case "m", "d", "c", "D", "delete":
 		t := a.selTask()
 		if t == nil || ef == "lists" {
 			return nil
 		}
 		switch key {
+		case "D", "delete":
+			a.askDelete(t)
 		case "m":
 			a.movePicker(t)
 		case "d":
@@ -851,6 +887,32 @@ func (a *App) toggleFolder(id string) {
 	} else {
 		a.cfg.Layout.OpenFolders = append(a.cfg.Layout.OpenFolders, id)
 	}
+	a.save()
+}
+
+// setStore swaps in a synced or loaded store, carrying over the lists hidden from smart lists.
+func (a *App) setStore(st *store.Store) {
+	if a.st = st; st != nil {
+		st.SmartHidden = a.cfg.Layout.SmartHidden
+	}
+}
+
+// toggleSmartHidden hides the selected list from the smart lists (or shows it again), in
+// place of TickTick's "Show in smart list: Do not show", which the API doesn't expose.
+func (a *App) toggleSmartHidden() {
+	r := a.sideRow()
+	if r == nil || !strings.HasPrefix(r.list, "p:") {
+		return
+	}
+	id, h := strings.TrimPrefix(r.list, "p:"), &a.cfg.Layout.SmartHidden
+	if i := slices.Index(*h, id); i >= 0 {
+		*h = slices.Delete(*h, i, i+1)
+		a.setFlash(r.label + " shown in smart lists")
+	} else {
+		*h = append(*h, id)
+		a.setFlash(r.label + " hidden from smart lists")
+	}
+	a.st.SmartHidden = *h
 	a.save()
 }
 

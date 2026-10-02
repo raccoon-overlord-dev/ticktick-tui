@@ -46,7 +46,8 @@ func run(version string, demo *store.Store) error {
 	a := &App{version: version, cfg: cfg, th: th, signed: signed, now: time.Now(),
 		focus: "tasks", list: "today", sideKey: "l:today", idMap: map[string]string{}}
 	if demo != nil {
-		a.signed, a.st, a.demo = &auth.Auth{}, demo, true
+		a.signed, a.demo = &auth.Auth{}, true
+		a.setStore(demo)
 	}
 	if _, err = tea.NewProgram(a).Run(); err != nil || a.restart == "" {
 		return err
@@ -102,6 +103,7 @@ type App struct {
 	idMap    map[string]string // temporary id → server id for created tasks
 	tmpN     int
 	lastDone string // for "x to undo"
+	delID    string // task the "delete?" prompt is about
 	syncGen  int
 	syncing  bool
 
@@ -144,7 +146,7 @@ func (a *App) Init() tea.Cmd {
 	}
 	if a.signed != nil {
 		a.screen = screenMain
-		a.st = store.LoadSnapshot() // render at once, then refresh
+		a.setStore(store.LoadSnapshot()) // render at once, then refresh
 		return tea.Batch(a.tick(), a.syncNow(), a.checkUpdate())
 	}
 	return tea.Batch(a.tick(), a.auth.start(), a.checkUpdate())
@@ -202,6 +204,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case a.confirmUpdate:
 			return a, a.confirmKey(k)
+		case a.delID != "":
+			return a, a.deleteKey(k)
 		case a.cmd != nil:
 			return a, a.cmdKey(k)
 		case a.edit != "":
@@ -263,7 +267,8 @@ func (a *App) onStore(msg storeMsg) tea.Cmd {
 		case a.busy || len(a.queue) > 0:
 			// local edits in flight; the next sync picks up the server state
 		default:
-			a.st, a.err = msg.st, ""
+			a.setStore(msg.st)
+			a.err = ""
 			a.st.Save()
 		}
 		return a.scheduleSync()

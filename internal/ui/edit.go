@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -20,7 +21,7 @@ import (
 // op is one queued write. Edits apply to the store at once; ops are sent one at a time
 // (writes are serialized) and reverted if the API rejects them.
 type op struct {
-	kind   string // create | update | complete | move
+	kind   string // create | update | complete | move | delete | skip
 	taskID string
 	before *api.Task      // state to restore on failure; nil for create
 	fields map[string]any // update fields, the create body, or the move's "from" and "to"
@@ -58,6 +59,8 @@ func (a *App) pump() tea.Cmd {
 	pid := ""
 	if t := a.st.Task(id); t != nil {
 		pid = t.ProjectID
+	} else if o.before != nil { // deleted locally already
+		pid = o.before.ProjectID
 	}
 	c := api.New(a.signed.AccessToken)
 	return func() tea.Msg {
@@ -80,9 +83,49 @@ func (a *App) pump() tea.Cmd {
 			if err = c.MoveTask(ctx, o.fields["from"].(string), to, id); err == nil {
 				t, err = c.GetTask(ctx, to, id)
 			}
+		case "delete":
+			err = c.DeleteTask(ctx, pid, id)
+		case "skip":
+			t, err = skipOccurrence(ctx, c, pid, id, o.before)
 		}
 		return opDoneMsg{o, t, err}
 	}
+}
+
+// skipOccurrence deletes only the current occurrence of a repeating task. The API has no
+// call for it, so it completes the task (the server moves it to the next occurrence and
+// files a completed copy) and deletes that copy. On the last occurrence the task itself
+// ends up completed and is deleted. Returns the task at its next occurrence, or nil.
+func skipOccurrence(ctx context.Context, c *api.Client, pid, id string, before *api.Task) (*api.Task, error) {
+	start := time.Now().Add(-time.Minute)
+	if err := c.CompleteTask(ctx, pid, id); err != nil {
+		return nil, err
+	}
+	t, err := c.GetTask(ctx, pid, id)
+	if err != nil {
+		return nil, err
+	}
+	if store.Done(t) { // no next occurrence
+		return nil, c.DeleteTask(ctx, pid, id)
+	}
+	done, err := c.CompletedTasks(ctx, start)
+	if err != nil {
+		return t, err
+	}
+	// The copy has a new id and no link back: match it by list, title and due date.
+	for _, d := range done {
+		if d.ProjectID == pid && d.Title == before.Title && d.RepeatFlag == "" && sameTime(d.DueDate, before.DueDate) {
+			return t, c.DeleteTask(ctx, pid, d.ID)
+		}
+	}
+	return t, errors.New("skipped, but its completed copy wasn't found")
+}
+
+// sameTime compares API dates, which come back with milliseconds.
+func sameTime(a, b string) bool {
+	ta, err1 := time.Parse(api.DateLayout, a)
+	tb, err2 := time.Parse(api.DateLayout, b)
+	return err1 == nil && err2 == nil && ta.Equal(tb)
 }
 
 func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
@@ -94,6 +137,8 @@ func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
 	if m.err != nil {
 		if m.op.kind == "create" {
 			a.st.Remove(m.op.taskID)
+		} else if m.op.kind == "skip" && m.t != nil { // completed on the server already
+			a.st.Upsert(*m.t)
 		} else if m.op.before != nil {
 			b := *m.op.before
 			if real, ok := a.idMap[b.ID]; ok { // edited before its create returned
@@ -126,6 +171,9 @@ func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
 	}
 	if m.t != nil && m.t.ID != "" && !pending {
 		a.st.Upsert(*m.t)
+	}
+	if m.op.kind == "skip" && m.t == nil { // that was the last occurrence
+		a.st.Remove(m.op.taskID)
 	}
 	a.st.Save()
 	return tea.Batch(a.pump(), a.restartIfIdle())
@@ -197,6 +245,16 @@ func (a *App) toggleDone(t *api.Task) tea.Cmd {
 		a.setFlash(fmt.Sprintf("reopened “%s”", t.Title))
 		return a.update(t, map[string]any{"status": 0}, func(t *api.Task) { t.Status, t.CompletedTime = 0, "" })
 	}
+	a.selectNeighbor(t)
+	before := store.Clone(*t)
+	t.Status, t.CompletedTime = 2, time.Now().UTC().Format(api.DateLayout)
+	a.lastDone = t.ID
+	a.setFlash(fmt.Sprintf("✓ completed “%s” · x to undo", t.Title))
+	return a.enqueue(op{kind: "complete", taskID: t.ID, before: &before})
+}
+
+// selectNeighbor moves the cursor off t, to the next task (or the previous one at the end).
+func (a *App) selectNeighbor(t *api.Task) {
 	nav := navTasks(a.groups())
 	if i := slices.Index(nav, t); i >= 0 {
 		switch {
@@ -206,11 +264,41 @@ func (a *App) toggleDone(t *api.Task) tea.Cmd {
 			a.taskID = nav[i-1].ID
 		}
 	}
-	before := store.Clone(*t)
-	t.Status, t.CompletedTime = 2, time.Now().UTC().Format(api.DateLayout)
-	a.lastDone = t.ID
-	a.setFlash(fmt.Sprintf("✓ completed “%s” · x to undo", t.Title))
-	return a.enqueue(op{kind: "complete", taskID: t.ID, before: &before})
+}
+
+// askDelete asks before deleting t (D). An open repeating task offers, like the web app,
+// this occurrence only or the whole series; anything else cancels.
+func (a *App) askDelete(t *api.Task) {
+	a.delID = t.ID
+	q := fmt.Sprintf("Delete “%s”? y / N", t.Title)
+	if t.RepeatFlag != "" && !store.Done(t) {
+		q = fmt.Sprintf("Delete “%s”? o this occurrence · a all occurrences · N cancel", t.Title)
+	}
+	a.flash, a.flashRole, a.flashUntil = q, "warn", time.Now().Add(time.Hour)
+}
+
+func (a *App) deleteKey(k tea.KeyPressMsg) tea.Cmd {
+	t := a.st.Task(a.delID)
+	a.delID, a.flash = "", ""
+	if t == nil {
+		return nil
+	}
+	repeat := t.RepeatFlag != "" && !store.Done(t)
+	switch key := k.String(); {
+	case !repeat && key == "y", repeat && key == "a":
+		a.selectNeighbor(t)
+		before := store.Clone(*t)
+		a.st.Remove(t.ID)
+		a.setFlash(fmt.Sprintf("deleted “%s”", before.Title))
+		return a.enqueue(op{kind: "delete", taskID: before.ID, before: &before})
+	case repeat && key == "o":
+		a.selectNeighbor(t)
+		before := store.Clone(*t)
+		t.Status = 2 // hidden until the server returns the next occurrence
+		a.setFlash(fmt.Sprintf("deleted this occurrence of “%s”", t.Title))
+		return a.enqueue(op{kind: "skip", taskID: t.ID, before: &before})
+	}
+	return nil
 }
 
 // undoDone reopens the task completed last, while its "x to undo" message is showing.
@@ -395,27 +483,50 @@ func (a *App) setDue(t *api.Task, d *parse.Due) tea.Cmd {
 	})
 }
 
-var repeats = []struct{ label, rule string }{
-	{"never", ""},
-	{"Daily", "RRULE:FREQ=DAILY;INTERVAL=1"},
-	{"Weekdays", "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR"},
-	{"Weekly", "RRULE:FREQ=WEEKLY;INTERVAL=1"},
-	{"Monthly", "RRULE:FREQ=MONTHLY;INTERVAL=1"},
+// repeatPicker opens the repeat menu for t (⏎ on the Repeat field), like the web app's:
+// Weekly, Monthly and Yearly repeat on the due date's weekday, day and date.
+func (a *App) repeatPicker(t *api.Task) {
+	due, ok := store.DueTime(t)
+	if !ok { // the API drops a repeat rule on a task without a due date
+		a.setFlash("set a due date first · repeat needs one")
+		return
+	}
+	due = due.In(time.Now().Location())
+	opts := []struct{ label, hint, rule string }{
+		{"Daily", "", "RRULE:FREQ=DAILY;INTERVAL=1"},
+		{"Weekdays", "Mon–Fri", "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR"},
+		{"Weekly", due.Format("on Mon"), "RRULE:FREQ=WEEKLY;INTERVAL=1"},
+		{"Monthly", "on the " + parse.Ordinal(due.Day()), "RRULE:FREQ=MONTHLY;INTERVAL=1"},
+		{"Yearly", due.Format("on 2 Jan"), "RRULE:FREQ=YEARLY;INTERVAL=1"},
+		{"Never", "", ""},
+	}
+	cur := cmp.Or(store.RepeatLabel(t.RepeatFlag), "Never")
+	var items []cmdItem
+	for _, o := range opts {
+		it := cmdItem{icon: a.icon("\uf01e", "~"), iconRole: "secondary", label: o.label, hint: o.hint,
+			run: func() tea.Cmd {
+				a.setFlash("repeat → " + strings.ToLower(o.label))
+				return a.setRepeat(t, o.rule, false)
+			}}
+		if o.rule == "" {
+			it.icon, it.iconRole = "×", "dim"
+		}
+		if o.label == cur {
+			it.hint = strings.TrimSpace(o.hint + " · current")
+		}
+		items = append(items, it)
+	}
+	custom := cmdItem{icon: "…", iconRole: "dim", label: "Custom", hint: "3rd wed, last workday, every 2 weeks",
+		run: func() tea.Cmd { a.startEdit("repeat"); return nil }}
+	if cur == "Custom" {
+		custom.hint = parse.RepeatText(t.RepeatFlag, t.RepeatFrom == "1") + " · current"
+	}
+	a.openPick("repeat", append(items, custom))
 }
 
-func (a *App) cycleRepeat(t *api.Task) tea.Cmd {
-	if t.DueDate == "" { // the API drops a repeat rule on a task without a due date
-		a.setFlash("set a due date first · repeat needs one")
-		return nil
-	}
-	cur := store.RepeatLabel(t.RepeatFlag)
-	if cur == "" {
-		cur = "never"
-	}
-	i := slices.IndexFunc(repeats, func(r struct{ label, rule string }) bool { return r.label == cur })
-	next := repeats[(i+1)%len(repeats)] // Custom (-1) goes to never
-	a.setFlash("repeat → " + next.label)
-	return a.update(t, map[string]any{"repeatFlag": next.rule}, func(t *api.Task) { t.RepeatFlag = next.rule })
+func (a *App) setRepeat(t *api.Task, rule string, fromCompletion bool) tea.Cmd {
+	from := map[bool]string{false: "0", true: "1"}[fromCompletion]
+	return a.update(t, map[string]any{"repeatFlag": rule, "repeatFrom": from}, func(t *api.Task) { t.RepeatFlag, t.RepeatFrom = rule, from })
 }
 
 // dueFields turns a parsed due date into API fields (all-day when no time is given).
@@ -480,6 +591,16 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 			return nil, false
 		}
 		cmd = a.setDue(t, d)
+	case "repeat":
+		rule, from := "", false
+		if strings.TrimSpace(v) != "" { // empty: never
+			var err error
+			if rule, from, err = parse.ParseRepeat(v, time.Now()); err != nil {
+				a.setFlash(err.Error() + " · try: " + parse.RepeatHelp)
+				return nil, false
+			}
+		}
+		cmd = a.setRepeat(t, rule, from)
 	case "additem":
 		if v = strings.TrimSpace(v); v != "" {
 			cmd = a.addItem(t, v)
@@ -528,6 +649,14 @@ func (a *App) startEdit(field string) {
 		v = t.Title
 	case "due":
 		v = dueText(t, a.now)
+	case "repeat":
+		if t.DueDate == "" {
+			a.setFlash("set a due date first · repeat needs one")
+			return
+		}
+		if t.RepeatFlag != "" {
+			v = parse.RepeatText(t.RepeatFlag, t.RepeatFrom == "1")
+		}
 	case "tags":
 		if len(t.Tags) > 0 {
 			v = "#" + strings.Join(t.Tags, " #")
@@ -559,7 +688,7 @@ func (a *App) activate() tea.Cmd {
 	case k == "due":
 		a.duePicker(t)
 	case k == "repeat":
-		return a.cycleRepeat(t)
+		a.repeatPicker(t)
 	case k == "priority":
 		return a.cyclePrio(t)
 	case k == "list":

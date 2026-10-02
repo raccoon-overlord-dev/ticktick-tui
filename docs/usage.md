@@ -52,13 +52,16 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `g` / `G` | Top / bottom |
 | `pgup` / `pgdn` | One page up / down (lists, tasks, long notes, this panel, the notes editor). |
 | `h` `l` / `←` `→` | Previous / next pane; `l` opens a list, a folder or a task |
-| `1` `2` `3`, `tab` | Focus lists / tasks / details, cycle panes |
-| `⏎` | Open; on a detail field: edit it, pick a due date or list, cycle Repeat / Priority, or tick a checklist item |
+| `1` `2` `3` | Focus the lists / tasks / details pane |
+| `tab` | Next pane |
+| `⏎` | Open; on a detail field: edit it, pick a due date, repeat or list, cycle Priority, or tick a checklist item |
 | `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). In lists, `space` (or `⏎`, `l`) opens or closes a folder; folders start closed and ttui remembers the open ones |
+| `H` | In lists: hide the list from Today, Tomorrow, Next 7 Days and the filters, or show it again (hidden lists are dimmed). Stands in for TickTick's "Show in smart list: Do not show", which the API doesn't expose |
 | `p` | Cycle priority High → Medium → Low → None |
 | `d` | Due date menu: the dates in `due_menu`, No date, or Custom (type one). A date without a time keeps the task's time |
 | `m` | Move the task to another list |
 | `c` | Add checklist items: `⏎` adds one and opens the next, `esc` finishes |
+| `D` / `delete` | Delete the task after a `y / N` prompt. On a repeating task: `o` deletes this occurrence only, `a` the whole series |
 | `i` / `e` | Edit the title (tasks) or the field under the cursor (details). `esc` or `⏎` saves. On the notes `↑` `↓` scroll them when they are long; while editing notes `⏎` is a newline, `↑` `↓` move between lines and `esc` / `ctrl+s` saves (`ctrl+⏎` also saves where the terminal passes it through; Omarchy uses it for fullscreen) |
 | `a` / `n` | Quick add |
 | `/`, `ctrl+k` | Search |
@@ -84,8 +87,25 @@ Quick add understands `call mom tomorrow 17:00 !high #errand @home`:
 
 Without a list, tasks go to the current list or Inbox. Adding from Today or Tomorrow defaults the day.
 
-To make a task repeat, give it a due date, then press `⏎` on **Repeat** in the details pane
-(never → Daily → Weekdays → Weekly → Monthly).
+To make a task repeat, give it a due date, then press `⏎` on **Repeat** in the details pane and pick
+Daily, Weekdays (Mon–Fri), Weekly, Monthly, Yearly or Never. Weekly, Monthly and Yearly follow the due date
+(e.g. "Monthly · on the 23rd").
+
+**Custom…** (or `i` on Repeat) takes a rule in words, the same ones the web app's Custom repeat offers:
+
+| Write | Repeats |
+|---|---|
+| `every 3 days`, `every 2 weeks`, `monthly`, `yearly` | every N days / weeks / months / years |
+| `mon,wed,fri`, `weekdays`, `weekends`, `every 2 weeks on mon,fri` | on those weekdays |
+| `23rd` (or `monthly 23`), `last day` | on that day of the month |
+| `first mon`, `3rd wed`, `last fri` | on that weekday of the month |
+| `first workday`, `last workday` | on the first / last working day of the month |
+| `curve` | Ebbinghaus forgetting curve |
+| `dates fri 2026-10-22` | on these dates only |
+
+Add any of: `until 2026-12-31` or `x5` (`5 times`) to end it, `skip weekends` / `skip holidays`,
+`from completion` to count from when you complete it instead of the due date. Leave it empty for no repeat.
+Rules set in the web app show in the same words.
 
 ## Configuration
 
@@ -102,6 +122,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | `layout` | `columns` | `auto` · `3` · `2` · `1` |
 | | `show_completed` | `true` · `false` |
 | | `open_folders` | folders shown open in Lists, written by ttui when you open or close one (folders start closed) |
+| | `smart_hidden` | lists hidden from Today, Tomorrow, Next 7 Days and the filters, written by ttui when you press `H` |
 | `tasks` | `due_label`, `week_start` | `true`/`false`; `mon`·`sun` |
 | | `group_by` | `list` · `date` · `created` · `tag` · `priority` · `none` (default for all lists) |
 | | `sort_by` | `date` · `created` · `modified` · `title` · `tag` · `priority` (default for all lists) |
@@ -125,6 +146,7 @@ These come from TickTick's public API (details in [`docs/api-notes.md`](api-note
 
 - No Trash and no attachments: the API doesn't expose them.
 - Smart lists (Today, Tomorrow, Next 7 Days) and filters are computed in ttui, not read from your TickTick filters.
+- A list's "Show in smart list" setting isn't readable through the API, so ttui ignores it; press `H` on the list to hide it in ttui instead.
 - Completed tasks cover the last 7 days.
 - Moving a task to the Inbox needs at least one task already in the Inbox (that's the only way the API reveals its id).
 - The API allows 100 requests a minute; ttui retries with backoff when it hits the limit.

@@ -21,6 +21,9 @@ type Store struct {
 	Tags     []string      // derived from tasks, sorted
 	Email    string
 	SyncedAt time.Time
+	// SmartHidden lists (project ids) are left out of the date smart lists and filters, like
+	// TickTick's "Show in smart list: Do not show". Set by the UI from config: the API doesn't expose it.
+	SmartHidden []string `json:"-"`
 }
 
 // ponytail: only recently completed tasks are fetched; widen if people want older history.
@@ -174,6 +177,12 @@ func (s *Store) TasksFor(id string, now time.Time) []*api.Task {
 
 func (s *Store) in(id string, t *api.Task, now time.Time) bool {
 	day, hasDay := DayDiff(t, now)
+	switch id {
+	case "today", "tomorrow", "next7", "f-high", "f-nodate":
+		if slices.Contains(s.SmartHidden, t.ProjectID) {
+			return false
+		}
+	}
 	switch id {
 	case "inbox":
 		return IsInbox(t.ProjectID)

@@ -142,6 +142,7 @@ type Task struct {
 	DueDate       string   `json:"dueDate,omitempty"`
 	TimeZone      string   `json:"timeZone,omitempty"`
 	RepeatFlag    string   `json:"repeatFlag,omitempty"`
+	RepeatFrom    string   `json:"repeatFrom,omitempty"` // "1": from the completion date; "0" or "2": from the due date
 	Priority      int      `json:"priority"`
 	Status        int      `json:"status"`
 	CompletedTime string   `json:"completedTime,omitempty"`
@@ -240,6 +241,11 @@ func (c *Client) UpdateTask(ctx context.Context, id, projectID string, f map[str
 
 func (c *Client) CompleteTask(ctx context.Context, projectID, id string) error {
 	return c.Do(ctx, http.MethodPost, "/project/"+projectID+"/task/"+id+"/complete", nil, nil)
+}
+
+// DeleteTask deletes a task; for a repeating one, the whole series.
+func (c *Client) DeleteTask(ctx context.Context, projectID, id string) error {
+	return c.Do(ctx, http.MethodDelete, "/project/"+projectID+"/task/"+id, nil, nil)
 }
 
 // MoveTask moves a task to another list (POST /task/move).

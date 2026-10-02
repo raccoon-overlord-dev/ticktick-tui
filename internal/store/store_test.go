@@ -213,3 +213,18 @@ func TestFetchPastFilterCap(t *testing.T) {
 		t.Fatalf("got %d tasks, %d in X", len(s.Tasks), s.OpenCount("p:x", time.Now()))
 	}
 }
+
+// Lists hidden from smart lists drop out of Today and the filters, not out of their own list.
+func TestSmartHidden(t *testing.T) {
+	now := time.Now()
+	due := now.Format("2006-01-02T15:04:05.000-0700")
+	s := New([]api.Project{{ID: "a"}, {ID: "b"}}, nil, []api.Task{
+		{ID: "1", ProjectID: "a", DueDate: due, Priority: 5}, {ID: "2", ProjectID: "b", DueDate: due, Priority: 5},
+	}, "", now)
+	s.SmartHidden = []string{"b"}
+	for id, want := range map[string]int{"today": 1, "next7": 1, "f-high": 1, "p:b": 1} {
+		if got := s.OpenCount(id, now); got != want {
+			t.Errorf("%s: %d open, want %d", id, got, want)
+		}
+	}
+}

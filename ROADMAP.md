@@ -37,8 +37,6 @@ Ideas planned after v1. Not implemented yet.
 
 ## Distribution
 
-- Check for new releases on startup and offer to update (toggle in Settings).
-
 - CI release workflow (GitHub Actions + GoReleaser). Needs a token with the `workflow` scope; releases are built locally with `make dist` for now.
 
 - Homebrew tap, AUR package, .deb/.rpm (v1 ships `install.sh` only).

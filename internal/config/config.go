@@ -25,6 +25,7 @@ type Config struct {
 		Columns       string   `toml:"columns"`
 		ShowCompleted bool     `toml:"show_completed"`
 		OpenFolders   []string `toml:"open_folders"` // folder (group) ids shown expanded in Lists
+		SmartHidden   []string `toml:"smart_hidden"` // list ids left out of smart lists and filters (H); the API doesn't expose TickTick's own setting
 	} `toml:"layout"`
 	Tasks struct {
 		DueLabel  bool            `toml:"due_label"`

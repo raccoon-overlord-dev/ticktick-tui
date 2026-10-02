@@ -10,6 +10,7 @@ nerd_font_icons  = true
 columns        = "auto"         # auto | 3 | 2 | 1   (auto: 3 ≥ 120 cols, 2 ≥ 80, else 1)
 show_completed = true
 open_folders   = []             # folders shown expanded in Lists (space / ⏎ toggles; written by ttui)
+smart_hidden   = []             # lists left out of Today, Tomorrow, Next 7 Days and filters (H toggles; written by ttui)
 
 [tasks]
 due_label        = true         # right-aligned due label on task rows (toggle: t)
