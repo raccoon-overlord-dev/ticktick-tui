@@ -23,8 +23,11 @@ import (
 	"ttui/internal/config"
 )
 
+// Repo is the project page, shown in Settings → About.
+const Repo = "https://github.com/raccoon-overlord-dev/ticktick-tui"
+
 // Releases is the GitHub releases page; TTUI_RELEASES overrides it (tests, forks).
-var Releases = "https://github.com/raccoon-overlord-dev/ticktick-tui/releases"
+var Releases = Repo + "/releases"
 
 // Command is the manual fallback, the same as the README's install line.
 const Command = "curl -fsSL https://raw.githubusercontent.com/raccoon-overlord-dev/ticktick-tui/main/install.sh | sh"

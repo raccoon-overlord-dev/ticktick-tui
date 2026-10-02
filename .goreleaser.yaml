@@ -1,4 +1,4 @@
-# GoReleaser config. Releases are built locally with `make dist` and uploaded by hand (see docs/usage.md).
+# GoReleaser config. Releases are built locally and published with `make release` (see docs/usage.md).
 # Archive names carry no version so install.sh can use .../releases/latest/download/<name>.
 version: 2
 

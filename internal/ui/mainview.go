@@ -145,7 +145,7 @@ func (a *App) listsLines(p pen, w int, focused bool) ([]string, int) {
 		}
 		labelRole := "text"
 		if strings.HasPrefix(r.list, "p:") && slices.Contains(a.cfg.Layout.SmartHidden, r.list[2:]) {
-			labelRole = "dim" // hidden from smart lists
+			r.icon, r.iconRole = a.icon("\uf070", "x"), "dim" // hidden from smart lists: eye-slash
 		}
 		if (cur && focused) || r.active {
 			labelRole = "accent"
@@ -422,9 +422,10 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		for _, i := range itemOrder(t) {
 			it := t.Items[i]
 			ip := pick(fmt.Sprintf("c%d", i))
-			mark, text := ip.s("muted").Render("○"), ip.s("text").Render(trunc(it.Title, cw-2))
+			mark, text := ip.s("muted").Render("○"), linkify(ip.s("text"), ip.s("info"), it.Title, cw-2)
 			if it.Status != 0 {
-				mark, text = ip.s("ok").Render("✓"), ip.s("dim").Strikethrough(true).Render(trunc(it.Title, cw-2))
+				st := ip.s("dim").Strikethrough(true)
+				mark, text = ip.s("ok").Render("✓"), linkify(st, st, it.Title, cw-2)
 			}
 			lines = append(lines, ip.line(w, mark+ip.sp(1)+text, ""))
 		}
@@ -507,6 +508,8 @@ func (a *App) spans(p pen, ss []parse.Span, role string) string {
 			b.WriteString(p.s("text").Bold(true).Render(s.Text))
 		case parse.Code:
 			b.WriteString(p.s("secondary").Background(a.th.C("surface2")).Render(s.Text))
+		case parse.Link:
+			b.WriteString(p.s("info").Underline(true).Hyperlink(s.URL).Render(s.Text))
 		default:
 			b.WriteString(p.s(role).Bold(role == "accent").Render(s.Text))
 		}
@@ -643,6 +646,12 @@ func (a *App) viewMain() (string, [][2]string) {
 		base = lipgloss.NewCompositor(lipgloss.NewLayer(base),
 			lipgloss.NewLayer(box).X((a.w-bw)/2).Y(max((paneH-bh)/2, 0)).Z(1)).Render()
 		hints = [][2]string{{"j/k", "move"}, {"h/l", "change"}, {"esc", "close"}}
+		if a.about {
+			box, bw, bh := a.viewAbout()
+			base = lipgloss.NewCompositor(lipgloss.NewLayer(base),
+				lipgloss.NewLayer(box).X((a.w-bw)/2).Y(max((paneH-bh)/2, 0)).Z(2)).Render()
+			hints = [][2]string{{"esc", "close"}}
+		}
 	case a.help:
 		box, bw, bh := a.viewHelp()
 		base = lipgloss.NewCompositor(lipgloss.NewLayer(base),

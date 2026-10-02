@@ -14,11 +14,13 @@ const (
 	Plain SpanKind = iota
 	Bold
 	Code
+	Link
 )
 
 type Span struct {
 	Text string
 	Kind SpanKind
+	URL  string // Link only
 }
 
 type LineKind int
@@ -35,10 +37,16 @@ type Line struct {
 	Spans []Span
 }
 
-var inlineRe = regexp.MustCompile("\\*\\*[^*]+\\*\\*|`[^`]+`")
+// urlRe is a bare http(s) URL, minus trailing sentence punctuation.
+const urlRe = `https?://[^\s<>()\[\]]*[^\s<>()\[\].,;:!?'"]`
+
+var (
+	inlineRe = regexp.MustCompile("\\*\\*[^*]+\\*\\*|`[^`]+`|\\[[^\\]]+\\]\\(" + urlRe + "\\)|" + urlRe)
+	linkRe   = regexp.MustCompile(urlRe)
+)
 
 // Markdown renders the subset the design uses: paragraphs, "- "/"* " bullets, "#" headings,
-// **bold** and `code`. One Line per source line.
+// **bold**, `code`, [text](url) and bare URLs. One Line per source line.
 func Markdown(src string) []Line {
 	var out []Line
 	for _, l := range strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n") {
@@ -61,23 +69,46 @@ func Inline(s string) []Span {
 	last := 0
 	for _, m := range inlineRe.FindAllStringIndex(s, -1) {
 		if m[0] > last {
-			out = append(out, Span{s[last:m[0]], Plain})
+			out = append(out, Span{Text: s[last:m[0]], Kind: Plain})
 		}
 		tok := s[m[0]:m[1]]
-		if strings.HasPrefix(tok, "**") {
-			out = append(out, Span{tok[2 : len(tok)-2], Bold})
-		} else {
-			out = append(out, Span{tok[1 : len(tok)-1], Code})
+		switch {
+		case strings.HasPrefix(tok, "**"):
+			out = append(out, Span{Text: tok[2 : len(tok)-2], Kind: Bold})
+		case strings.HasPrefix(tok, "`"):
+			out = append(out, Span{Text: tok[1 : len(tok)-1], Kind: Code})
+		case strings.HasPrefix(tok, "["):
+			i := strings.Index(tok, "](")
+			out = append(out, Span{Text: tok[1:i], Kind: Link, URL: tok[i+2 : len(tok)-1]})
+		default:
+			out = append(out, Span{Text: tok, Kind: Link, URL: tok})
 		}
 		last = m[1]
 	}
 	if last < len(s) {
-		out = append(out, Span{s[last:], Plain})
+		out = append(out, Span{Text: s[last:], Kind: Plain})
 	}
 	return out
 }
 
-// Wrap word-wraps spans to width cells, keeping each word's span kind.
+// Links splits plain text (a checklist item) into Plain and bare-URL Link spans.
+func Links(s string) []Span {
+	var out []Span
+	last := 0
+	for _, m := range linkRe.FindAllStringIndex(s, -1) {
+		if m[0] > last {
+			out = append(out, Span{Text: s[last:m[0]], Kind: Plain})
+		}
+		out = append(out, Span{Text: s[m[0]:m[1]], Kind: Link, URL: s[m[0]:m[1]]})
+		last = m[1]
+	}
+	if last < len(s) {
+		out = append(out, Span{Text: s[last:], Kind: Plain})
+	}
+	return out
+}
+
+// Wrap word-wraps spans to width cells, keeping each word's span kind (and link).
 // Words longer than width are split.
 func Wrap(spans []Span, width int) [][]Span {
 	if width < 1 {
@@ -86,11 +117,11 @@ func Wrap(spans []Span, width int) [][]Span {
 	var lines [][]Span
 	var cur []Span
 	curW := 0
-	add := func(text string, k SpanKind) {
-		if n := len(cur); n > 0 && cur[n-1].Kind == k {
+	add := func(text string, sp Span) {
+		if n := len(cur); n > 0 && cur[n-1].Kind == sp.Kind && cur[n-1].URL == sp.URL {
 			cur[n-1].Text += text
 		} else {
-			cur = append(cur, Span{text, k})
+			cur = append(cur, Span{Text: text, Kind: sp.Kind, URL: sp.URL})
 		}
 		curW += ansi.StringWidth(text)
 	}
@@ -104,12 +135,12 @@ func Wrap(spans []Span, width int) [][]Span {
 	for _, sp := range spans {
 		for i, word := range strings.Split(sp.Text, " ") {
 			if i > 0 && curW > 0 && curW < width {
-				add(" ", sp.Kind)
+				add(" ", sp)
 			}
 			for word != "" {
 				w := ansi.StringWidth(word)
 				if curW+w <= width {
-					add(word, sp.Kind)
+					add(word, sp)
 					break
 				}
 				if curW > 0 {
@@ -117,7 +148,7 @@ func Wrap(spans []Span, width int) [][]Span {
 					continue
 				}
 				head := ansi.Truncate(word, width, "")
-				add(head, sp.Kind)
+				add(head, sp)
 				word = word[len(head):]
 				flush()
 			}

@@ -14,4 +14,9 @@ test:
 dist:
 	go run github.com/goreleaser/goreleaser/v2@latest release --clean --skip=publish
 
-.PHONY: build install test dist
+# Build and publish the GitHub release for the annotated tag on HEAD; its message is the release notes.
+# Needs `gh auth login` with a token that has Contents: read and write.
+release: test dist
+	gh release create $(VERSION) dist/ttui_*.tar.gz dist/checksums.txt --title $(VERSION) --notes-from-tag --verify-tag
+
+.PHONY: build install test dist release

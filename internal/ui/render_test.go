@@ -1,9 +1,18 @@
 package ui
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"ttui/internal/api"
+	"ttui/internal/auth"
+	"ttui/internal/config"
+	"ttui/internal/store"
+	"ttui/internal/theme"
+	"ttui/internal/update"
 )
 
 func TestLayout(t *testing.T) {
@@ -64,5 +73,24 @@ func TestWcSafe(t *testing.T) {
 		if ansi.StringWidth(got) != ansi.StringWidth(s) || ansi.StringWidthWc(got) != ansi.StringWidth(s) {
 			t.Errorf("wcSafe(%q) = %q", s, got)
 		}
+	}
+}
+
+// Note and checklist URLs, and the About box's repo link, reach the screen as OSC 8 links.
+func TestLinksRendered(t *testing.T) {
+	th, _ := theme.Load("terminal")
+	task := api.Task{ID: "a", ProjectID: "inbox1", Title: "Task A", Content: "see [docs](https://docs.dev)",
+		Items: []api.Item{{ID: "i", Title: "buy https://shop.dev"}}}
+	a := &App{cfg: config.Default(), th: th, st: store.New(nil, nil, []api.Task{task}, "", time.Now()), signed: &auth.Auth{AccessToken: "fake"},
+		list: "inbox", taskID: "a", focus: "tasks", sideKey: "l:inbox", screen: screenMain, idMap: map[string]string{}, w: 160, h: 45, now: time.Now(), version: "v9.9.9"}
+	out := a.View().Content
+	for _, u := range []string{"https://docs.dev", "https://shop.dev"} {
+		if !strings.Contains(out, "\x1b]8;;"+u+"\a") {
+			t.Errorf("no link to %s", u)
+		}
+	}
+	a.settings, a.about = true, true
+	if out := a.View().Content; !strings.Contains(out, "\x1b]8;;"+update.Repo+"\a") || !strings.Contains(out, "v9.9.9") {
+		t.Error("About box missing version or repo link")
 	}
 }

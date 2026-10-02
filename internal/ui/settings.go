@@ -9,6 +9,7 @@ import (
 
 	"ttui/internal/config"
 	"ttui/internal/theme"
+	"ttui/internal/update"
 )
 
 type setRow struct {
@@ -41,6 +42,8 @@ var setRows = []setRow{
 	{key: "account", label: "Signed in", desc: "Enter signs out and returns to the login screen"},
 	{key: "sync", label: "Sync every", opts: []string{"1m", "5m", "15m", "manual"}, desc: "Background two-way sync with TickTick"},
 	{key: "updates", label: "Check for updates", opts: []string{"on", "off"}, desc: "Once a day; U installs a new release and restarts"},
+	{sec: "INFO"},
+	{key: "about", label: "About", desc: "Version and project page"},
 }
 
 // field returns a pointer to the config string behind key, or nil for bool rows.
@@ -82,6 +85,10 @@ func (a *App) changeSetting(r setRow, dir int) tea.Cmd {
 		}
 		return nil
 	}
+	if r.key == "about" {
+		a.about = dir > 0
+		return nil
+	}
 	i := slices.Index(r.opts, a.settingValue(r))
 	return a.setOption(r.key, r.opts[((i+dir)%len(r.opts)+len(r.opts))%len(r.opts)])
 }
@@ -116,6 +123,12 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 }
 
 func (a *App) settingsKey(k tea.KeyPressMsg) tea.Cmd {
+	if a.about {
+		if key := k.String(); key == "esc" || key == "enter" || key == "q" || key == "," {
+			a.about = false
+		}
+		return nil
+	}
 	move := func(d int) {
 		for i := a.sIdx + d; i >= 0 && i < len(setRows); i += d {
 			if setRows[i].sec == "" {
@@ -167,6 +180,8 @@ func (a *App) viewSettings() (string, int, int) {
 				email = a.st.Email
 			}
 			val = rp.s("text").Render(email) + rp.sp(2) + rp.s("error").Render("⏎ sign out")
+		} else if r.key == "about" {
+			val = rp.s("dim").Render("⏎ open")
 		} else {
 			cur := a.settingValue(r)
 			for j, o := range r.opts {
@@ -280,4 +295,21 @@ func (a *App) viewHelp() (string, int, int) {
 	body := window(lines, -1, max(a.h-1-2, 1), &a.offHelp)
 	h := len(body) + 2
 	return a.frame(p, frameOpts{w: w, h: h, title: "Keys", modal: true, topRight: "esc close", body: body}), w, h
+}
+
+// viewAbout renders the About box (Settings → About): version and project link.
+func (a *App) viewAbout() (string, int, int) {
+	p := a.overlayPen()
+	w := min(64, a.w-4)
+	row := func(label, val string) string {
+		return p.line(w, p.s("dim").Render(padRight(label, 10))+val, "")
+	}
+	body := []string{
+		"",
+		row("Version", p.s("text").Render(a.version)),
+		row("GitHub", linkify(p.s("text"), p.s("info"), update.Repo, w-4-10)),
+		"",
+	}
+	h := len(body) + 2
+	return a.frame(p, frameOpts{w: w, h: h, title: "About ttui", modal: true, topRight: "esc close", body: body}), w, h
 }

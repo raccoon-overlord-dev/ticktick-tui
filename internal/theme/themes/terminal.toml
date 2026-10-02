@@ -1,5 +1,6 @@
 # ticktick-tui theme: terminal
-# Roles map to ANSI indices (0-15) so ttui inherits the terminal's own palette.
+# Roles map to ANSI indices (0-15) so ttui inherits the terminal's own palette,
+# except surface2 (selected row), a fixed 256-color gray: ANSI has no shade between 0 and 8.
 # An empty value means the terminal's default foreground/background.
 name = "terminal"
 separator = "·"
@@ -7,7 +8,7 @@ separator = "·"
 [colors]
 base      = ""
 surface   = ""
-surface2  = "0"
+surface2  = "237"  # 256-color gray (#3a3a3a); 236 darker, 238 lighter
 line      = "8"
 dim       = "8"
 muted     = "8"

@@ -21,7 +21,8 @@ Ideas planned after v1. Not implemented yet.
 
 - Edit `due_menu` from Settings (today it's in `config.toml` only).
 - Manual task order, like the GUI: overrides the list's sort for that task.
-- Repeat rules in quick add (e.g. `every week`); today a repeat is set from the details pane.
+- Repeat rules in quick add (e.g. `every week`); today a repeat is set from the details pane. `parse.ParseRepeat` already reads the syntax.
+- Custom repeat: move the due date to the rule's first match (the web app does it for first/last workday; needs a holiday calendar the API doesn't expose).
 - Completed history beyond the last 7 days.
 
 ## Lists
@@ -33,7 +34,7 @@ Ideas planned after v1. Not implemented yet.
 
 - Cursor blink while editing notes.
 - Better insert mode for task details.
-- (To be confirmed) pane shortcuts: `L` Lists, `C` current list, `D` Details.
+- (To be confirmed) pane shortcuts: `L` Lists, `C` current list (`D` is now delete; `1 2 3` already focus the panes).
 
 ## Distribution
 

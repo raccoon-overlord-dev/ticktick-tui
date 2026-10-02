@@ -89,6 +89,7 @@ type App struct {
 	settings                      bool
 	sIdx                          int
 	help                          bool // ? shortcuts panel
+	about                         bool // Settings → About box
 	offHelp                       int
 	offLists, offTasks, offDetail int
 	notesTop                      int     // detail line of the Notes header, for scrolling long notes

@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"ttui/internal/parse"
 	"ttui/internal/theme"
 )
 
@@ -48,6 +49,20 @@ func (p pen) line(w int, left, right string) string {
 		gap = w - 4 - lipgloss.Width(left) - lipgloss.Width(right)
 	}
 	return p.sp(1) + left + p.sp(gap) + right + p.sp(1)
+}
+
+// linkify renders plain text in st with its URLs as clickable (OSC 8) links in linkSt,
+// cut to n cells.
+func linkify(st, linkSt lipgloss.Style, s string, n int) string {
+	var b strings.Builder
+	for _, sp := range parse.Links(s) {
+		if sp.Kind == parse.Link {
+			b.WriteString(linkSt.Underline(true).Hyperlink(sp.URL).Render(sp.Text))
+		} else {
+			b.WriteString(st.Render(sp.Text))
+		}
+	}
+	return ansi.Truncate(b.String(), max(n, 0), "…")
 }
 
 // trunc shortens plain text to n cells with an ellipsis.

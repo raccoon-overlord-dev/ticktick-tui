@@ -42,6 +42,10 @@ The token is stored in `~/.config/ttui/auth.toml` (mode `0600`). Sign out from S
 Three panes (lists, tasks, details) at 120 columns or more, two (tasks, details) from 80, one below that,
 where details open as a bottom sheet. Force a layout in Settings → Columns.
 
+URLs in notes (bare `https://…` or markdown `[text](url)`) and in checklist items are clickable in terminals
+that support OSC 8 hyperlinks (Ghostty, kitty, WezTerm, iTerm2, recent GNOME Terminal and Windows Terminal).
+Settings → About shows the version and a link to the project page.
+
 ## Keys
 
 Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
@@ -56,7 +60,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `tab` | Next pane |
 | `⏎` | Open; on a detail field: edit it, pick a due date, repeat or list, cycle Priority, or tick a checklist item |
 | `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). In lists, `space` (or `⏎`, `l`) opens or closes a folder; folders start closed and ttui remembers the open ones |
-| `H` | In lists: hide the list from Today, Tomorrow, Next 7 Days and the filters, or show it again (hidden lists are dimmed). Stands in for TickTick's "Show in smart list: Do not show", which the API doesn't expose |
+| `H` | In lists: hide the list from Today, Tomorrow, Next 7 Days and the filters, or show it again (hidden lists get a crossed-out eye icon, `x` without Nerd Fonts). Stands in for TickTick's "Show in smart list: Do not show", which the API doesn't expose |
 | `p` | Cycle priority High → Medium → Low → None |
 | `d` | Due date menu: the dates in `due_menu`, No date, or Custom (type one). A date without a time keeps the task's time |
 | `m` | Move the task to another list |
@@ -175,11 +179,14 @@ Developer commands read `.env` (see `.env.example`):
 - `ttui dev run`: the UI with `.env` settings
 - `ttui dev lists`, `ttui dev raw METHOD PATH [JSON]`: API checks with `TTUI_DEV_TOKEN`
 
-Releases are built locally and uploaded by hand:
+Releases are built locally and published with the [GitHub CLI](https://cli.github.com) (`gh auth login` with a
+fine-grained token that has **Contents: Read and write** on the repo):
 
-1. `make test`, then `git tag vX.Y.Z && git push origin vX.Y.Z`
-2. `make dist`: [GoReleaser](https://goreleaser.com) (`.goreleaser.yaml`) writes four `ttui_<os>_<arch>.tar.gz` archives and `checksums.txt` to `dist/`
-3. `gh release create vX.Y.Z dist/ttui_*.tar.gz dist/checksums.txt --title vX.Y.Z` (or GitHub → Releases → Draft a new release → attach those five files → Publish). Not a draft or pre-release, or `install.sh` won't find it.
+1. Commit and push `main`, then tag it with the release notes as the tag message and push the tag:
+   `git tag -a vX.Y.Z` (opens your editor), then `git push origin vX.Y.Z`
+2. `make release`: runs the tests, builds four `ttui_<os>_<arch>.tar.gz` archives and `checksums.txt` in `dist/` with
+   [GoReleaser](https://goreleaser.com) (`.goreleaser.yaml`), and publishes them as release `vX.Y.Z` with the tag
+   message as its notes. It stops if the tree has uncommitted changes, HEAD isn't the tag, or the tag isn't pushed.
 
 `install.sh` downloads them from the latest release.
 
