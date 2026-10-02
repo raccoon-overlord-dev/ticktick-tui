@@ -177,11 +177,15 @@ func (c *Client) Projects(ctx context.Context) ([]Project, error) {
 }
 
 // OpenTasks returns every open task in every list (Inbox included) in one request.
-// Cheaper than ProjectData per list under the 100 requests/minute limit.
+// Cheaper than ProjectData per list under the 100 requests/minute limit,
+// but it returns at most FilterCap tasks (see docs/api-notes.md).
 func (c *Client) OpenTasks(ctx context.Context) ([]Task, error) {
 	var out []Task
 	return out, c.Do(ctx, http.MethodPost, "/task/filter", map[string]any{"status": []int{0}}, &out)
 }
+
+// FilterCap is the most tasks /task/filter returns; a full answer may be cut short.
+const FilterCap = 200
 
 func (c *Client) ProjectData(ctx context.Context, projectID string) (*ProjectData, error) {
 	var out ProjectData

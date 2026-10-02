@@ -21,8 +21,8 @@ Reproduce with `ttui dev raw METHOD PATH [JSON]` (reads `TTUI_DEV_TOKEN` from `.
 
 ## Other findings
 
-- **`POST /task/filter` with `{"status":[0]}` returns every open task in every list, Inbox included, in one request.** Same ids and same fields as calling `/project/{id}/data` for each list. `{}` gives the same result (open tasks only).
-- **Sync strategy** (instead of fetching `/data` for every list): startup and each sync = `GET /project` + `GET /project/group` + `POST /task/filter` = 3 requests, regardless of list count. `sync_every = 1m` fits within the rate limit.
+- **`POST /task/filter` with `{"status":[0]}` returns open tasks from every list, Inbox included, in one request, but at most 200.** Same ids and same fields as `/project/{id}/data`. `{}` gives the same result (open tasks only). Found 2026-10-02 on a large account: it returned exactly 200 and left whole lists out, with no paging field or header. `GET /project/inbox/data` works for the Inbox.
+- **Sync strategy:** `GET /project` + `GET /project/group` + `POST /task/filter` (+ `/task/completed` and the Inbox members for the email). If the filter returns 200 tasks (`api.FilterCap`), it was cut short: ttui then reads `/project/{id}/data` for the Inbox and every list instead (6 at a time; rate-limited requests are retried). That is about 1 request per list per sync, so with ~90 lists `sync_every = 1m` can reach the 100/minute limit. `/task/completed` may have the same cap; untested (ttui asks for 7 days only).
 - `GET /tag` returned `[]` even while a task had a tag. The tag list must be built from the tasks' `tags` arrays.
 - **Folders:** `GET /project/group` returns `[{id, name, sortOrder, showAll}]`. A list inside a folder carries `groupId` equal to the folder `id`; lists outside folders omit `groupId`. Folders hold no tasks themselves. `closed` was absent on every list (treat missing as `false`). Lists and folders both have `sortOrder`; confirm the sort direction against the web app in Phase 3.
 - Dates come back **with milliseconds**: `2026-10-02T09:00:00.000+0000`. We send them without (`...T09:00:00+0000`). The parser must accept both.

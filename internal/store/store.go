@@ -4,8 +4,10 @@ package store
 import (
 	"cmp"
 	"context"
+	"errors"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"ttui/internal/api"
@@ -35,6 +37,9 @@ func Fetch(ctx context.Context, c *api.Client) (*Store, error) {
 		return nil, err
 	}
 	open, err := c.OpenTasks(ctx)
+	if err == nil && len(open) >= api.FilterCap { // cut short: ask each list instead
+		open, err = openByList(ctx, c, ps)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +49,38 @@ func Fetch(ctx context.Context, c *api.Client) (*Store, error) {
 	}
 	email, _ := c.Email(ctx) // optional
 	return New(ps, gs, append(open, done...), email, time.Now()), nil
+}
+
+// openByList fetches the open tasks of the Inbox and every open list, a few at a time.
+func openByList(ctx context.Context, c *api.Client, ps []api.Project) ([]api.Task, error) {
+	ids := []string{"inbox"}
+	for _, p := range ps {
+		if !p.Closed {
+			ids = append(ids, p.ID)
+		}
+	}
+	res := make([][]api.Task, len(ids))
+	errs := make([]error, len(ids))
+	sem := make(chan struct{}, 6)
+	var wg sync.WaitGroup
+	for i, id := range ids {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			d, err := c.ProjectData(ctx, id)
+			if err == nil {
+				res[i] = d.Tasks
+			}
+			errs[i] = err
+		}()
+	}
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
+	}
+	return slices.Concat(res...), nil
 }
 
 func New(ps []api.Project, gs []api.Group, ts []api.Task, email string, synced time.Time) *Store {

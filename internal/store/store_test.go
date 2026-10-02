@@ -1,6 +1,11 @@
 package store
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -174,5 +179,37 @@ func TestMutationsAndSnapshot(t *testing.T) {
 	got := LoadSnapshot()
 	if got == nil || got.Task("a") == nil || !got.SyncedAt.Equal(now) {
 		t.Fatalf("snapshot round trip: %+v", got)
+	}
+}
+
+// /task/filter stops at 200 tasks; Fetch must then read each list instead.
+func TestFetchPastFilterCap(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var out any = []any{}
+		switch r.URL.Path {
+		case "/project":
+			out = []api.Project{{ID: "x", Name: "X"}}
+		case "/task/filter":
+			var ts []api.Task
+			for i := range api.FilterCap {
+				ts = append(ts, api.Task{ID: fmt.Sprint("i", i), ProjectID: "inbox1"})
+			}
+			out = ts
+		case "/project/inbox/data":
+			out = api.ProjectData{Tasks: []api.Task{{ID: "i0", ProjectID: "inbox1"}}}
+		case "/project/x/data":
+			out = api.ProjectData{Tasks: []api.Task{{ID: "x0", ProjectID: "x"}, {ID: "x1", ProjectID: "x"}}}
+		}
+		json.NewEncoder(w).Encode(out)
+	}))
+	defer srv.Close()
+	c := api.New("fake-token")
+	c.BaseURL = srv.URL
+	s, err := Fetch(context.Background(), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Tasks) != 3 || s.OpenCount("p:x", time.Now()) != 2 {
+		t.Fatalf("got %d tasks, %d in X", len(s.Tasks), s.OpenCount("p:x", time.Now()))
 	}
 }
