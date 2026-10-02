@@ -14,6 +14,7 @@ Ideas planned after v1. Not implemented yet.
 - Clicking a pane focuses it; clicking a list, task, checklist item or the notes block selects it, and clicking the selected item again opens it (same as ⏎).
 - Toggle in Settings (`Mouse: on / off`) and `config.toml` (`[appearance] mouse = true`).
 - Implementation: `tea.View.MouseMode = tea.MouseModeCellMotion` when enabled, map click coordinates to rows using the pane layout.
+- Wheel scrolling (tried and pulled for now): map `tea.MouseWheelMsg` to ↑↓. Caveats found: mouse mode makes text selection need `shift`, and with mouse off most terminals still turn the wheel into ↑↓ in the alternate screen ("alternate scroll", `CSI ?1007 l` turns it off, but restoring it on exit means guessing its old state).
 - Clickable `https://` links inside notes (may come for free via OSC 8 hyperlinks, without mouse mode).
 
 ## Tasks

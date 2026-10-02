@@ -27,7 +27,7 @@ curl -fsSL https://raw.githubusercontent.com/raccoon-overlord-dev/ticktick-tui/m
 ```
 
 It installs `ttui` to `~/.local/bin` (no sudo) after checking the download's SHA-256, and tells you if that folder needs adding to your `PATH`.
-Run it again to upgrade; add `sh -s -- --uninstall` to remove it. Then run:
+Run it again to upgrade (or press `U` in ttui when it shows a new version); add `sh -s -- --uninstall` to remove it. Then run:
 
 ```sh
 ttui

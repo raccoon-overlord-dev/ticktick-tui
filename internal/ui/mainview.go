@@ -88,12 +88,13 @@ func (a *App) sideItems() []sideItem {
 				kids = append(kids, q)
 			}
 		}
-		open := !a.folded[g.ID]
+		open := a.folderOpen(g.ID)
 		f := sideItem{key: "f:" + g.ID, folder: g.ID, icon: a.icon("", "▾"), iconRole: "accent", label: g.Name}
 		if !open {
 			f.icon = a.icon("", "▸")
 			for _, q := range kids {
 				f.count += a.st.OpenCount("p:"+q.ID, a.now)
+				f.active = f.active || "p:"+q.ID == a.list
 			}
 		}
 		rows = append(rows, f)
@@ -426,11 +427,15 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		hint = p.s("dim").Render(" esc save")
 	}
 	lines = append(lines, "", p.line(w, p.s("sub").Render("Notes ")+p.s("line").Render(strings.Repeat("─", max(cw-6-9, 0))), hint))
+	a.notesTop = len(lines) - 1
 	np := pick("notes")
+	if sel >= 0 && keys[a.df] == "notes" && sel < a.offDetail { // scrolled into the notes: don't snap back to their top
+		sel = -1
+	}
 	if editing("notes") {
-		sel = len(lines)
 		np = p.on(a.selBg(true))
-		ls := a.in.lines(np, "text", cw)
+		ls, row := a.in.lines(np, "text", cw)
+		sel = len(lines) + row
 		for len(ls) < 4 {
 			ls = append(ls, "")
 		}
@@ -563,7 +568,14 @@ func (a *App) viewMain() (string, [][2]string) {
 	var hints [][2]string
 	switch ef {
 	case "lists":
-		hints = [][2]string{{"j/k", "move"}, {"l", "open"}, {"␣", "fold"}, {"/", "search"}, {"?", "keys"}, {":", "command"}, {",", "settings"}, {"a", "add"}}
+		open := [2]string{"l", "open"}
+		if r := a.sideRow(); r != nil && r.folder != "" {
+			open = [2]string{"␣ ⏎", "open folder"}
+			if a.folderOpen(r.folder) {
+				open[1] = "close folder"
+			}
+		}
+		hints = [][2]string{{"j/k", "move"}, open, {"/", "search"}, {"?", "keys"}, {":", "command"}, {",", "settings"}, {"a", "add"}}
 	case "tasks":
 		done := "done"
 		if t := a.selTask(); t != nil && store.Done(t) {
@@ -636,6 +648,10 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		a.move(ef, -1<<20)
 	case "end":
 		a.move(ef, 1<<20)
+	case "pgup":
+		a.move(ef, -a.page())
+	case "pgdown":
+		a.move(ef, a.page())
 	case "left":
 		switch {
 		case ef == "detail":
@@ -686,7 +702,7 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 	case "space", "x":
 		if ef == "lists" {
 			if r := a.sideRow(); r != nil && r.folder != "" && key == "space" {
-				a.folded[r.folder] = !a.folded[r.folder]
+				a.toggleFolder(r.folder)
 			}
 			return nil
 		}
@@ -739,6 +755,8 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		if ef != "lists" {
 			a.sortPicker(0)
 		}
+	case "U":
+		a.askUpdate()
 	case ",":
 		a.settings, a.sIdx = true, 1
 	case "?":
@@ -796,9 +814,19 @@ func (a *App) move(ef string, d int) {
 		}
 		a.taskID, a.df, a.offDetail = nav[clamp(i+d, len(nav))].ID, 0, 0
 	case "detail":
-		if t := a.selTask(); t != nil {
-			a.df = clamp(a.df+d, len(detailKeys(t)))
+		t := a.selTask()
+		if t == nil {
+			return
 		}
+		// On the notes (the last field) ↑↓ and pgup/pgdown scroll them; going up leaves once
+		// their header is back on top. home/end keep jumping between fields.
+		if keys := detailKeys(t); a.df == len(keys)-1 && d != -1<<20 && (d > 0 || a.offDetail > a.notesTop) {
+			if a.offDetail += d; d < 0 {
+				a.offDetail = max(a.offDetail, a.notesTop)
+			}
+			return
+		}
+		a.df = clamp(a.df+d, len(detailKeys(t)))
 	}
 }
 
@@ -808,10 +836,22 @@ func (a *App) openSide() {
 		return
 	}
 	if r.folder != "" {
-		a.folded[r.folder] = !a.folded[r.folder]
+		a.toggleFolder(r.folder)
 		return
 	}
 	a.list, a.focus = r.list, "tasks"
+}
+
+// Folders start collapsed, as in the web app; the open ones are remembered in config.toml.
+func (a *App) folderOpen(id string) bool { return slices.Contains(a.cfg.Layout.OpenFolders, id) }
+
+func (a *App) toggleFolder(id string) {
+	if i := slices.Index(a.cfg.Layout.OpenFolders, id); i >= 0 {
+		a.cfg.Layout.OpenFolders = slices.Delete(a.cfg.Layout.OpenFolders, i, i+1)
+	} else {
+		a.cfg.Layout.OpenFolders = append(a.cfg.Layout.OpenFolders, id)
+	}
+	a.save()
 }
 
 func (a *App) toggleDueLabels() {

@@ -105,7 +105,7 @@ func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
 		if unauthorized(m.err) {
 			return a.expired()
 		}
-		return a.pump()
+		return tea.Batch(a.pump(), a.restartIfIdle())
 	}
 	// Take the server's copy unless more local edits to this task are still queued.
 	pending := slices.ContainsFunc(a.queue, func(o op) bool { return o.taskID == m.op.taskID })
@@ -128,7 +128,7 @@ func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
 		a.st.Upsert(*m.t)
 	}
 	a.st.Save()
-	return a.pump()
+	return tea.Batch(a.pump(), a.restartIfIdle())
 }
 
 func unauthorized(err error) bool {

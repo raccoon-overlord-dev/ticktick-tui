@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 
@@ -56,6 +57,11 @@ func (t *textInput) key(k tea.KeyPressMsg, multiline bool) bool {
 			i--
 		}
 		t.r, t.cur = append(t.r[:i], t.r[t.cur:]...), i
+	case "up", "down":
+		if !multiline {
+			return false
+		}
+		t.vmove(k.String() == "down")
 	case "enter":
 		if !multiline {
 			return false
@@ -68,6 +74,37 @@ func (t *textInput) key(k tea.KeyPressMsg, multiline bool) bool {
 		t.insert(k.Text)
 	}
 	return true
+}
+
+// vmove moves the cursor to the same column on the previous or next line.
+func (t *textInput) vmove(down bool) {
+	start := t.cur
+	for start > 0 && t.r[start-1] != '\n' {
+		start--
+	}
+	col := t.cur - start
+	if down {
+		next := slices.Index(t.r[t.cur:], '\n')
+		if next < 0 {
+			t.cur = len(t.r)
+			return
+		}
+		start = t.cur + next + 1
+	} else {
+		if start == 0 {
+			t.cur = 0
+			return
+		}
+		start--
+		for start > 0 && t.r[start-1] != '\n' {
+			start--
+		}
+	}
+	end := start
+	for end < len(t.r) && t.r[end] != '\n' {
+		end++
+	}
+	t.cur = min(start+col, end)
 }
 
 // view renders one line of at most width cells, scrolled so the cursor stays visible.
@@ -84,8 +121,9 @@ func (t *textInput) view(p pen, role string, width int) string {
 	return ansi.Truncate(s, width, "")
 }
 
-// lines renders a multi-line value hard-wrapped to width, with the cursor.
-func (t *textInput) lines(p pen, role string, width int) []string {
+// lines renders a multi-line value hard-wrapped to width, with the cursor,
+// and reports which of the returned lines holds the cursor.
+func (t *textInput) lines(p pen, role string, width int) ([]string, int) {
 	before, after := string(t.r[:t.cur]), ""
 	if t.cur < len(t.r) {
 		after = string(t.r[t.cur+1:])
@@ -103,11 +141,16 @@ func (t *textInput) lines(p pen, role string, width int) []string {
 		}
 		return strings.Join(ls, "\n")
 	}
-	var out []string
-	for _, l := range strings.Split(render(before)+cur+render(after), "\n") {
-		out = append(out, strings.Split(ansi.Hardwrap(l, width, true), "\n")...)
+	wrap := func(s string) []string {
+		var out []string
+		for _, l := range strings.Split(s, "\n") {
+			out = append(out, strings.Split(ansi.Hardwrap(l, width, true), "\n")...)
+		}
+		return out
 	}
-	return out
+	// Hard wrapping is positional, so the text up to the cursor wraps the same way on its own.
+	row := len(wrap(render(before)+strings.TrimSuffix(cur, "\n"))) - 1
+	return wrap(render(before) + cur + render(after)), row
 }
 
 func cursorCell(p pen, r []rune, i int, role string) string {

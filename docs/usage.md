@@ -12,7 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/raccoon-overlord-dev/ticktick-tui/m
 
 The script downloads the latest release for your OS and CPU, checks its SHA-256 against `checksums.txt`,
 and installs `ttui` to `~/.local/bin` (no sudo). If that folder isn't on your `PATH`, it prints the line to add.
-Run it again to upgrade.
+Run it again to upgrade, or press `U` in ttui when the status bar shows a new version: ttui checks once a day (Settings → Check for updates, `update_check` in `config.toml`), verifies the download against the release checksums, replaces itself and restarts. If it can't write its own binary (e.g. installed in a root-owned folder), it copies this install command to the clipboard instead.
 
 | Variable | Effect |
 |---|---|
@@ -50,15 +50,16 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 |---|---|
 | `j` `k` / `↓` `↑` | Move. In lists, moving selects the list |
 | `g` / `G` | Top / bottom |
+| `pgup` / `pgdn` | One page up / down (lists, tasks, long notes, this panel, the notes editor). |
 | `h` `l` / `←` `→` | Previous / next pane; `l` opens a list, a folder or a task |
 | `1` `2` `3`, `tab` | Focus lists / tasks / details, cycle panes |
 | `⏎` | Open; on a detail field: edit it, pick a due date or list, cycle Repeat / Priority, or tick a checklist item |
-| `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). In lists, `space` folds a folder |
+| `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). In lists, `space` (or `⏎`, `l`) opens or closes a folder; folders start closed and ttui remembers the open ones |
 | `p` | Cycle priority High → Medium → Low → None |
 | `d` | Due date menu: the dates in `due_menu`, No date, or Custom (type one). A date without a time keeps the task's time |
 | `m` | Move the task to another list |
 | `c` | Add checklist items: `⏎` adds one and opens the next, `esc` finishes |
-| `i` / `e` | Edit the title (tasks) or the field under the cursor (details). `esc` or `⏎` saves; in notes `⏎` is a newline and `esc` / `ctrl+s` saves (`ctrl+⏎` also saves where the terminal passes it through; Omarchy uses it for fullscreen) |
+| `i` / `e` | Edit the title (tasks) or the field under the cursor (details). `esc` or `⏎` saves. On the notes `↑` `↓` scroll them when they are long; while editing notes `⏎` is a newline, `↑` `↓` move between lines and `esc` / `ctrl+s` saves (`ctrl+⏎` also saves where the terminal passes it through; Omarchy uses it for fullscreen) |
 | `a` / `n` | Quick add |
 | `/`, `ctrl+k` | Search |
 | `:` | Commands |
@@ -66,6 +67,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `t` | Toggle due-date labels |
 | `s` | Group / sort this list: Group by, Sort by, Order (like the web app's sort menu); saved per list |
 | `ctrl+r` | Sync now |
+| `U` | Update ttui when the status bar shows `↑ vX.Y.Z` (asks first, then restarts on the new version) |
 | `,` | Settings |
 | `?` | All keys |
 | `esc` / `q` | Back / quit |
@@ -99,6 +101,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | | `nerd_font_icons` | `true` · `false` (needs a [Nerd Font](https://www.nerdfonts.com); `false` uses ASCII) |
 | `layout` | `columns` | `auto` · `3` · `2` · `1` |
 | | `show_completed` | `true` · `false` |
+| | `open_folders` | folders shown open in Lists, written by ttui when you open or close one (folders start closed) |
 | `tasks` | `due_label`, `week_start` | `true`/`false`; `mon`·`sun` |
 | | `group_by` | `list` · `date` · `created` · `tag` · `priority` · `none` (default for all lists) |
 | | `sort_by` | `date` · `created` · `modified` · `title` · `tag` · `priority` (default for all lists) |
@@ -107,6 +110,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | | `due_menu` | dates offered by `d`, in quick-add syntax: `["today", "tomorrow", "+2d", "mon", "+7d"]` (config file only) |
 | `keys` | `keymap` | `vim+arrows` · `arrows` |
 | `account` | `sync_every` | `1m` · `5m` · `15m` · `manual` |
+| | `update_check` | `true` · `false`: look for a new release once a day (one request to GitHub) |
 
 ### Themes
 

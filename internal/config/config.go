@@ -22,8 +22,9 @@ type Config struct {
 		NerdFontIcons   bool   `toml:"nerd_font_icons"`
 	} `toml:"appearance"`
 	Layout struct {
-		Columns       string `toml:"columns"`
-		ShowCompleted bool   `toml:"show_completed"`
+		Columns       string   `toml:"columns"`
+		ShowCompleted bool     `toml:"show_completed"`
+		OpenFolders   []string `toml:"open_folders"` // folder (group) ids shown expanded in Lists
 	} `toml:"layout"`
 	Tasks struct {
 		DueLabel  bool            `toml:"due_label"`
@@ -36,8 +37,9 @@ type Config struct {
 		Keymap string `toml:"keymap"`
 	} `toml:"keys"`
 	Account struct {
-		Server    string `toml:"server"`
-		SyncEvery string `toml:"sync_every"`
+		Server      string `toml:"server"`
+		SyncEvery   string `toml:"sync_every"`
+		UpdateCheck bool   `toml:"update_check"`
 	} `toml:"account"`
 }
 

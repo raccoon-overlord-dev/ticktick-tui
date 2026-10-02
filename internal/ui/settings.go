@@ -40,6 +40,7 @@ var setRows = []setRow{
 	{sec: "ACCOUNT"},
 	{key: "account", label: "Signed in", desc: "Enter signs out and returns to the login screen"},
 	{key: "sync", label: "Sync every", opts: []string{"1m", "5m", "15m", "manual"}, desc: "Background two-way sync with TickTick"},
+	{key: "updates", label: "Check for updates", opts: []string{"on", "off"}, desc: "Once a day; U installs a new release and restarts"},
 }
 
 // field returns a pointer to the config string behind key, or nil for bool rows.
@@ -55,7 +56,7 @@ func (a *App) field(key string) *string {
 
 func (a *App) flag(key string) *bool {
 	c := a.cfg
-	return map[string]*bool{"icons": &c.Appearance.NerdFontIcons, "completed": &c.Layout.ShowCompleted, "due": &c.Tasks.DueLabel}[key]
+	return map[string]*bool{"icons": &c.Appearance.NerdFontIcons, "completed": &c.Layout.ShowCompleted, "due": &c.Tasks.DueLabel, "updates": &c.Account.UpdateCheck}[key]
 }
 
 // keymap values in config.toml differ from their labels.
@@ -104,8 +105,12 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 		a.th = th
 	}
 	a.save()
-	if r.key == "sync" {
+	switch r.key {
+	case "sync":
 		return a.scheduleSync()
+	case "updates":
+		a.newVersion = ""
+		return a.checkUpdate()
 	}
 	return nil
 }
@@ -206,10 +211,12 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{sec: "MOVE"},
 	{key: "j k  ↓ ↑", desc: "Move; in lists, moving selects the list"},
 	{key: "g G", desc: "Top / bottom"},
+	{key: "pgup pgdn", desc: "Page up / down"},
 	{key: "h l  ← →", desc: "Previous / next pane; l opens"},
 	{key: "1 2 3  tab", desc: "Focus lists / tasks / details, cycle panes"},
 	{key: "⏎", desc: "Open; on a field: edit, pick, cycle or tick"},
 	{key: "esc", desc: "Back"},
+	{key: "␣ ⏎ l", desc: "On a folder: open / close it (remembered)"},
 	{sec: "TASKS"},
 	{key: "x  ␣", desc: "Complete / reopen (x right after: undo)"},
 	{key: "p", desc: "Cycle priority"},
@@ -225,12 +232,13 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: ":", desc: "Commands"},
 	{key: "@ #", desc: "Jump to a list / tag"},
 	{key: "ctrl+r", desc: "Sync now"},
+	{key: "U", desc: "Update ttui (when the status bar shows ↑)"},
 	{key: ",", desc: "Settings"},
 	{key: "?", desc: "This panel"},
 	{key: "q", desc: "Quit"},
 	{sec: "EDITING"},
 	{key: "⏎  esc", desc: "Save"},
-	{key: "notes", desc: "⏎ newline · esc or ctrl+s save"},
+	{key: "notes", desc: "⏎ newline · ↑↓ line · esc or ctrl+s save"},
 	{key: "checklist", desc: "⏎ add and type the next · esc done"},
 }
 
@@ -241,6 +249,10 @@ func (a *App) helpKey(k tea.KeyPressMsg) tea.Cmd {
 		a.offHelp++
 	case key == "up" || (vim && key == "k"):
 		a.offHelp = max(a.offHelp-1, 0)
+	case key == "pgdown":
+		a.offHelp += a.page()
+	case key == "pgup":
+		a.offHelp = max(a.offHelp-a.page(), 0)
 	case key == "esc" || key == "?" || key == "q":
 		a.help = false
 	}

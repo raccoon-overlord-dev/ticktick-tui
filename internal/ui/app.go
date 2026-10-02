@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -42,12 +44,15 @@ func run(version string, demo *store.Store) error {
 		return fmt.Errorf("auth.toml: %w", err)
 	}
 	a := &App{version: version, cfg: cfg, th: th, signed: signed, now: time.Now(),
-		focus: "tasks", list: "today", sideKey: "l:today", folded: map[string]bool{}, idMap: map[string]string{}}
+		focus: "tasks", list: "today", sideKey: "l:today", idMap: map[string]string{}}
 	if demo != nil {
 		a.signed, a.st, a.demo = &auth.Auth{}, demo, true
 	}
-	_, err = tea.NewProgram(a).Run()
-	return err
+	if _, err = tea.NewProgram(a).Run(); err != nil || a.restart == "" {
+		return err
+	}
+	// Updated: replace this process with the new binary, in the same terminal.
+	return syscall.Exec(a.restart, os.Args, os.Environ())
 }
 
 type screen int
@@ -80,12 +85,12 @@ type App struct {
 	taskID                        string
 	df                            int  // detail field index
 	sheet                         bool // 1-pane detail sheet open
-	folded                        map[string]bool
 	settings                      bool
 	sIdx                          int
 	help                          bool // ? shortcuts panel
 	offHelp                       int
 	offLists, offTasks, offDetail int
+	notesTop                      int     // detail line of the Notes header, for scrolling long notes
 	cmd                           *cmdBar // command bar, nil when closed
 	edit, editID                  string  // inline edit: field (title|due|tags|notes) and task
 	in                            textInput
@@ -103,6 +108,12 @@ type App struct {
 	flash      string
 	flashRole  string
 	flashUntil time.Time
+
+	// self-update
+	newVersion    string // newer release tag, "" when up to date
+	confirmUpdate bool   // the "update and restart? y/n" prompt is showing
+	updating      bool
+	restart       string // updated binary to exec once the queue is empty
 }
 
 type (
@@ -134,9 +145,9 @@ func (a *App) Init() tea.Cmd {
 	if a.signed != nil {
 		a.screen = screenMain
 		a.st = store.LoadSnapshot() // render at once, then refresh
-		return tea.Batch(a.tick(), a.syncNow())
+		return tea.Batch(a.tick(), a.syncNow(), a.checkUpdate())
 	}
-	return tea.Batch(a.tick(), a.auth.start())
+	return tea.Batch(a.tick(), a.auth.start(), a.checkUpdate())
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -157,6 +168,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.onStore(msg)
 	case opDoneMsg:
 		return a, a.onOpDone(msg)
+	case updateMsg:
+		a.newVersion = string(msg)
+		return a, nil
+	case updateDoneMsg:
+		return a, a.onUpdated(msg)
 	case syncTickMsg:
 		if int(msg) == a.syncGen {
 			return a, a.syncNow()
@@ -184,6 +200,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if k.String() == "q" {
 				return a, tea.Quit
 			}
+		case a.confirmUpdate:
+			return a, a.confirmKey(k)
 		case a.cmd != nil:
 			return a, a.cmdKey(k)
 		case a.edit != "":
@@ -199,6 +217,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+// page is how far pgup/pgdown move: a pane's height less its border.
+func (a *App) page() int { return max(a.h-3, 1) }
+
 func (a *App) setFlash(s string) {
 	a.flash, a.flashRole, a.flashUntil = s, "ok", time.Now().Add(2600*time.Millisecond)
 }
@@ -213,6 +234,12 @@ func (a *App) editKey(k tea.KeyPressMsg) tea.Cmd {
 	case key == "esc" || key == "ctrl+s" || key == "ctrl+enter" || (key == "enter" && a.edit != "notes"):
 		cmd, _ := a.commitEdit()
 		return cmd
+	}
+	if a.edit == "notes" && (key == "pgup" || key == "pgdown") {
+		for range a.page() {
+			a.in.vmove(key == "pgdown")
+		}
+		return nil
 	}
 	a.in.key(k, a.edit == "notes")
 	return nil
@@ -370,25 +397,12 @@ func (a *App) statusBar(mode, modeRole string, hints [][2]string) string {
 	left := " " + st(modeRole).Bold(true).Render(mode)
 	if a.flash != "" {
 		left += "  " + st(a.flashRole).Render(a.flash)
-	} else {
-		n := 2
-		switch {
-		case a.w >= 130:
-			n = 9
-		case a.w >= 110:
-			n = 6
-		case a.w >= 80:
-			n = 4
-		}
-		for i, hk := range hints {
-			if i == n {
-				break
-			}
-			left += "  " + st("sub").Render(hk[0]) + " " + st("dim").Render(hk[1])
-		}
 	}
 
 	var parts []string
+	if a.newVersion != "" && !a.updating {
+		parts = append(parts, st("info").Render("↑ "+a.newVersion+" · U update"))
+	}
 	switch {
 	case a.signed == nil:
 		parts = append(parts, st("dim").Render("not signed in"))
@@ -402,6 +416,24 @@ func (a *App) statusBar(mode, modeRole string, hints [][2]string) string {
 	}
 	parts = append(parts, st("text").Render(a.now.Format("15:04")))
 	right := strings.Join(parts, st("dim").Render(" "+a.th.Separator+" ")) + " "
+	if a.flash == "" {
+		n := 2
+		switch {
+		case a.w >= 130:
+			n = 9
+		case a.w >= 110:
+			n = 6
+		case a.w >= 80:
+			n = 4
+		}
+		for _, hk := range hints[:min(n, len(hints))] {
+			h := "  " + st("sub").Render(hk[0]) + " " + st("dim").Render(hk[1])
+			if lipgloss.Width(left+h)+lipgloss.Width(right) >= a.w-1 { // keep the right side (e.g. the update notice) visible
+				break
+			}
+			left += h
+		}
+	}
 
 	gap := a.w - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {

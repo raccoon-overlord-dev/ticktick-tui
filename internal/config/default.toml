@@ -9,6 +9,7 @@ nerd_font_icons  = true
 [layout]
 columns        = "auto"         # auto | 3 | 2 | 1   (auto: 3 ≥ 120 cols, 2 ≥ 80, else 1)
 show_completed = true
+open_folders   = []             # folders shown expanded in Lists (space / ⏎ toggles; written by ttui)
 
 [tasks]
 due_label        = true         # right-aligned due label on task rows (toggle: t)
@@ -22,5 +23,6 @@ due_menu         = ["today", "tomorrow", "+2d", "mon", "+7d"]  # d menu: today, 
 keymap = "vim+arrows"           # vim+arrows | arrows
 
 [account]
-server     = "ticktick.com"     # ticktick.com | dida365.com
-sync_every = "5m"               # 1m | 5m | 15m | manual
+server       = "ticktick.com"   # ticktick.com | dida365.com
+sync_every   = "5m"             # 1m | 5m | 15m | manual
+update_check = true             # look for a new ttui release once a day (U updates)

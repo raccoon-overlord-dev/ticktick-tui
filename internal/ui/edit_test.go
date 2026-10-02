@@ -2,6 +2,8 @@ package ui
 
 import (
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +22,7 @@ func testApp(t *testing.T) *App {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	st := store.New(nil, nil, []api.Task{{ID: "a", ProjectID: "inbox1", Title: "Task A", Priority: 5}}, "", time.Now())
 	return &App{cfg: config.Default(), st: st, signed: &auth.Auth{AccessToken: "fake"}, list: "inbox",
-		folded: map[string]bool{}, idMap: map[string]string{}}
+		idMap: map[string]string{}}
 }
 
 func TestOptimisticRevert(t *testing.T) {
@@ -69,9 +71,63 @@ func TestNotesCursorAfterNewline(t *testing.T) {
 	}
 	in := newInput("hello")
 	in.insert("\n")
-	ls := in.lines(pen{th: th}, "text", 40)
-	if len(ls) != 2 || ansi.Strip(ls[1]) != " " {
-		t.Fatalf("got %q", ls)
+	ls, row := in.lines(pen{th: th}, "text", 40)
+	if len(ls) != 2 || ansi.Strip(ls[1]) != " " || row != 1 {
+		t.Fatalf("got %q row %d", ls, row)
+	}
+}
+
+// ↑↓ keep the column, the cursor row accounts for wrapping, and long notes scroll.
+func TestLongNotes(t *testing.T) {
+	th, _ := theme.Load("terminal")
+	in := newInput("abcdefghij\nxy\nklmnop")
+	in.cur = 4
+	in.vmove(true)
+	if in.cur != 13 { // end of "xy"
+		t.Fatalf("down: cur %d", in.cur)
+	}
+	in.vmove(true)
+	in.vmove(false)
+	in.vmove(false)
+	if in.cur != 2 {
+		t.Fatalf("up: cur %d", in.cur)
+	}
+	in.cur = 8 // "i" lands on the 2nd row when wrapped at 4
+	if _, row := in.lines(pen{th: th}, "text", 4); row != 2 {
+		t.Fatalf("row %d", row)
+	}
+
+	a := testApp(t)
+	a.th, a.w, a.h, a.now = th, 120, 20, time.Now()
+	note := strings.Repeat("line\n", 60) + "LAST"
+	a.st.Task("a").Content = note
+	a.taskID = "a"
+	a.openDetail(3)
+	a.df = len(detailKeys(a.st.Task("a"))) - 1
+	a.viewMain()
+	for range 100 {
+		a.move("detail", 1)
+		a.viewMain()
+	}
+	if v, _ := a.viewMain(); !strings.Contains(ansi.Strip(v), "LAST") {
+		t.Fatal("end of notes not reachable")
+	}
+	for range 100 {
+		a.move("detail", -1)
+		a.viewMain()
+	}
+	if k := detailKeys(a.st.Task("a"))[a.df]; k == "notes" {
+		t.Fatal("↑ never left the notes")
+	}
+
+	// pgdown scrolls the notes too
+	a.df, a.focus = len(detailKeys(a.st.Task("a")))-1, "detail"
+	a.screen = screenMain
+	a.viewMain()
+	off := a.offDetail
+	a.mainKey(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	if a.offDetail != off+a.page() {
+		t.Fatalf("off %d → %d", off, a.offDetail)
 	}
 }
 
@@ -130,5 +186,32 @@ func TestDuePickerKeepsTime(t *testing.T) {
 	got, _ := store.DueTime(task)
 	if task.IsAllDay || got.Hour() != at.Hour() || got.Minute() != at.Minute() || got.YearDay() != time.Now().YearDay() {
 		t.Fatalf("due %v, want today at %s", got, at.Format("15:04"))
+	}
+}
+
+// Folders start closed; opening one shows its lists and is saved, and jumping to a list opens its folder.
+func TestFolders(t *testing.T) {
+	a := testApp(t)
+	config.Path = t.TempDir() + "/config.toml"
+	a.st.Groups = []api.Group{{ID: "g", Name: "Work"}}
+	a.st.Projects = []api.Project{{ID: "x", Name: "X", GroupID: "g"}}
+	shown := func() bool {
+		return slices.ContainsFunc(a.sideItems(), func(r sideItem) bool { return r.list == "p:x" })
+	}
+	if shown() {
+		t.Fatal("folder starts open")
+	}
+	a.sideKey = "f:g"
+	a.openSide()
+	if !shown() {
+		t.Fatal("folder didn't open")
+	}
+	if c, _ := config.Load(); !slices.Equal(c.Layout.OpenFolders, []string{"g"}) {
+		t.Fatalf("not saved: %v", c.Layout.OpenFolders)
+	}
+	a.openSide()
+	a.gotoList("p:x")
+	if !shown() {
+		t.Fatal("jumping to a list didn't open its folder")
 	}
 }

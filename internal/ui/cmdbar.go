@@ -301,6 +301,9 @@ func (a *App) cmdKey(k tea.KeyPressMsg) tea.Cmd {
 
 func (a *App) gotoList(id string) {
 	a.list, a.sideKey, a.taskID, a.focus, a.sheet, a.offTasks = id, "l:"+id, "", "tasks", false, 0
+	if p := a.st.Project(strings.TrimPrefix(id, "p:")); p != nil && a.st.Group(p.GroupID) != nil && !a.folderOpen(p.GroupID) {
+		a.toggleFolder(p.GroupID) // show the list it jumped to
+	}
 }
 
 func (a *App) gotoTask(id string) {
