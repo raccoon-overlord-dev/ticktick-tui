@@ -306,7 +306,7 @@ func (a *App) taskLine(p pen, t *api.Task, w int, sel, focused bool) string {
 		titleRole = "dim"
 	}
 	room := w - 4 - 2 - lipgloss.Width(right) - 1
-	title := rp.s(titleRole).Strikethrough(done).Render(trunc(t.Title, room))
+	title := linkify(rp.s(titleRole).Strikethrough(done), rp.s("info").Strikethrough(done), t.Title, room)
 	return rp.line(w, dot+rp.sp(1)+title, right)
 }
 
@@ -361,7 +361,7 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 	if editing("title") {
 		lines = append(lines, tp.line(w, dot+tp.sp(1)+a.in.view(tp, "text", cw-2), ""))
 	}
-	for i, l := range parse.Wrap([]parse.Span{{Text: t.Title}}, cw-2) {
+	for i, l := range parse.Wrap(parse.Links(t.Title), cw-2) {
 		if editing("title") {
 			break
 		}
@@ -369,7 +369,15 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		if i > 0 {
 			lead = tp.sp(2)
 		}
-		lines = append(lines, tp.line(w, lead+tp.s("text").Bold(true).Strikethrough(done).Render(l[0].Text), ""))
+		var b strings.Builder
+		for _, sp := range l {
+			st := tp.s("text").Bold(true).Strikethrough(done)
+			if sp.Kind == parse.Link {
+				st = tp.s("info").Bold(true).Underline(true).Hyperlink(sp.URL)
+			}
+			b.WriteString(st.Render(sp.Text))
+		}
+		lines = append(lines, tp.line(w, lead+b.String(), ""))
 	}
 	lines = append(lines, "")
 
@@ -426,6 +434,9 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 			if it.Status != 0 {
 				st := ip.s("dim").Strikethrough(true)
 				mark, text = ip.s("ok").Render("✓"), linkify(st, st, it.Title, cw-2)
+			}
+			if editing(fmt.Sprintf("c%d", i)) {
+				text = a.in.view(ip, "text", cw-2)
 			}
 			lines = append(lines, ip.line(w, mark+ip.sp(1)+text, ""))
 		}
@@ -616,7 +627,7 @@ func (a *App) viewMain() (string, [][2]string) {
 		}
 		hints = [][2]string{{"⏎", "open"}, {"x", done}, {"D", "delete"}, {"a", "add"}, {"?", "keys"}, {"d", "due"}, {"m", "move to"}, {"p", "priority"}, {"/", "search"}, {":", "command"}, {",", "settings"}}
 	default:
-		hints = [][2]string{{"j/k", "field"}, {"i", "edit"}, {"␣", "toggle"}, {"?", "keys"}, {"d", "due"}, {"m", "move to"}, {"c", "checklist"}, {"h", "back"}}
+		hints = [][2]string{{"j/k", "field"}, {"i", "edit"}, {"x", "toggle"}, {"?", "keys"}, {"d", "due"}, {"m", "move to"}, {"c", "checklist"}, {"h", "back"}}
 	}
 
 	switch {
@@ -754,8 +765,10 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		if t == nil {
 			return nil
 		}
-		if k := detailKeys(t)[min(a.df, len(detailKeys(t))-1)]; ef == "detail" && strings.HasPrefix(k, "c") {
-			return a.activate()
+		if k := detailKeys(t)[min(a.df, len(detailKeys(t))-1)]; ef == "detail" && k != "additem" && strings.HasPrefix(k, "c") {
+			var i int
+			fmt.Sscanf(k, "c%d", &i)
+			return a.toggleCheck(t, i)
 		}
 		return a.toggleDone(t)
 	case "p":
@@ -768,7 +781,7 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 			a.startEdit("title")
 		case "detail":
 			if t := a.selTask(); t != nil {
-				if k := detailKeys(t)[a.df]; k == "title" || k == "due" || k == "repeat" || k == "tags" || k == "notes" || k == "additem" {
+				if k := detailKeys(t)[a.df]; k == "title" || k == "due" || k == "repeat" || k == "tags" || k == "notes" || strings.HasPrefix(k, "c") {
 					a.startEdit(k)
 				} else {
 					return a.activate()

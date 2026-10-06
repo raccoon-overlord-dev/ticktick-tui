@@ -15,8 +15,6 @@ Ideas planned after v1. Not implemented yet.
 - Toggle in Settings (`Mouse: on / off`) and `config.toml` (`[appearance] mouse = true`).
 - Implementation: `tea.View.MouseMode = tea.MouseModeCellMotion` when enabled, map click coordinates to rows using the pane layout.
 - Wheel scrolling (tried and pulled for now): map `tea.MouseWheelMsg` to ↑↓. Caveats found: mouse mode makes text selection need `shift`, and with mouse off most terminals still turn the wheel into ↑↓ in the alternate screen ("alternate scroll", `CSI ?1007 l` turns it off, but restoring it on exit means guessing its old state).
-- Clickable `https://` links inside notes (may come for free via OSC 8 hyperlinks, without mouse mode).
-
 ## Tasks
 
 - Edit `due_menu` from Settings (today it's in `config.toml` only).
@@ -38,6 +36,5 @@ Ideas planned after v1. Not implemented yet.
 
 ## Distribution
 
-- CI release workflow (GitHub Actions + GoReleaser). Needs a token with the `workflow` scope; releases are built locally with `make dist` for now.
-
+- CI release workflow (GitHub Actions + GoReleaser). Needs a token with the `workflow` scope; releases are built locally and published with `make release` for now.
 - Homebrew tap, AUR package, .deb/.rpm (v1 ships `install.sh` only).

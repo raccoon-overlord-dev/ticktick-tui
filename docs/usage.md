@@ -12,7 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/raccoon-overlord-dev/ticktick-tui/m
 
 The script downloads the latest release for your OS and CPU, checks its SHA-256 against `checksums.txt`,
 and installs `ttui` to `~/.local/bin` (no sudo). If that folder isn't on your `PATH`, it prints the line to add.
-Run it again to upgrade, or press `U` in ttui when the status bar shows a new version: ttui checks once a day (Settings → Check for updates, `update_check` in `config.toml`), verifies the download against the release checksums, replaces itself and restarts. If it can't write its own binary (e.g. installed in a root-owned folder), it copies this install command to the clipboard instead.
+Run it again to upgrade, or press `U` in ttui when the status bar shows a new version: ttui checks once a day (Settings → Check for updates, `update_check` in `config.toml`; Settings → Check now looks right away), verifies the download against the release checksums, replaces itself and restarts. If it can't write its own binary (e.g. installed in a root-owned folder), it copies this install command to the clipboard instead.
 
 | Variable | Effect |
 |---|---|
@@ -42,7 +42,7 @@ The token is stored in `~/.config/ttui/auth.toml` (mode `0600`). Sign out from S
 Three panes (lists, tasks, details) at 120 columns or more, two (tasks, details) from 80, one below that,
 where details open as a bottom sheet. Force a layout in Settings → Columns.
 
-URLs in notes (bare `https://…` or markdown `[text](url)`) and in checklist items are clickable in terminals
+URLs in task titles, notes (bare `https://…` or markdown `[text](url)`) and checklist items are clickable in terminals
 that support OSC 8 hyperlinks (Ghostty, kitty, WezTerm, iTerm2, recent GNOME Terminal and Windows Terminal).
 Settings → About shows the version and a link to the project page.
 
@@ -58,8 +58,8 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `h` `l` / `←` `→` | Previous / next pane; `l` opens a list, a folder or a task |
 | `1` `2` `3` | Focus the lists / tasks / details pane |
 | `tab` | Next pane |
-| `⏎` | Open; on a detail field: edit it, pick a due date, repeat or list, cycle Priority, or tick a checklist item |
-| `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). In lists, `space` (or `⏎`, `l`) opens or closes a folder; folders start closed and ttui remembers the open ones |
+| `⏎` | Open; on a detail field: edit it, pick a due date, repeat or list, cycle Priority, or edit a checklist item |
+| `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). On a checklist item: tick or untick it; ticking the last open one completes the task and unticking one reopens a completed task, as in the web app. In lists, `space` (or `⏎`, `l`) opens or closes a folder; folders start closed and ttui remembers the open ones |
 | `H` | In lists: hide the list from Today, Tomorrow, Next 7 Days and the filters, or show it again (hidden lists get a crossed-out eye icon, `x` without Nerd Fonts). Stands in for TickTick's "Show in smart list: Do not show", which the API doesn't expose |
 | `p` | Cycle priority High → Medium → Low → None |
 | `d` | Due date menu: the dates in `due_menu`, No date, or Custom (type one). A date without a time keeps the task's time |

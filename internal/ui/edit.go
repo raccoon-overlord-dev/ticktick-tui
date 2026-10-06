@@ -284,15 +284,14 @@ func (a *App) deleteKey(k tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	repeat := t.RepeatFlag != "" && !store.Done(t)
+	defer a.keepPlace(t)()
 	switch key := k.String(); {
 	case !repeat && key == "y", repeat && key == "a":
-		a.selectNeighbor(t)
 		before := store.Clone(*t)
 		a.st.Remove(t.ID)
 		a.setFlash(fmt.Sprintf("deleted “%s”", before.Title))
 		return a.enqueue(op{kind: "delete", taskID: before.ID, before: &before})
 	case repeat && key == "o":
-		a.selectNeighbor(t)
 		before := store.Clone(*t)
 		t.Status = 2 // hidden until the server returns the next occurrence
 		a.setFlash(fmt.Sprintf("deleted this occurrence of “%s”", t.Title))
@@ -334,7 +333,17 @@ func (a *App) toggleCheck(t *api.Task, i int) tea.Cmd {
 	} else {
 		items[i].Status = 0
 	}
-	return a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
+	// as in the web app: unticking an item reopens a completed task, and ticking the last
+	// open one completes it
+	if store.Done(t) && items[i].Status == 0 {
+		a.setFlash(fmt.Sprintf("reopened “%s”", t.Title))
+		return a.update(t, map[string]any{"items": items, "status": 0}, func(t *api.Task) { t.Items, t.Status, t.CompletedTime = items, 0, "" })
+	}
+	cmd := a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
+	if !store.Done(t) && !slices.ContainsFunc(items, func(it api.Item) bool { return it.Status == 0 }) {
+		return tea.Sequence(cmd, a.toggleDone(t))
+	}
+	return cmd
 }
 
 // addItem appends a checklist item; the server assigns its id.
@@ -375,6 +384,7 @@ func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
 		a.setFlash("still saving this task · try again in a moment")
 		return nil
 	}
+	defer a.keepPlace(t)()
 	before := store.Clone(*t)
 	from := t.ProjectID
 	t.ProjectID = to
@@ -469,9 +479,33 @@ func (a *App) duePicker(t *api.Task) {
 	a.openPick("due", items)
 }
 
+// keepPlace is called before a change to t (due date, move, delete) and returns a func to
+// call after it: if t has left the current list, the task above it gets the cursor (the
+// new top one if t was first). Works on ids, since deleting shifts the store's tasks.
+func (a *App) keepPlace(t *api.Task) func() {
+	var ids []string
+	for _, x := range navTasks(a.groups()) {
+		ids = append(ids, x.ID)
+	}
+	id := t.ID
+	return func() {
+		i := slices.Index(ids, id)
+		if i < 0 || slices.ContainsFunc(navTasks(a.groups()), func(x *api.Task) bool { return x.ID == id }) {
+			return
+		}
+		switch {
+		case i > 0:
+			a.taskID = ids[i-1]
+		case len(ids) > 1:
+			a.taskID = ids[1]
+		}
+	}
+}
+
 // setDue sets or clears (d nil) t's due date; no time means all-day.
 func (a *App) setDue(t *api.Task, d *parse.Due) tea.Cmd {
 	f := dueFields(d, time.Now())
+	defer a.keepPlace(t)()
 	return a.update(t, f, func(t *api.Task) {
 		t.DueDate, _ = f["dueDate"].(string)
 		t.StartDate = t.DueDate
@@ -605,6 +639,18 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 		if v = strings.TrimSpace(v); v != "" {
 			cmd = a.addItem(t, v)
 		}
+	default: // checklist item "c<i>"
+		var i int
+		fmt.Sscanf(field, "c%d", &i)
+		if v = strings.TrimSpace(v); v == "" {
+			a.setFlash("item can't be empty")
+			return nil, false
+		}
+		if i < len(t.Items) && v != t.Items[i].Title {
+			items := slices.Clone(t.Items)
+			items[i].Title = v
+			cmd = a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
+		}
 	}
 	a.edit = ""
 	a.setFlash("saved")
@@ -666,7 +712,11 @@ func (a *App) startEdit(field string) {
 		v = *notes
 	case "additem":
 	default:
-		return
+		var i int
+		if _, err := fmt.Sscanf(field, "c%d", &i); err != nil || i >= len(t.Items) {
+			return
+		}
+		v = t.Items[i].Title
 	}
 	a.focus, a.edit, a.editID, a.in = "detail", field, t.ID, newInput(v)
 	a.df = slices.Index(detailKeys(t), field)
@@ -683,7 +733,7 @@ func (a *App) activate() tea.Cmd {
 		return nil
 	}
 	switch k := detailKeys(t)[a.df]; {
-	case k == "title" || k == "tags" || k == "notes" || k == "additem":
+	case k == "title" || k == "tags" || k == "notes" || k == "additem" || strings.HasPrefix(k, "c"):
 		a.startEdit(k)
 	case k == "due":
 		a.duePicker(t)
@@ -693,10 +743,6 @@ func (a *App) activate() tea.Cmd {
 		return a.cyclePrio(t)
 	case k == "list":
 		a.movePicker(t)
-	case strings.HasPrefix(k, "c"):
-		var i int
-		fmt.Sscanf(k, "c%d", &i)
-		return a.toggleCheck(t, i)
 	}
 	return nil
 }

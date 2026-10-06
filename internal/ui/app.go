@@ -148,9 +148,9 @@ func (a *App) Init() tea.Cmd {
 	if a.signed != nil {
 		a.screen = screenMain
 		a.setStore(store.LoadSnapshot()) // render at once, then refresh
-		return tea.Batch(a.tick(), a.syncNow(), a.checkUpdate())
+		return tea.Batch(a.tick(), a.syncNow(), a.checkUpdate(false))
 	}
-	return tea.Batch(a.tick(), a.auth.start(), a.checkUpdate())
+	return tea.Batch(a.tick(), a.auth.start(), a.checkUpdate(false))
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -173,6 +173,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.onOpDone(msg)
 	case updateMsg:
 		a.newVersion = string(msg)
+		if strings.HasPrefix(a.flash, "checking for updates") {
+			a.setFlash(a.newVersion + " available · U to update")
+		}
+		return a, nil
+	case updateErrMsg:
+		a.flashError("✗ update check failed: " + msg.err.Error())
 		return a, nil
 	case updateDoneMsg:
 		return a, a.onUpdated(msg)

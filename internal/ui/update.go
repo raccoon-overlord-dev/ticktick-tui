@@ -13,26 +13,43 @@ import (
 )
 
 type (
-	updateMsg     string // newer release tag
+	updateMsg     string              // newer release tag
+	updateErrMsg  struct{ err error } // a manual check failed
 	updateDoneMsg struct {
 		exe string
 		err error
 	}
 )
 
-// checkUpdate looks for a newer release in the background; failures stay silent.
-func (a *App) checkUpdate() tea.Cmd {
-	if !a.cfg.Account.UpdateCheck || a.demo || !update.Newer(a.version, "0") { // last: dev builds have no version number
+// checkUpdate looks for a newer release in the background. The daily check stays silent;
+// a manual one (Settings → Check now) reports what it found.
+func (a *App) checkUpdate(manual bool) tea.Cmd {
+	if a.demo || !update.Newer(a.version, "0") { // dev builds have no version number
+		if manual {
+			a.setFlash("no update check in dev builds · ttui " + a.version)
+		}
 		return nil
+	}
+	if !manual && !a.cfg.Account.UpdateCheck {
+		return nil
+	}
+	if manual {
+		a.flash, a.flashRole, a.flashUntil = "checking for updates…", "info", time.Now().Add(time.Minute)
 	}
 	current := a.version
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		if tag, err := update.Check(ctx); err == nil && update.Newer(tag, current) {
+		tag, err := update.Check(ctx)
+		switch {
+		case err == nil && update.Newer(tag, current):
 			return updateMsg(tag)
+		case !manual:
+			return nil
+		case err != nil:
+			return updateErrMsg{err}
 		}
-		return nil
+		return flashMsg("ttui " + current + " is up to date")
 	}
 }
 

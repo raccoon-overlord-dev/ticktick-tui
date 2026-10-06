@@ -215,3 +215,67 @@ func TestFolders(t *testing.T) {
 		t.Fatal("jumping to a list didn't open its folder")
 	}
 }
+
+// Ticking the last open checklist item completes the task; ⏎ on an item edits its title.
+func TestChecklistItems(t *testing.T) {
+	a := testApp(t)
+	tk := a.st.Task("a")
+	tk.Items = []api.Item{{Title: "one", Status: 1}, {Title: "two"}}
+	a.focus, a.df = "detail", slices.Index(detailKeys(tk), "c1")
+	a.activate()
+	if a.edit != "c1" || a.in.value() != "two" {
+		t.Fatalf("⏎ didn't edit the item: edit=%q value=%q", a.edit, a.in.value())
+	}
+	a.in = newInput("two https://x.dev")
+	a.commitEdit()
+	if tk.Items[1].Title != "two https://x.dev" || tk.Items[1].Status != 0 {
+		t.Fatalf("item not renamed: %+v", tk.Items[1])
+	}
+	a.toggleCheck(tk, 1)
+	if !store.Done(tk) || a.queue[len(a.queue)-1].kind != "complete" {
+		t.Fatalf("task not completed with its last item: %+v", tk)
+	}
+	a.toggleCheck(tk, 0)
+	if store.Done(tk) || a.queue[len(a.queue)-1].fields["status"] != 0 {
+		t.Fatalf("unticking an item didn't reopen the task: %+v", tk)
+	}
+}
+
+// Moving a task out of the list by its due date selects the one above it, or the new top.
+func TestDueKeepsPlace(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	due := time.Now().Format(api.DateLayout)
+	var ts []api.Task
+	for _, id := range []string{"a", "b", "c"} {
+		ts = append(ts, api.Task{ID: id, ProjectID: "p1", Title: id, DueDate: due})
+	}
+	a := &App{cfg: config.Default(), st: store.New(nil, nil, ts, "", time.Now()), signed: &auth.Auth{AccessToken: "fake"},
+		list: "today", now: time.Now(), idMap: map[string]string{}}
+	nav := navTasks(a.groups())
+	tomorrow, _ := parse.ParseDue("tomorrow", time.Now())
+	a.taskID = nav[1].ID
+	a.setDue(nav[1], tomorrow)
+	if a.taskID != nav[0].ID {
+		t.Fatalf("middle task moved: selected %s, want %s", a.taskID, nav[0].ID)
+	}
+	a.taskID = nav[0].ID
+	a.setDue(nav[0], tomorrow)
+	if a.taskID != nav[2].ID {
+		t.Fatalf("top task moved: selected %s, want %s", a.taskID, nav[2].ID)
+	}
+
+	// the same for deleting and moving, here in a list
+	a.list = "p:p1"
+	nav = navTasks(a.groups())
+	ids := []string{nav[0].ID, nav[1].ID, nav[2].ID}
+	a.delID = ids[2]
+	a.deleteKey(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if a.st.Task(ids[2]) != nil || a.taskID != ids[1] {
+		t.Fatalf("delete: selected %s, want %s", a.taskID, ids[1])
+	}
+	a.st.Projects = []api.Project{{ID: "p2", Name: "Other"}}
+	a.moveTask(a.st.Task(ids[0]), "p:p2")
+	if a.taskID != ids[1] {
+		t.Fatalf("move: selected %s, want %s", a.taskID, ids[1])
+	}
+}

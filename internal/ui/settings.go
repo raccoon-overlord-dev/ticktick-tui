@@ -42,6 +42,7 @@ var setRows = []setRow{
 	{key: "account", label: "Signed in", desc: "Enter signs out and returns to the login screen"},
 	{key: "sync", label: "Sync every", opts: []string{"1m", "5m", "15m", "manual"}, desc: "Background two-way sync with TickTick"},
 	{key: "updates", label: "Check for updates", opts: []string{"on", "off"}, desc: "Once a day; U installs a new release and restarts"},
+	{key: "checknow", label: "Check now", desc: "Look for a new release on GitHub now"},
 	{sec: "INFO"},
 	{key: "about", label: "About", desc: "Version and project page"},
 }
@@ -89,6 +90,16 @@ func (a *App) changeSetting(r setRow, dir int) tea.Cmd {
 		a.about = dir > 0
 		return nil
 	}
+	if r.key == "checknow" {
+		switch {
+		case dir < 0:
+		case a.newVersion != "":
+			a.askUpdate()
+		default:
+			return a.checkUpdate(true)
+		}
+		return nil
+	}
 	i := slices.Index(r.opts, a.settingValue(r))
 	return a.setOption(r.key, r.opts[((i+dir)%len(r.opts)+len(r.opts))%len(r.opts)])
 }
@@ -117,7 +128,7 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 		return a.scheduleSync()
 	case "updates":
 		a.newVersion = ""
-		return a.checkUpdate()
+		return a.checkUpdate(false)
 	}
 	return nil
 }
@@ -182,6 +193,10 @@ func (a *App) viewSettings() (string, int, int) {
 			val = rp.s("text").Render(email) + rp.sp(2) + rp.s("error").Render("⏎ sign out")
 		} else if r.key == "about" {
 			val = rp.s("dim").Render("⏎ open")
+		} else if r.key == "checknow" && a.newVersion != "" {
+			val = rp.s("info").Render("⏎ update to " + a.newVersion)
+		} else if r.key == "checknow" {
+			val = rp.s("dim").Render("⏎ check · ttui " + a.version)
 		} else {
 			cur := a.settingValue(r)
 			for j, o := range r.opts {
@@ -230,12 +245,12 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "h l  ← →", desc: "Previous / next pane; l opens"},
 	{key: "1 2 3", desc: "Focus the lists / tasks / details pane"},
 	{key: "tab", desc: "Next pane"},
-	{key: "⏎", desc: "Open; on a field: edit, pick, cycle or tick"},
+	{key: "⏎", desc: "Open; on a field: edit, pick or cycle"},
 	{key: "esc", desc: "Back"},
 	{key: "␣ ⏎ l", desc: "On a folder: open / close it (remembered)"},
 	{key: "H", desc: "On a list: hide from / show in smart lists"},
 	{sec: "TASKS"},
-	{key: "x  ␣", desc: "Complete / reopen (x right after: undo)"},
+	{key: "x  ␣", desc: "Complete / reopen (x right after: undo); tick an item"},
 	{key: "p", desc: "Cycle priority"},
 	{key: "i e", desc: "Edit the title or the field under the cursor"},
 	{key: "d", desc: "Due date menu"},

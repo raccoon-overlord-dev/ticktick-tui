@@ -11,7 +11,7 @@ Inspired by [superfile](https://superfile.dev): clean, minimal, never leave the 
 
 - **Responsive layout**: lists · tasks · details at full width, two panes on smaller windows, one pane with a slide-up details sheet on narrow ones.
 - **Command bar** (`/`): fuzzy search across tasks, lists and commands; `+` quick add with natural language (`fri 5pm !med #errand @home`); `@` jump to a list; `#` filter by tag.
-- **Edit without leaving the keyboard**: complete (`x`, with undo), cycle priority (`p`), pick a due date (`d`), move to another list (`m`), add and tick checklist items (`c`), delete (`D`, with this-occurrence-or-all for repeating tasks), edit title, tags and markdown notes inline, set repeats, from Daily to "3rd wed" or "last workday". `?` lists every key.
+- **Edit without leaving the keyboard**: complete (`x`, with undo), cycle priority (`p`), pick a due date (`d`), move to another list (`m`), add and tick checklist items (`c`), delete (`D`, with this-occurrence-or-all for repeating tasks), edit title, tags and markdown notes inline (links in titles, notes and checklists are clickable), set repeats, from Daily to "3rd wed" or "last workday". `?` lists every key.
 - **Instant and in sync**: edits show at once and are sent in the background; a background sync picks up changes from your other devices; startup renders from a local cache.
 - **Smart lists**: Today, Tomorrow, Next 7 Days, tags and filters. `H` on a list hides it from them (see Known issues).
 - **Group and sort like the web app** (`s`): group by list, date, created time, tag, priority or none; sort by date, created/modified time, title, tag or priority; oldest or newest first. Each list remembers its own choice.
