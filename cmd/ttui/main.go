@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"ttui/internal/config"
-	"ttui/internal/ui"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/ui"
 )
 
 // version is set at build time: go build -ldflags "-X main.version=v0.1.0"

@@ -8,8 +8,8 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"ttui/internal/parse"
-	"ttui/internal/theme"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
 )
 
 // pen renders text in theme roles, optionally on a background and/or faint (dimmed backdrop).

@@ -9,7 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"ttui/internal/update"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/update"
 )
 
 type (

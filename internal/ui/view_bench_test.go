@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"ttui/internal/api"
-	"ttui/internal/auth"
-	"ttui/internal/config"
-	"ttui/internal/store"
-	"ttui/internal/theme"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
 )
 
 // BenchmarkView renders a realistic main screen (all-day tasks with a time zone, as the API sends them).

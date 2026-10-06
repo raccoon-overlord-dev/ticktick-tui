@@ -18,6 +18,7 @@ group_by         = "priority"   # list | date | created | tag | priority | none
 sort_by          = "date"       # date | created | modified | title | tag | priority
 order            = "oldest"     # oldest | newest   (default for all lists; s in the task list sets one list's own)
 week_start       = "mon"        # mon | sun
+completed_days   = "7"          # 7 | 30 | 90 | 365: how many days of completed tasks to download
 due_menu         = ["today", "tomorrow", "+2d", "mon", "+7d"]  # d menu: today, tomorrow, +Nd, weekday, 2026-10-08, optional 17:00
 
 [keys]

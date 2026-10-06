@@ -7,12 +7,12 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"ttui/internal/api"
-	"ttui/internal/auth"
-	"ttui/internal/config"
-	"ttui/internal/store"
-	"ttui/internal/theme"
-	"ttui/internal/update"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/update"
 )
 
 func TestLayout(t *testing.T) {

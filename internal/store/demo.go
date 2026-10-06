@@ -3,7 +3,7 @@ package store
 import (
 	"time"
 
-	"ttui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 )
 
 // Demo returns the design mockup's data (handoff screenshots), dated relative to now.

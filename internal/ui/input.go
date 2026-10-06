@@ -19,6 +19,7 @@ type textInput struct {
 	undo   []snapshot
 	redo   []snapshot
 	last   string // kind of the last change, for grouping typing into words
+	hidden bool   // cursor blink: off phase
 }
 
 type snapshot struct {
@@ -113,6 +114,7 @@ func (t *textInput) move(key string, multiline bool) bool {
 // key applies an editing key and reports whether it was handled.
 func (t *textInput) key(k tea.KeyPressMsg, multiline bool) bool {
 	key := k.String()
+	t.hidden = false // show the cursor while typing
 	if base, ok := strings.CutPrefix(key, "shift+"); ok && base != "tab" {
 		anchor := t.anchor
 		if anchor < 0 {
@@ -224,7 +226,7 @@ func (t *textInput) view(p pen, role string, width int) string {
 	for start < t.cur && ansi.StringWidth(string(t.r[start:t.cur]))+1 > width {
 		start++
 	}
-	s := t.span(p, role, start, t.cur) + cursorCell(p, t.r, t.cur, role) + t.span(p, role, min(t.cur+1, len(t.r)), len(t.r))
+	s := t.span(p, role, start, t.cur) + t.cursor(p, role) + t.span(p, role, min(t.cur+1, len(t.r)), len(t.r))
 	return ansi.Truncate(s, width, "")
 }
 
@@ -256,9 +258,9 @@ func (t *textInput) span(p pen, role string, from, to int) string {
 // and reports which of the returned lines holds the cursor.
 func (t *textInput) lines(p pen, role string, width int) ([]string, int) {
 	before, after := t.span(p, role, 0, t.cur), t.span(p, role, min(t.cur+1, len(t.r)), len(t.r))
-	cur := cursorCell(p, t.r, t.cur, role)
+	cur := t.cursor(p, role)
 	if t.cur < len(t.r) && t.r[t.cur] == '\n' { // cursor on a line break: show it at line end
-		cur = lipgloss.NewStyle().Reverse(true).Render(" ") + "\n"
+		cur = lipgloss.NewStyle().Reverse(!t.hidden).Render(" ") + "\n"
 	}
 	wrap := func(s string) []string {
 		var out []string
@@ -272,10 +274,11 @@ func (t *textInput) lines(p pen, role string, width int) ([]string, int) {
 	return wrap(before + cur + after), row
 }
 
-func cursorCell(p pen, r []rune, i int, role string) string {
+// cursor renders the cell under the cursor, reversed unless blinked off.
+func (t *textInput) cursor(p pen, role string) string {
 	c := " "
-	if i < len(r) && r[i] != '\n' {
-		c = string(r[i])
+	if t.cur < len(t.r) && t.r[t.cur] != '\n' {
+		c = string(t.r[t.cur])
 	}
-	return p.s(role).Reverse(true).Render(c)
+	return p.s(role).Reverse(!t.hidden).Render(c)
 }

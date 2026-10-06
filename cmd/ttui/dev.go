@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"ttui/internal/api"
-	"ttui/internal/auth"
-	"ttui/internal/store"
-	"ttui/internal/ui"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/ui"
 )
 
 // runDev handles `ttui dev ...`, developer-only helpers that use TTUI_DEV_TOKEN.

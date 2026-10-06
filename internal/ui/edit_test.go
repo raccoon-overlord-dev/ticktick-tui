@@ -10,12 +10,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"ttui/internal/api"
-	"ttui/internal/auth"
-	"ttui/internal/config"
-	"ttui/internal/parse"
-	"ttui/internal/store"
-	"ttui/internal/theme"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
 )
 
 func testApp(t *testing.T) *App {

@@ -1,4 +1,4 @@
-module ttui
+module github.com/raccoon-overlord-dev/ticktick-tui
 
 go 1.26.6
 

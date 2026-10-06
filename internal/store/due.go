@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"ttui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 )
 
 // DueTime parses the due date. All-day tasks are read in the task's own time zone

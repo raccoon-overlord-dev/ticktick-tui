@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"ttui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
 )
 
 func TestPKCE(t *testing.T) {

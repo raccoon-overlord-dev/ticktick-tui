@@ -211,10 +211,13 @@ func (c *Client) Email(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-// CompletedTasks returns tasks completed since since (all lists).
-func (c *Client) CompletedTasks(ctx context.Context, since time.Time) ([]Task, error) {
+// CompletedTasks returns tasks completed since since and before until (zero: now), all lists.
+func (c *Client) CompletedTasks(ctx context.Context, since, until time.Time) ([]Task, error) {
 	var out []Task
 	body := map[string]any{"startDate": since.UTC().Format(DateLayout)}
+	if !until.IsZero() {
+		body["endDate"] = until.UTC().Format(DateLayout)
+	}
 	return out, c.Do(ctx, http.MethodPost, "/task/completed", body, &out)
 }
 

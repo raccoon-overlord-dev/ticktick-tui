@@ -28,11 +28,12 @@ type Config struct {
 		SmartHidden   []string `toml:"smart_hidden"` // list ids left out of smart lists and filters (H); the API doesn't expose TickTick's own setting
 	} `toml:"layout"`
 	Tasks struct {
-		DueLabel  bool            `toml:"due_label"`
-		WeekStart string          `toml:"week_start"`
-		DueMenu   []string        `toml:"due_menu"`
-		Sort                      // default for lists without their own
-		ListSort  map[string]Sort `toml:"list_sort,omitempty"` // per list, set with s; keyed by list ("inbox", "today", "p:<id>", "tag:<name>")
+		DueLabel      bool            `toml:"due_label"`
+		WeekStart     string          `toml:"week_start"`
+		DueMenu       []string        `toml:"due_menu"`
+		CompletedDays string          `toml:"completed_days"` // completed tasks downloaded: "7" | "30" | "90" | "365"
+		Sort                          // default for lists without their own
+		ListSort      map[string]Sort `toml:"list_sort,omitempty"` // per list, set with s; keyed by list ("inbox", "today", "p:<id>", "tag:<name>")
 	} `toml:"tasks"`
 	Keys struct {
 		Keymap string `toml:"keymap"`

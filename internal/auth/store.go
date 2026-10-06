@@ -8,7 +8,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"ttui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
 )
 
 // Auth is the content of ~/.config/ttui/auth.toml.

@@ -9,10 +9,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"ttui/internal/api"
-	"ttui/internal/config"
-	"ttui/internal/parse"
-	"ttui/internal/store"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
 
 // ---- lists pane ----

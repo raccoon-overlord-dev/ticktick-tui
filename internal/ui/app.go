@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -15,11 +16,11 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"ttui/internal/api"
-	"ttui/internal/auth"
-	"ttui/internal/config"
-	"ttui/internal/store"
-	"ttui/internal/theme"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
 )
 
 // Run starts the TUI and blocks until it exits.
@@ -131,12 +132,15 @@ type (
 )
 
 // tick drives the clock, "synced ago" and flash expiry once a second; it runs
-// at spinner speed only while a spinner is on screen (auth, first sync), since
-// every tick re-renders the whole view.
+// at spinner speed only while a spinner is on screen (auth, first sync), and about twice
+// a second while a text cursor blinks, since every tick re-renders the whole view.
 func (a *App) tick() tea.Cmd {
 	d := time.Second
-	if a.screen == screenAuth || a.st == nil {
+	switch {
+	case a.screen == screenAuth || a.st == nil:
 		d = 110 * time.Millisecond
+	case a.edit != "" || a.cmd != nil: // blinks the text cursor
+		d = 530 * time.Millisecond
 	}
 	return tea.Tick(d, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
@@ -163,6 +167,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.now, a.spin = time.Time(msg), a.spin+1
 		if a.flash != "" && a.now.After(a.flashUntil) {
 			a.flash = ""
+		}
+		a.in.hidden = a.edit != "" && !a.in.hidden
+		if a.cmd != nil {
+			a.cmd.in.hidden = !a.cmd.in.hidden
 		}
 		return a, a.tick()
 	case flashMsg:
@@ -333,11 +341,15 @@ func (a *App) signOut() tea.Cmd {
 	return a.auth.start()
 }
 
-func fetchStore(token string, pending *auth.Auth) tea.Cmd {
+func (a *App) fetchStore(token string, pending *auth.Auth) tea.Cmd {
+	days, err := strconv.Atoi(a.cfg.Tasks.CompletedDays)
+	if err != nil || days < 1 {
+		days = 7
+	}
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		st, err := store.Fetch(ctx, api.New(token))
+		st, err := store.Fetch(ctx, api.New(token), days)
 		return storeMsg{st: st, err: err, pending: pending}
 	}
 }

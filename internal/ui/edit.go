@@ -12,10 +12,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"ttui/internal/api"
-	"ttui/internal/config"
-	"ttui/internal/parse"
-	"ttui/internal/store"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
 
 // op is one queued write. Edits apply to the store at once; ops are sent one at a time
@@ -108,7 +108,7 @@ func skipOccurrence(ctx context.Context, c *api.Client, pid, id string, before *
 	if store.Done(t) { // no next occurrence
 		return nil, c.DeleteTask(ctx, pid, id)
 	}
-	done, err := c.CompletedTasks(ctx, start)
+	done, err := c.CompletedTasks(ctx, start, time.Time{})
 	if err != nil {
 		return t, err
 	}
@@ -229,7 +229,7 @@ func (a *App) syncNow() tea.Cmd {
 		return nil
 	}
 	a.syncing = true
-	return fetchStore(a.signed.AccessToken, nil)
+	return a.fetchStore(a.signed.AccessToken, nil)
 }
 
 // ---- actions on the selected task ----

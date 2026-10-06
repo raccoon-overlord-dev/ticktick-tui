@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"ttui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
 )
 
 // SnapshotPath is the cache of the last good sync, so startup can render at once.

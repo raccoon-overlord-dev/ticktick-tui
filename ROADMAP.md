@@ -30,9 +30,7 @@ Ideas planned after v1. Not implemented yet.
 
 ## Editing and navigation
 
-- Cursor blink while editing notes.
 - Better insert mode for task details.
-- (To be confirmed) pane shortcuts: `L` Lists, `C` current list (`D` is now delete; `1 2 3` already focus the panes).
 
 ## Distribution
 

@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"ttui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
 )
 
 // Repo is the project page, shown in Settings → About.

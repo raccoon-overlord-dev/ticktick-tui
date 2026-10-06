@@ -9,7 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"ttui/internal/auth"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
 )
 
 // authScreen is the sign-in state (handoff §4, screenshots 6a-6c).
@@ -81,7 +81,7 @@ func (a *App) updateAuth(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		s.checking = true
-		return fetchStore(msg.tok.AccessToken, auth.FromToken(msg.tok, "ticktick.com"))
+		return a.fetchStore(msg.tok.AccessToken, auth.FromToken(msg.tok, "ticktick.com"))
 	case tea.PasteMsg:
 		if s.tokenTab && !s.success {
 			s.token += strings.TrimSpace(msg.Content)
@@ -114,7 +114,7 @@ func (a *App) authKey(k tea.KeyPressMsg) tea.Cmd {
 				return nil
 			}
 			s.checking, s.tokenErr = true, ""
-			return fetchStore(s.token, &auth.Auth{Method: "token", Server: "ticktick.com", AccessToken: s.token})
+			return a.fetchStore(s.token, &auth.Auth{Method: "token", Server: "ticktick.com", AccessToken: s.token})
 		case "backspace":
 			if s.token != "" {
 				s.token = s.token[:len(s.token)-1]

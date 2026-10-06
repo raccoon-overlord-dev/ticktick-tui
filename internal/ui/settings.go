@@ -7,9 +7,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"ttui/internal/config"
-	"ttui/internal/theme"
-	"ttui/internal/update"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/update"
 )
 
 type setRow struct {
@@ -35,6 +35,7 @@ var setRows = []setRow{
 	{key: "group", label: "Group by", opts: groupOpts, desc: "Default for all lists · s in the task list sets one list's own"},
 	{key: "sort", label: "Sort by", opts: sortOpts, desc: "Default for all lists · s in the task list sets one list's own"},
 	{key: "order", label: "Order", opts: orderOpts, desc: "Default for all lists · s in the task list sets one list's own"},
+	{key: "history", label: "Completed history", opts: []string{"7", "30", "90", "365"}, desc: "Days of completed tasks to download (Completed list and groups); changing it syncs"},
 	{key: "week", label: "Week starts on", opts: []string{"mon", "sun"}, desc: ""},
 	{sec: "KEYS"},
 	{key: "keymap", label: "Keymap", opts: []string{"vim + arrows", "arrows only"}, desc: "vim: hjkl, / search, : command · arrows + letters always work"},
@@ -54,7 +55,7 @@ func (a *App) field(key string) *string {
 		"theme": &c.Appearance.Theme, "prio": &c.Appearance.PriorityHeaders, "focus": &c.Appearance.FocusedPanel,
 		"bg": &c.Appearance.Background, "columns": &c.Layout.Columns, "group": &c.Tasks.GroupBy,
 		"sort": &c.Tasks.SortBy, "order": &c.Tasks.Order,
-		"week": &c.Tasks.WeekStart, "keymap": &c.Keys.Keymap, "sync": &c.Account.SyncEvery,
+		"week": &c.Tasks.WeekStart, "history": &c.Tasks.CompletedDays, "keymap": &c.Keys.Keymap, "sync": &c.Account.SyncEvery,
 	}[key]
 }
 
@@ -126,6 +127,9 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 	switch r.key {
 	case "sync":
 		return a.scheduleSync()
+	case "history":
+		a.setFlash("⟳ syncing " + opt + " days of completed tasks…")
+		return a.syncNow()
 	case "updates":
 		a.newVersion = ""
 		return a.checkUpdate(false)
@@ -243,7 +247,7 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "g G", desc: "Top / bottom"},
 	{key: "pgup pgdn", desc: "Page up / down"},
 	{key: "h l  ← →", desc: "Previous / next pane; l opens"},
-	{key: "1 2 3", desc: "Focus the lists / tasks / details pane"},
+	{key: "1 2 3", desc: "Focus lists / tasks / details (1 = @ if narrow)"},
 	{key: "tab", desc: "Next pane"},
 	{key: "⏎", desc: "Open; on a field: edit, pick or cycle"},
 	{key: "esc", desc: "Back"},

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"ttui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 )
 
 // Deleting one occurrence completes the task, then deletes the completed copy it leaves;

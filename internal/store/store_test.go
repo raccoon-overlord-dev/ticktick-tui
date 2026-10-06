@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"ttui/internal/api"
-	"ttui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
 )
 
 // now is Wed 30 Sep 2026, 10:00 local.
@@ -205,7 +205,7 @@ func TestFetchPastFilterCap(t *testing.T) {
 	defer srv.Close()
 	c := api.New("fake-token")
 	c.BaseURL = srv.URL
-	s, err := Fetch(context.Background(), c)
+	s, err := Fetch(context.Background(), c, 7)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,5 +226,36 @@ func TestSmartHidden(t *testing.T) {
 		if got := s.OpenCount(id, now); got != want {
 			t.Errorf("%s: %d open, want %d", id, got, want)
 		}
+	}
+}
+
+// If /task/completed caps its answer too, completed splits the range until each part fits.
+func TestCompletedPastCap(t *testing.T) {
+	now := time.Now()
+	var all []api.Task // 300 completions, one every 2 hours
+	for i := range 300 {
+		at := now.Add(-time.Duration(i) * 2 * time.Hour)
+		all = append(all, api.Task{ID: fmt.Sprint("d", i), Status: 2, CompletedTime: at.UTC().Format(api.DateLayout)})
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ StartDate, EndDate string }
+		json.NewDecoder(r.Body).Decode(&body)
+		from, _ := time.Parse(api.DateLayout, body.StartDate)
+		to, _ := time.Parse(api.DateLayout, body.EndDate)
+		var out []api.Task
+		for _, t := range all {
+			at, _ := time.Parse(api.DateLayout, t.CompletedTime)
+			if !at.Before(from) && !at.After(to) && len(out) < api.FilterCap {
+				out = append(out, t)
+			}
+		}
+		json.NewEncoder(w).Encode(out)
+	}))
+	defer srv.Close()
+	c := api.New("fake-token")
+	c.BaseURL = srv.URL
+	got, err := completed(context.Background(), c, now.AddDate(0, 0, -30), now.Add(time.Minute))
+	if err != nil || len(got) != 300 {
+		t.Fatalf("got %d of 300 (err %v)", len(got), err)
 	}
 }

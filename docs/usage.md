@@ -25,7 +25,7 @@ Uninstall (asks before deleting your settings and sign-in):
 curl -fsSL https://raw.githubusercontent.com/raccoon-overlord-dev/ticktick-tui/main/install.sh | sh -s -- --uninstall
 ```
 
-From source, with Go installed: `make install` (or `go install ./cmd/ttui`).
+With Go installed: `go install github.com/raccoon-overlord-dev/ticktick-tui/cmd/ttui@latest`, or `make install` from a clone. Run `go install` again to upgrade: these builds report version `dev`, so the update check and `U` are off.
 
 ## Sign in
 
@@ -56,7 +56,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `g` / `G` | Top / bottom |
 | `pgup` / `pgdn` | One page up / down (lists, tasks, long notes, this panel, the notes editor). |
 | `h` `l` / `←` `→` | Previous / next pane; `l` opens a list, a folder or a task |
-| `1` `2` `3` | Focus the lists / tasks / details pane |
+| `1` `2` `3` | Focus the lists / tasks / details pane. With fewer than 3 panes, `1` opens the list jumper (`@`) and `3` opens the details |
 | `tab` | Next pane |
 | `⏎` | Open; on a detail field: edit it, pick a due date, repeat or list, cycle Priority, or edit a checklist item |
 | `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). On a checklist item: tick or untick it; ticking the last open one completes the task and unticking one reopens a completed task, as in the web app. In lists, `space` (or `⏎`, `l`) opens or closes a folder; folders start closed and ttui remembers the open ones |
@@ -137,6 +137,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | | `order` | `oldest` · `newest` (default for all lists) |
 | | `list_sort` | per-list overrides written by `s`; "Use default" in the `s` menu removes one |
 | | `due_menu` | dates offered by `d`, in quick-add syntax: `["today", "tomorrow", "+2d", "mon", "+7d"]` (config file only) |
+| | `completed_days` | `"7"` · `"30"` · `"90"` · `"365"`: days of completed tasks to download (Settings → Completed history) |
 | `keys` | `keymap` | `vim+arrows` · `arrows` |
 | `account` | `sync_every` | `1m` · `5m` · `15m` · `manual` |
 | | `update_check` | `true` · `false`: look for a new release once a day (one request to GitHub) |
@@ -155,7 +156,7 @@ These come from TickTick's public API (details in [`docs/api-notes.md`](api-note
 - No Trash and no attachments: the API doesn't expose them.
 - Smart lists (Today, Tomorrow, Next 7 Days) and filters are computed in ttui, not read from your TickTick filters.
 - A list's "Show in smart list" setting isn't readable through the API, so ttui ignores it; press `H` on the list to hide it in ttui instead.
-- Completed tasks cover the last 7 days.
+- Completed tasks cover the last 7 days by default; Settings → Completed history (`completed_days`) raises it to 30, 90 or 365.
 - Moving a task to the Inbox needs at least one task already in the Inbox (that's the only way the API reveals its id).
 - The API allows 100 requests a minute; ttui retries with backoff when it hits the limit.
 - dida365.com accounts aren't supported.

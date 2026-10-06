@@ -11,7 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/BurntSushi/toml"
 
-	"ttui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
 )
 
 //go:embed themes/*.toml

@@ -10,14 +10,14 @@ import (
 	"sync"
 	"time"
 
-	"ttui/internal/api"
-	"ttui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
 )
 
 type Store struct {
 	Projects []api.Project // sorted by sortOrder, closed ones dropped
 	Groups   []api.Group   // folders, sorted by sortOrder
-	Tasks    []api.Task    // open tasks + tasks completed in the last CompletedDays
+	Tasks    []api.Task    // open tasks + tasks completed in the last days (Fetch)
 	Tags     []string      // derived from tasks, sorted
 	Email    string
 	SyncedAt time.Time
@@ -26,11 +26,9 @@ type Store struct {
 	SmartHidden []string `json:"-"`
 }
 
-// ponytail: only recently completed tasks are fetched; widen if people want older history.
-const CompletedDays = 7
-
-// Fetch loads everything in 5 requests (see docs/api-notes.md "Sync strategy").
-func Fetch(ctx context.Context, c *api.Client) (*Store, error) {
+// Fetch loads everything in 5 requests (see docs/api-notes.md "Sync strategy"), with the
+// tasks completed in the last days.
+func Fetch(ctx context.Context, c *api.Client, days int) (*Store, error) {
 	ps, err := c.Projects(ctx)
 	if err != nil {
 		return nil, err
@@ -46,12 +44,40 @@ func Fetch(ctx context.Context, c *api.Client) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	done, err := c.CompletedTasks(ctx, time.Now().AddDate(0, 0, -CompletedDays))
+	now := time.Now()
+	done, err := completed(ctx, c, now.AddDate(0, 0, -days), now)
 	if err != nil {
 		return nil, err
 	}
 	email, _ := c.Email(ctx) // optional
 	return New(ps, gs, append(open, done...), email, time.Now()), nil
+}
+
+// completed fetches the tasks completed between from and to. If the API returns a full
+// page (it may cap results like /task/filter), it splits the range in two and asks again.
+func completed(ctx context.Context, c *api.Client, from, to time.Time) ([]api.Task, error) {
+	ts, err := c.CompletedTasks(ctx, from, to)
+	if err != nil || len(ts) < api.FilterCap || to.Sub(from) < time.Hour {
+		return ts, err
+	}
+	mid := from.Add(to.Sub(from) / 2)
+	older, err := completed(ctx, c, from, mid)
+	if err != nil {
+		return nil, err
+	}
+	newer, err := completed(ctx, c, mid, to)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	var out []api.Task
+	for _, t := range append(older, newer...) { // a task completed exactly at mid comes twice
+		if !seen[t.ID] {
+			seen[t.ID] = true
+			out = append(out, t)
+		}
+	}
+	return out, nil
 }
 
 // openByList fetches the open tasks of the Inbox and every open list, a few at a time.
