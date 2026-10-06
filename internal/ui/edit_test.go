@@ -106,12 +106,20 @@ func TestLongNotes(t *testing.T) {
 	a.df = len(detailKeys(a.st.Task("a"))) - 1
 	a.viewMain()
 	for range 100 {
+		if a.detailEnd {
+			break
+		}
 		a.move("detail", 1)
 		a.viewMain()
 	}
 	if v, _ := a.viewMain(); !strings.Contains(ansi.Strip(v), "LAST") {
 		t.Fatal("end of notes not reachable")
 	}
+	if a.move("detail", 1); a.df != 0 || a.offDetail != 0 { // ↓ at the end wraps to the title
+		t.Fatalf("no wrap at the end of the notes: df %d off %d", a.df, a.offDetail)
+	}
+	a.df = len(detailKeys(a.st.Task("a"))) - 1
+	a.viewMain()
 	for range 100 {
 		a.move("detail", -1)
 		a.viewMain()
@@ -277,5 +285,80 @@ func TestDueKeepsPlace(t *testing.T) {
 	a.moveTask(a.st.Task(ids[0]), "p:p2")
 	if a.taskID != ids[1] {
 		t.Fatalf("move: selected %s, want %s", a.taskID, ids[1])
+	}
+}
+
+func TestStepWraps(t *testing.T) {
+	for _, c := range []struct{ i, d, n, want int }{
+		{4, 1, 5, 0}, {0, -1, 5, 4}, {2, 1, 5, 3}, {3, 10, 5, 4}, {1, -10, 5, 0}, {0, 1, 0, 0},
+	} {
+		if got := step(c.i, c.d, c.n); got != c.want {
+			t.Errorf("step(%d, %d, %d) = %d, want %d", c.i, c.d, c.n, got, c.want)
+		}
+	}
+}
+
+// Selection (ctrl+a, shift+arrows), copy / cut, and undo / redo grouped by word.
+func TestInputSelectUndo(t *testing.T) {
+	press := func(in *textInput, keys ...tea.KeyPressMsg) {
+		for _, k := range keys {
+			in.key(k, true)
+		}
+	}
+	typ := func(in *textInput, s string) {
+		for _, r := range s {
+			press(in, tea.KeyPressMsg{Code: r, Text: string(r)})
+		}
+	}
+	ctrl := func(r rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: r, Mod: tea.ModCtrl} }
+	shift := func(c rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: c, Mod: tea.ModShift} }
+
+	in := newInput("old text")
+	press(&in, ctrl('a'))
+	if in.selected() != "old text" {
+		t.Fatalf("ctrl+a selected %q", in.selected())
+	}
+	typ(&in, "hello world")
+	if in.value() != "hello world" {
+		t.Fatalf("typing didn't replace the selection: %q", in.value())
+	}
+	press(&in, ctrl('z'))
+	if in.value() != "hello " {
+		t.Fatalf("undo one word: %q", in.value())
+	}
+	press(&in, ctrl('z'), ctrl('z'))
+	if in.value() != "old text" {
+		t.Fatalf("undo to the start: %q", in.value())
+	}
+	press(&in, ctrl('y'))
+	if in.value() != "hello " {
+		t.Fatalf("redo: %q", in.value())
+	}
+
+	in = newInput("abc def")
+	press(&in, shift(tea.KeyLeft), shift(tea.KeyLeft), shift(tea.KeyLeft))
+	if in.selected() != "def" {
+		t.Fatalf("shift+left selected %q", in.selected())
+	}
+	press(&in, tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if in.value() != "abc " {
+		t.Fatalf("backspace on selection: %q", in.value())
+	}
+
+	a := testApp(t)
+	a.screen, a.w, a.h = screenMain, 120, 30
+	a.th, _ = theme.Load("terminal")
+	tk := a.st.Task("a")
+	tk.Items = []api.Item{{Title: "item"}}
+	a.taskID, a.focus, a.df = "a", "detail", slices.Index(detailKeys(tk), "c0")
+	a.mainKey(ctrl('a'))
+	if a.edit != "c0" || a.in.selected() != "item" {
+		t.Fatalf("ctrl+a on an item: edit=%q selected=%q", a.edit, a.in.selected())
+	}
+	if _, cmd := a.Update(ctrl('x')); cmd == nil || a.in.value() != "" || a.edit != "c0" {
+		t.Fatalf("ctrl+x: value=%q edit=%q", a.in.value(), a.edit)
+	}
+	if _, cmd := a.Update(ctrl('c')); cmd != nil || a.edit == "" {
+		t.Fatal("ctrl+c while editing must not quit")
 	}
 }

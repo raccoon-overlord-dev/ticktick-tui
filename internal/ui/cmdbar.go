@@ -281,9 +281,9 @@ func (a *App) cmdKey(k tea.KeyPressMsg) tea.Cmd {
 	case "esc":
 		a.cmd = nil
 	case "down", "tab", "ctrl+n", "ctrl+j":
-		a.cmd.idx = min(a.cmd.idx+1, max(len(items)-1, 0))
+		a.cmd.idx = step(a.cmd.idx, 1, len(items))
 	case "up", "shift+tab", "ctrl+p", "ctrl+k":
-		a.cmd.idx = max(a.cmd.idx-1, 0)
+		a.cmd.idx = step(a.cmd.idx, -1, len(items))
 	case "enter":
 		if len(items) == 0 {
 			return nil

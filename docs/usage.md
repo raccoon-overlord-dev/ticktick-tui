@@ -52,7 +52,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 
 | Keys | Action |
 |---|---|
-| `j` `k` / `↓` `↑` | Move. In lists, moving selects the list |
+| `j` `k` / `↓` `↑` | Move; past the last row you wrap to the first and back. In lists, moving selects the list |
 | `g` / `G` | Top / bottom |
 | `pgup` / `pgdn` | One page up / down (lists, tasks, long notes, this panel, the notes editor). |
 | `h` `l` / `←` `→` | Previous / next pane; `l` opens a list, a folder or a task |
@@ -67,6 +67,10 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `c` | Add checklist items: `⏎` adds one and opens the next, `esc` finishes |
 | `D` / `delete` | Delete the task after a `y / N` prompt. On a repeating task: `o` deletes this occurrence only, `a` the whole series |
 | `i` / `e` | Edit the title (tasks) or the field under the cursor (details). `esc` or `⏎` saves. On the notes `↑` `↓` scroll them when they are long; while editing notes `⏎` is a newline, `↑` `↓` move between lines and `esc` / `ctrl+s` saves (`ctrl+⏎` also saves where the terminal passes it through; Omarchy uses it for fullscreen) |
+| `ctrl+a` | While editing: select all. On a text field (title, notes, checklist item…): edit it with all its text selected |
+| `shift+←` `shift+→` | Select text while editing (`shift+↑` `shift+↓` in notes, `shift+home` / `shift+end` too). Typing or pasting replaces the selection, `backspace` deletes it |
+| `ctrl+c` / `ctrl+x` | While editing: copy / cut the selection to the clipboard (OSC 52, works over SSH). Never quits while editing |
+| `ctrl+z` / `ctrl+y` | While editing: undo / redo (`ctrl+shift+z` also redoes), a word at a time, until the field is saved. With a terminal that passes `cmd` keys through (kitty keyboard protocol), `cmd+a` / `c` / `x` / `z` / `y` work too |
 | `a` / `n` | Quick add |
 | `/`, `ctrl+k` | Search |
 | `:` | Commands |

@@ -10,45 +10,161 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// textInput is a minimal line editor (optionally multi-line) with a cursor.
+// textInput is a minimal line editor (optionally multi-line) with a cursor, a selection
+// (shift+arrows, ctrl+a) and undo / redo for the current edit.
 type textInput struct {
+	r      []rune
+	cur    int
+	anchor int // other end of the selection, -1 for none
+	undo   []snapshot
+	redo   []snapshot
+	last   string // kind of the last change, for grouping typing into words
+}
+
+type snapshot struct {
 	r   []rune
 	cur int
 }
 
-func newInput(s string) textInput { r := []rune(s); return textInput{r: r, cur: len(r)} }
+func newInput(s string) textInput { r := []rune(s); return textInput{r: r, cur: len(r), anchor: -1} }
 
 func (t *textInput) value() string { return string(t.r) }
 
-func (t *textInput) insert(s string) {
+// selection returns the selected range; lo == hi when nothing is selected.
+func (t *textInput) selection() (lo, hi int) {
+	if t.anchor < 0 {
+		return 0, 0
+	}
+	return min(t.anchor, t.cur), max(t.anchor, t.cur)
+}
+
+func (t *textInput) selected() string { lo, hi := t.selection(); return string(t.r[lo:hi]) }
+
+func (t *textInput) selectAll() { t.anchor, t.cur = 0, len(t.r) }
+
+// save records the text before a change. Changes of the same kind in a row ("type",
+// "back", "del") are one undo step, and typing starts a new step at each word.
+func (t *textInput) save(kind string) {
+	if kind != "" && kind == t.last && !(kind == "type" && t.cur > 0 && unicode.IsSpace(t.r[t.cur-1])) {
+		return
+	}
+	t.undo = append(t.undo, snapshot{slices.Clone(t.r), t.cur})
+	t.redo, t.last = nil, kind
+}
+
+func (t *textInput) restore(from, to *[]snapshot) {
+	if len(*from) == 0 {
+		return
+	}
+	*to = append(*to, snapshot{slices.Clone(t.r), t.cur})
+	s := (*from)[len(*from)-1]
+	*from = (*from)[:len(*from)-1]
+	t.r, t.cur, t.anchor, t.last = s.r, s.cur, -1, ""
+}
+
+// cutSel deletes the selection, if any.
+func (t *textInput) cutSel() bool {
+	lo, hi := t.selection()
+	t.anchor = -1
+	if lo == hi {
+		return false
+	}
+	t.r, t.cur = append(t.r[:lo:lo], t.r[hi:]...), lo
+	return true
+}
+
+// insert pastes s (or types it, kind "type"), replacing the selection.
+func (t *textInput) insert(s string) { t.put(s, "") }
+
+func (t *textInput) put(s, kind string) {
+	if lo, hi := t.selection(); lo != hi {
+		t.last = "" // replacing a selection starts a new undo step
+	}
+	t.save(kind)
+	t.cutSel()
 	ins := []rune(s)
-	t.r = append(t.r[:t.cur], append(ins, t.r[t.cur:]...)...)
+	t.r = append(t.r[:t.cur:t.cur], append(ins, t.r[t.cur:]...)...)
 	t.cur += len(ins)
 }
 
-// key applies an editing key and reports whether it was handled.
-func (t *textInput) key(k tea.KeyPressMsg, multiline bool) bool {
-	switch k.String() {
+// move applies a cursor key; it reports false for keys that aren't moves.
+func (t *textInput) move(key string, multiline bool) bool {
+	switch key {
 	case "left", "ctrl+b":
 		t.cur = max(t.cur-1, 0)
 	case "right", "ctrl+f":
 		t.cur = min(t.cur+1, len(t.r))
-	case "home", "ctrl+a":
+	case "home":
 		t.cur = 0
 	case "end", "ctrl+e":
 		t.cur = len(t.r)
-	case "backspace":
-		if t.cur > 0 {
-			t.r = append(t.r[:t.cur-1], t.r[t.cur:]...)
-			t.cur--
+	case "up", "down":
+		if !multiline {
+			return false
 		}
-	case "delete", "ctrl+d":
-		if t.cur < len(t.r) {
-			t.r = append(t.r[:t.cur], t.r[t.cur+1:]...)
+		t.vmove(key == "down")
+	default:
+		return false
+	}
+	t.last = ""
+	return true
+}
+
+// key applies an editing key and reports whether it was handled.
+func (t *textInput) key(k tea.KeyPressMsg, multiline bool) bool {
+	key := k.String()
+	if base, ok := strings.CutPrefix(key, "shift+"); ok && base != "tab" {
+		anchor := t.anchor
+		if anchor < 0 {
+			anchor = t.cur
+		}
+		if t.move(base, multiline) {
+			t.anchor = anchor
+			return true
+		}
+	}
+	lo, hi := t.selection()
+	switch key {
+	case "ctrl+a", "super+a":
+		t.selectAll()
+		return true
+	case "ctrl+z", "super+z":
+		t.restore(&t.undo, &t.redo)
+		return true
+	case "ctrl+y", "super+y", "ctrl+shift+z", "super+shift+z":
+		t.restore(&t.redo, &t.undo)
+		return true
+	case "left", "right": // with a selection: go to its start / end
+		if lo != hi {
+			t.cur, t.anchor = map[bool]int{true: lo, false: hi}[key == "left"], -1
+			return true
+		}
+	}
+	if t.move(key, multiline) {
+		t.anchor = -1
+		return true
+	}
+	switch key {
+	case "backspace", "delete", "ctrl+d":
+		if lo != hi {
+			t.save("")
+			t.cutSel()
+			return true
+		}
+		if key == "backspace" && t.cur > 0 {
+			t.save("back")
+			t.r = append(t.r[:t.cur-1:t.cur-1], t.r[t.cur:]...)
+			t.cur--
+		} else if key != "backspace" && t.cur < len(t.r) {
+			t.save("del")
+			t.r = append(t.r[:t.cur:t.cur], t.r[t.cur+1:]...)
 		}
 	case "ctrl+u":
-		t.r, t.cur = t.r[t.cur:], 0
+		t.save("")
+		t.r, t.cur, t.anchor = t.r[t.cur:], 0, -1
 	case "ctrl+w":
+		t.save("")
+		t.anchor = -1
 		i := t.cur
 		for i > 0 && unicode.IsSpace(t.r[i-1]) {
 			i--
@@ -56,12 +172,7 @@ func (t *textInput) key(k tea.KeyPressMsg, multiline bool) bool {
 		for i > 0 && !unicode.IsSpace(t.r[i-1]) {
 			i--
 		}
-		t.r, t.cur = append(t.r[:i], t.r[t.cur:]...), i
-	case "up", "down":
-		if !multiline {
-			return false
-		}
-		t.vmove(k.String() == "down")
+		t.r, t.cur = append(t.r[:i:i], t.r[t.cur:]...), i
 	case "enter":
 		if !multiline {
 			return false
@@ -71,7 +182,7 @@ func (t *textInput) key(k tea.KeyPressMsg, multiline bool) bool {
 		if k.Text == "" {
 			return false
 		}
-		t.insert(k.Text)
+		t.put(k.Text, "type")
 	}
 	return true
 }
@@ -113,33 +224,41 @@ func (t *textInput) view(p pen, role string, width int) string {
 	for start < t.cur && ansi.StringWidth(string(t.r[start:t.cur]))+1 > width {
 		start++
 	}
-	after := ""
-	if t.cur < len(t.r) {
-		after = string(t.r[t.cur+1:])
-	}
-	s := p.s(role).Render(string(t.r[start:t.cur])) + cursorCell(p, t.r, t.cur, role) + p.s(role).Render(after)
+	s := t.span(p, role, start, t.cur) + cursorCell(p, t.r, t.cur, role) + t.span(p, role, min(t.cur+1, len(t.r)), len(t.r))
 	return ansi.Truncate(s, width, "")
+}
+
+// span renders r[from:to] in role with the selected part highlighted. It styles line by
+// line: Render on a multi-line string pads every line to the widest one, which pushed the
+// cursor right after a line break.
+func (t *textInput) span(p pen, role string, from, to int) string {
+	lo, hi := t.selection()
+	var b strings.Builder
+	for from < to {
+		end, st := to, p.s(role)
+		switch {
+		case from < lo:
+			end = min(to, lo)
+		case from < hi:
+			end, st = min(to, hi), p.s("accent").Reverse(true)
+		}
+		ls := strings.Split(string(t.r[from:end]), "\n")
+		for i, l := range ls {
+			ls[i] = st.Render(l)
+		}
+		b.WriteString(strings.Join(ls, "\n"))
+		from = end
+	}
+	return b.String()
 }
 
 // lines renders a multi-line value hard-wrapped to width, with the cursor,
 // and reports which of the returned lines holds the cursor.
 func (t *textInput) lines(p pen, role string, width int) ([]string, int) {
-	before, after := string(t.r[:t.cur]), ""
-	if t.cur < len(t.r) {
-		after = string(t.r[t.cur+1:])
-	}
+	before, after := t.span(p, role, 0, t.cur), t.span(p, role, min(t.cur+1, len(t.r)), len(t.r))
 	cur := cursorCell(p, t.r, t.cur, role)
 	if t.cur < len(t.r) && t.r[t.cur] == '\n' { // cursor on a line break: show it at line end
-		cur, after = lipgloss.NewStyle().Reverse(true).Render(" ")+"\n", string(t.r[t.cur+1:])
-	}
-	// Style line by line: Render on a multi-line string pads every line to the widest one,
-	// which pushed the cursor right after a line break.
-	render := func(s string) string {
-		ls := strings.Split(s, "\n")
-		for i, l := range ls {
-			ls[i] = p.s(role).Render(l)
-		}
-		return strings.Join(ls, "\n")
+		cur = lipgloss.NewStyle().Reverse(true).Render(" ") + "\n"
 	}
 	wrap := func(s string) []string {
 		var out []string
@@ -149,8 +268,8 @@ func (t *textInput) lines(p pen, role string, width int) ([]string, int) {
 		return out
 	}
 	// Hard wrapping is positional, so the text up to the cursor wraps the same way on its own.
-	row := len(wrap(render(before)+strings.TrimSuffix(cur, "\n"))) - 1
-	return wrap(render(before) + cur + render(after)), row
+	row := len(wrap(before+strings.TrimSuffix(cur, "\n"))) - 1
+	return wrap(before + cur + after), row
 }
 
 func cursorCell(p pen, r []rune, i int, role string) string {

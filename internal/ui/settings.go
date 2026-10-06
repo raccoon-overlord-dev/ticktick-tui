@@ -140,8 +140,8 @@ func (a *App) settingsKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	}
-	move := func(d int) {
-		for i := a.sIdx + d; i >= 0 && i < len(setRows); i += d {
+	move := func(d int) { // wraps around, skipping section headers
+		for i := (a.sIdx + d + len(setRows)) % len(setRows); i != a.sIdx; i = (i + d + len(setRows)) % len(setRows) {
 			if setRows[i].sec == "" {
 				a.sIdx = i
 				return
@@ -273,6 +273,10 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "⏎  esc", desc: "Save"},
 	{key: "notes", desc: "⏎ newline · ↑↓ line · esc or ctrl+s save"},
 	{key: "checklist", desc: "⏎ add and type the next · esc done"},
+	{key: "ctrl+a", desc: "Select all (outside editing: edit with all selected)"},
+	{key: "shift+←→", desc: "Select (shift+↑↓ in notes)"},
+	{key: "ctrl+c x", desc: "Copy / cut the selection"},
+	{key: "ctrl+z y", desc: "Undo / redo (until the field is saved)"},
 }
 
 func (a *App) helpKey(k tea.KeyPressMsg) tea.Cmd {

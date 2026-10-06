@@ -147,6 +147,20 @@ func (a *App) frame(p pen, o frameOpts) string {
 }
 
 // window returns the slice of lines to show so that line sel stays visible, updating *off.
+// step moves index i by d among n items. One step past either end wraps around; bigger
+// jumps (pgup/pgdn, g/G) stop at the ends.
+func step(i, d, n int) int {
+	switch {
+	case n == 0:
+		return 0
+	case d == 1 && i >= n-1:
+		return 0
+	case d == -1 && i <= 0:
+		return n - 1
+	}
+	return max(0, min(i+d, n-1))
+}
+
 func window(lines []string, sel, visible int, off *int) []string {
 	if visible <= 0 {
 		return nil

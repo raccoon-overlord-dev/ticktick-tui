@@ -93,6 +93,7 @@ type App struct {
 	offHelp                       int
 	offLists, offTasks, offDetail int
 	notesTop                      int     // detail line of the Notes header, for scrolling long notes
+	detailEnd                     bool    // the details pane is scrolled to its end
 	cmd                           *cmdBar // command bar, nil when closed
 	edit, editID                  string  // inline edit: field (title|due|tags|notes) and task
 	in                            textInput
@@ -195,7 +196,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.in.insert(msg.Content)
 		}
 	case tea.KeyPressMsg:
-		if msg.String() == "ctrl+c" {
+		if msg.String() == "ctrl+c" && (a.edit == "" || a.screen != screenMain) { // while editing it copies
 			a.auth.cancel()
 			return a, tea.Quit
 		}
@@ -238,6 +239,17 @@ func (a *App) setFlash(s string) {
 func (a *App) editKey(k tea.KeyPressMsg) tea.Cmd {
 	key := k.String()
 	switch {
+	case key == "ctrl+c" || key == "super+c" || key == "ctrl+x" || key == "super+x":
+		s := a.in.selected()
+		if s == "" {
+			return nil
+		}
+		if strings.HasSuffix(key, "x") {
+			a.in.save("")
+			a.in.cutSel()
+		}
+		a.setFlash("copied")
+		return tea.SetClipboard(s)
 	case key == "enter" && a.edit == "additem" && strings.TrimSpace(a.in.value()) != "":
 		cmd, _ := a.commitEdit()
 		a.startEdit("additem") // stay open for the next item
@@ -247,6 +259,7 @@ func (a *App) editKey(k tea.KeyPressMsg) tea.Cmd {
 		return cmd
 	}
 	if a.edit == "notes" && (key == "pgup" || key == "pgdown") {
+		a.in.anchor = -1
 		for range a.page() {
 			a.in.vmove(key == "pgdown")
 		}

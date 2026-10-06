@@ -584,8 +584,9 @@ func (a *App) viewMain() (string, [][2]string) {
 		if focused {
 			br = "i edit · esc back"
 		}
-		return a.frame(p, frameOpts{w: w, h: h, title: "Details", focused: focused, bottomRight: br,
-			body: window(lines, sel, h-2, &a.offDetail)})
+		body := window(lines, sel, h-2, &a.offDetail)
+		a.detailEnd = a.offDetail >= len(lines)-(h-2)
+		return a.frame(p, frameOpts{w: w, h: h, title: "Details", focused: focused, bottomRight: br, body: body})
 	}
 	if n >= 2 {
 		panes = append(panes, detail(p, dw, paneH))
@@ -775,7 +776,12 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		if t := a.selTask(); t != nil && ef != "lists" {
 			return a.cyclePrio(t)
 		}
-	case "i", "e":
+	case "i", "e", "ctrl+a", "super+a": // ctrl+a: edit with all the text selected
+		defer func() {
+			if a.edit != "" && strings.HasSuffix(key, "+a") {
+				a.in.selectAll()
+			}
+		}()
 		switch ef {
 		case "tasks":
 			a.startEdit("title")
@@ -783,7 +789,7 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 			if t := a.selTask(); t != nil {
 				if k := detailKeys(t)[a.df]; k == "title" || k == "due" || k == "repeat" || k == "tags" || k == "notes" || strings.HasPrefix(k, "c") {
 					a.startEdit(k)
-				} else {
+				} else if key == "i" || key == "e" {
 					return a.activate()
 				}
 			}
@@ -846,7 +852,6 @@ func (a *App) sideRow() *sideItem {
 }
 
 func (a *App) move(ef string, d int) {
-	clamp := func(i, n int) int { return max(0, min(i, n-1)) }
 	switch ef {
 	case "lists":
 		var nav []sideItem
@@ -856,7 +861,7 @@ func (a *App) move(ef string, d int) {
 			}
 		}
 		i := slices.IndexFunc(nav, func(r sideItem) bool { return r.key == a.sideKey })
-		r := nav[clamp(i+d, len(nav))]
+		r := nav[step(i, d, len(nav))]
 		a.sideKey = r.key
 		if r.list != "" && r.list != a.list {
 			a.list, a.taskID, a.offTasks = r.list, "", 0
@@ -870,21 +875,27 @@ func (a *App) move(ef string, d int) {
 		if t := a.selTask(); t != nil {
 			i = slices.Index(nav, t)
 		}
-		a.taskID, a.df, a.offDetail = nav[clamp(i+d, len(nav))].ID, 0, 0
+		a.taskID, a.df, a.offDetail = nav[step(i, d, len(nav))].ID, 0, 0
 	case "detail":
 		t := a.selTask()
 		if t == nil {
 			return
 		}
 		// On the notes (the last field) ↑↓ and pgup/pgdown scroll them; going up leaves once
-		// their header is back on top. home/end keep jumping between fields.
-		if keys := detailKeys(t); a.df == len(keys)-1 && d != -1<<20 && (d > 0 || a.offDetail > a.notesTop) {
+		// their header is back on top, ↓ at their end wraps to the title. home/end keep
+		// jumping between fields.
+		keys := detailKeys(t)
+		if a.df == len(keys)-1 && d == 1 && a.detailEnd {
+			a.df, a.offDetail = 0, 0
+			return
+		}
+		if a.df == len(keys)-1 && d != -1<<20 && (d > 0 || a.offDetail > a.notesTop) {
 			if a.offDetail += d; d < 0 {
 				a.offDetail = max(a.offDetail, a.notesTop)
 			}
 			return
 		}
-		a.df = clamp(a.df+d, len(detailKeys(t)))
+		a.df = step(a.df, d, len(keys))
 	}
 }
 
