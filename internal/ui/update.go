@@ -40,7 +40,7 @@ func (a *App) checkUpdate(manual bool) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		tag, err := update.Check(ctx)
+		tag, err := update.Check(ctx, manual)
 		switch {
 		case err == nil && update.Newer(tag, current):
 			return updateMsg(tag)

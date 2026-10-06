@@ -49,9 +49,10 @@ var client = &http.Client{
 // stamp holds the last tag seen; its mtime is when it was checked.
 func stamp() string { return filepath.Join(config.CacheDir(), "latest-version") }
 
-// Check returns the latest release tag, asking GitHub at most once a day.
-func Check(ctx context.Context) (string, error) {
-	if fi, err := os.Stat(stamp()); err == nil && time.Since(fi.ModTime()) < 24*time.Hour {
+// Check returns the latest release tag, asking GitHub at most once a day unless force is set
+// (a manual check).
+func Check(ctx context.Context, force bool) (string, error) {
+	if fi, err := os.Stat(stamp()); err == nil && !force && time.Since(fi.ModTime()) < 24*time.Hour {
 		b, err := os.ReadFile(stamp())
 		return strings.TrimSpace(string(b)), err
 	}

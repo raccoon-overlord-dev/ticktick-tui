@@ -56,12 +56,15 @@ func TestCheckAndApply(t *testing.T) {
 	Releases = srv.URL
 
 	ctx := context.Background()
-	if tag, err := Check(ctx); err != nil || tag != "v9.9.9" {
+	if tag, err := Check(ctx, false); err != nil || tag != "v9.9.9" {
 		t.Fatalf("check: %q %v", tag, err)
 	}
 	srv.Close() // the second check within a day must not need the network
-	if tag, err := Check(ctx); err != nil || tag != "v9.9.9" {
+	if tag, err := Check(ctx, false); err != nil || tag != "v9.9.9" {
 		t.Fatalf("cached check: %q %v", tag, err)
+	}
+	if _, err := Check(ctx, true); err == nil { // a manual check skips the cache
+		t.Fatal("forced check used the cache")
 	}
 
 	srv = httptest.NewServer(mux)
