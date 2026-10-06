@@ -35,6 +35,7 @@ var setRows = []setRow{
 	{key: "group", label: "Group by", opts: groupOpts, desc: "Default for all lists · s in the task list sets one list's own"},
 	{key: "sort", label: "Sort by", opts: sortOpts, desc: "Default for all lists · s in the task list sets one list's own"},
 	{key: "order", label: "Order", opts: orderOpts, desc: "Default for all lists · s in the task list sets one list's own"},
+	{key: "smartdates", label: "Smart dates", opts: []string{"on", "off"}, desc: "Quick add (a) reads tomorrow, fri, 17:00… as the due date; off keeps them in the title"},
 	{key: "history", label: "Completed history", opts: []string{"7", "30", "90", "365"}, desc: "Days of completed tasks to download (Completed list and groups); changing it syncs"},
 	{key: "week", label: "Week starts on", opts: []string{"mon", "sun"}, desc: ""},
 	{sec: "KEYS"},
@@ -61,7 +62,7 @@ func (a *App) field(key string) *string {
 
 func (a *App) flag(key string) *bool {
 	c := a.cfg
-	return map[string]*bool{"icons": &c.Appearance.NerdFontIcons, "completed": &c.Layout.ShowCompleted, "due": &c.Tasks.DueLabel, "updates": &c.Account.UpdateCheck}[key]
+	return map[string]*bool{"icons": &c.Appearance.NerdFontIcons, "completed": &c.Layout.ShowCompleted, "due": &c.Tasks.DueLabel, "smartdates": &c.Tasks.SmartDates, "updates": &c.Account.UpdateCheck}[key]
 }
 
 // keymap values in config.toml differ from their labels.
@@ -257,14 +258,15 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "x  ␣", desc: "Complete / reopen (x right after: undo); tick an item"},
 	{key: "p", desc: "Cycle priority"},
 	{key: "i e", desc: "Edit the title or the field under the cursor"},
-	{key: "d", desc: "Due date menu"},
+	{key: "d", desc: "Due date menu (Pick a date: calendar)"},
 	{key: "m", desc: "Move to another list"},
 	{key: "c", desc: "Add checklist items"},
 	{key: "D  del", desc: "Delete (asks first; repeating: this one or all)"},
 	{key: "t", desc: "Toggle due-date labels"},
 	{key: "s", desc: "Group / sort this list"},
 	{sec: "EVERYWHERE"},
-	{key: "a n", desc: "Quick add"},
+	{key: "a", desc: "Quick add (one line)"},
+	{key: "n", desc: "New task panel (all fields)"},
 	{key: "/  ctrl+k", desc: "Search"},
 	{key: ":", desc: "Commands"},
 	{key: "@ #", desc: "Jump to a list / tag"},

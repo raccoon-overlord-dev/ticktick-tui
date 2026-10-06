@@ -117,8 +117,9 @@ type Add struct {
 }
 
 // QuickAdd parses "call mom tomorrow 17:00 !high #errand @home".
-// defList / defDue are used when the text doesn't set them.
-func QuickAdd(term string, lists []List, defList string, defDue *Due, now time.Time) Add {
+// defList / defDue are used when the text doesn't set them. With dates false, day and time
+// words stay in the title (Settings → Smart dates off).
+func QuickAdd(term string, lists []List, defList string, defDue *Due, now time.Time, dates bool) Add {
 	a := Add{List: defList}
 	var title []string
 	var day *int
@@ -140,6 +141,8 @@ func QuickAdd(term string, lists []List, defList string, defDue *Due, now time.T
 			} else {
 				title = append(title, w)
 			}
+		case !dates:
+			title = append(title, w)
 		default:
 			if h, m, ok := ParseTime(lw); ok {
 				tm = &Due{HasTime: true, H: h, M: m}

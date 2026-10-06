@@ -10,6 +10,7 @@ Inspired by [superfile](https://superfile.dev): clean, minimal, never leave the 
 ## Features
 
 - **Responsive layout**: lists · tasks · details at full width, two panes on smaller windows, one pane with a slide-up details sheet on narrow ones.
+- **New task panel** (`n`): every field of a task in one form, with a calendar for dates and the web app's Custom repeat dialog, for when you'd rather not learn the quick-add syntax.
 - **Command bar** (`/`): fuzzy search across tasks, lists and commands; `+` quick add with natural language (`fri 5pm !med #errand @home`); `@` jump to a list; `#` filter by tag.
 - **Edit without leaving the keyboard**: complete (`x`, with undo), cycle priority (`p`), pick a due date (`d`), move to another list (`m`), add and tick checklist items (`c`), delete (`D`, with this-occurrence-or-all for repeating tasks), edit title, tags and markdown notes inline (links in titles, notes and checklists are clickable), set repeats, from Daily to "3rd wed" or "last workday". `?` lists every key.
 - **Instant and in sync**: edits show at once and are sent in the background; a background sync picks up changes from your other devices; startup renders from a local cache.

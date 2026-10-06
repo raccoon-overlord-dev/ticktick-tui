@@ -22,6 +22,11 @@ func TestParseRepeat(t *testing.T) {
 		"daily until 2026-12-31":       "RRULE:FREQ=DAILY;INTERVAL=1;UNTIL=20261231",
 		"daily skip weekends holidays": "RRULE:FREQ=DAILY;INTERVAL=1;TT_SKIP=HOLIDAY,WEEKEND",
 		"curve":                        "ERULE:NAME=FORGETTINGCURVE;CYCLE=0",
+		"1st,15th,last day":            "RRULE:FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1,15,-1",
+		"every year oct 6th":           "RRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=10;BYMONTHDAY=6",
+		"6th october yearly":           "RRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=10;BYMONTHDAY=6",
+		"every year may 2nd sun":       "RRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=5;BYDAY=2SU",
+		"fifth fri":                    "RRULE:FREQ=MONTHLY;INTERVAL=1;BYDAY=5FR",
 		"dates fri, 2026-10-22":        "ERULE:NAME=CUSTOM;BYDATE=20261002,20261022",
 	} {
 		got, _, err := ParseRepeat(in, now)
@@ -36,7 +41,7 @@ func TestParseRepeat(t *testing.T) {
 	if _, from, _ := ParseRepeat("every week from completion", now); !from {
 		t.Error("from completion not read")
 	}
-	for _, in := range []string{"", "sometimes", "daily weekly", "2nd workday", "daily x2 until fri", "every 0 days", "dates"} {
+	for _, in := range []string{"", "sometimes", "daily weekly", "2nd workday", "daily x2 until fri", "every 0 days", "dates", "weekly oct"} {
 		if r, _, err := ParseRepeat(in, now); err == nil {
 			t.Errorf("ParseRepeat(%q) = %q, want an error", in, r)
 		}

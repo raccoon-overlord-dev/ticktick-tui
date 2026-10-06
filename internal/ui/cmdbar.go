@@ -116,6 +116,8 @@ func (a *App) commands() []cmdItem {
 		return ""
 	}
 	items := []cmdItem{
+		{icon: "+", label: "New task", hint: "n", run: func() tea.Cmd { a.openDraft(); return nil }},
+		{icon: "+", label: "Quick add", hint: "a", run: func() tea.Cmd { a.openCmd("+ "); return nil }},
 		{icon: a.icon("", ","), label: "Open settings", hint: ",", run: func() tea.Cmd { a.settings, a.sIdx = true, 1; return nil }},
 		{icon: a.icon("", "t"), label: "Toggle due-date labels (" + onOff(c.Tasks.DueLabel) + ")", hint: "t", run: func() tea.Cmd { a.toggleDueLabels(); return nil }},
 	}
@@ -185,7 +187,7 @@ func (a *App) quickAdd(term string) parse.Add {
 	case "tomorrow":
 		defDue = &parse.Due{Day: 1}
 	}
-	return parse.QuickAdd(term, lists, def, defDue, time.Now())
+	return parse.QuickAdd(term, lists, def, defDue, time.Now(), a.cfg.Tasks.SmartDates)
 }
 
 func (a *App) cmdData() (string, []cmdGroup) {

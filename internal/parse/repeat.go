@@ -10,11 +10,13 @@ import (
 )
 
 // RepeatHelp is the hint shown in the Custom repeat editor.
-const RepeatHelp = "every 3 days · mon,wed · 23rd · last fri · first workday · until 2026-12-31 · x5 · from completion"
+const RepeatHelp = "every 3 days · mon,wed · 1st,15th · last fri · every year oct 6th · first workday · until 2026-12-31 · x5 · from completion"
 
 var (
 	byDay     = []string{"SU", "MO", "TU", "WE", "TH", "FR", "SA"}
-	ordinals  = map[string]int{"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4, "last": -1}
+	ordinals  = map[string]int{"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4, "fifth": 5, "5th": 5, "last": -1}
+	ordText   = map[string]string{"1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th", "-1": "last"}
+	months    = []string{"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"}
 	units     = map[string]string{"day": "DAILY", "week": "WEEKLY", "month": "MONTHLY", "year": "YEARLY"}
 	freqWords = map[string]string{"daily": "DAILY", "weekly": "WEEKLY", "monthly": "MONTHLY", "yearly": "YEARLY", "annually": "YEARLY"}
 	fillers   = []string{"every", "each", "on", "the", "of", "a", "and", "repeat", "in"}
@@ -22,16 +24,17 @@ var (
 
 // ParseRepeat reads the Custom repeat field into a TickTick repeatFlag and whether it
 // repeats from the completion date. It writes the same rules the web app does (see
-// docs/api-notes.md): "every 2 weeks", "mon,wed,fri", "weekdays", "23rd", "last day",
-// "3rd wed", "last fri", "first workday", "last workday", "until 2026-12-31", "x5",
+// docs/api-notes.md): "every 2 weeks", "mon,wed,fri", "weekdays", "23rd", "1st,15th,last day",
+// "3rd wed", "last fri", "every year oct 6th", "every year oct 1st tue", "first workday",
+// "last workday", "until 2026-12-31", "x5",
 // "skip weekends", "from completion", "curve" (Ebbinghaus), "dates fri, 2026-10-22".
 func ParseRepeat(s string, now time.Time) (rule string, fromCompletion bool, err error) {
 	w := strings.Fields(strings.NewReplacer(",", " ", ";", " ").Replace(strings.ToLower(s)))
 	if len(w) == 0 {
 		return "", false, errors.New("empty repeat")
 	}
-	var freq, monthDay, until string
-	var days []string
+	var freq, month, until string
+	var days, monthDays []string
 	var skip []string
 	interval, count, workday := 1, 0, 0
 
@@ -53,11 +56,20 @@ func ParseRepeat(s string, now time.Time) (rule string, fromCompletion bool, err
 		return "ERULE:NAME=CUSTOM;BYDATE=" + strings.Join(ds, ","), false, nil
 	}
 
-	setFreq := func(f string) error {
-		if freq != "" && freq != f {
+	// A day of the month ("23rd", "3rd wed") means monthly unless the rule says yearly.
+	soft := false
+	setFreq := func(f string, fromDay bool) error {
+		switch {
+		case freq == "":
+			freq, soft = f, fromDay
+		case freq == f:
+			soft = soft && fromDay
+		case f == "YEARLY" && freq == "MONTHLY" && soft:
+			freq, soft = f, false
+		case f == "MONTHLY" && fromDay && freq == "YEARLY":
+		default:
 			return errors.New("repeat: two frequencies")
 		}
-		freq = f
 		return nil
 	}
 	for i := 0; i < len(w); i++ {
@@ -70,24 +82,26 @@ func ParseRepeat(s string, now time.Time) (rule string, fromCompletion bool, err
 		switch {
 		case slices.Contains(fillers, x):
 		case freqWords[x] != "":
-			e = setFreq(freqWords[x])
+			e = setFreq(freqWords[x], false)
 		case units[strings.TrimSuffix(x, "s")] != "":
-			e = setFreq(units[strings.TrimSuffix(x, "s")])
+			e = setFreq(units[strings.TrimSuffix(x, "s")], false)
 		case x == "weekday" || x == "weekdays":
-			days, e = append(days, "MO", "TU", "WE", "TH", "FR"), setFreq("WEEKLY")
+			days, e = append(days, "MO", "TU", "WE", "TH", "FR"), setFreq("WEEKLY", false)
 		case x == "weekend" || x == "weekends":
-			days, e = append(days, "SA", "SU"), setFreq("WEEKLY")
+			days, e = append(days, "SA", "SU"), setFreq("WEEKLY", false)
 		case weekday(x) != "":
-			days, e = append(days, weekday(x)), setFreq("WEEKLY")
+			days, e = append(days, weekday(x)), setFreq("WEEKLY", false)
+		case monthNum(x) > 0:
+			month, e = strconv.Itoa(monthNum(x)), setFreq("YEARLY", false)
 		case ordinals[x] != 0 && i+1 < len(w) && weekday(w[i+1]) != "":
-			days, e = append(days, fmt.Sprint(ordinals[x], weekday(w[i+1]))), setFreq("MONTHLY")
+			days, e = append(days, fmt.Sprint(ordinals[x], weekday(w[i+1]))), setFreq("MONTHLY", true)
 			i++
 		case (x == "first" || x == "last") && next == "workday": // as the web app writes it
-			workday, e = ordinals[x], setFreq("MONTHLY")
-			monthDay = strconv.Itoa(workday)
+			workday, e = ordinals[x], setFreq("MONTHLY", false)
+			monthDays = []string{strconv.Itoa(workday)}
 			i++
 		case x == "last" && next == "day":
-			monthDay, e = "-1", setFreq("MONTHLY")
+			monthDays, e = append(monthDays, "-1"), setFreq("MONTHLY", true)
 			i++
 		case x == "until" && i+1 < len(w):
 			n, ok := ParseDay(w[i+1], now)
@@ -112,7 +126,7 @@ func ParseRepeat(s string, now time.Time) (rule string, fromCompletion bool, err
 		case isNum(x) && units[next] != "":
 			interval, _ = strconv.Atoi(x)
 		case monthDayNum(x) > 0:
-			monthDay, e = strconv.Itoa(monthDayNum(x)), setFreq("MONTHLY")
+			monthDays, e = append(monthDays, strconv.Itoa(monthDayNum(x))), setFreq("MONTHLY", true)
 		default:
 			return "", false, errors.New("couldn't read repeat: " + x)
 		}
@@ -130,11 +144,14 @@ func ParseRepeat(s string, now time.Time) (rule string, fromCompletion bool, err
 		return "", false, errors.New("repeat: until or xN, not both")
 	}
 	parts := []string{"FREQ=" + freq, "INTERVAL=" + strconv.Itoa(interval)}
+	if month != "" {
+		parts = append(parts, "BYMONTH="+month)
+	}
 	if len(days) > 0 {
 		parts = append(parts, "BYDAY="+strings.Join(days, ","))
 	}
-	if monthDay != "" {
-		parts = append(parts, "BYMONTHDAY="+monthDay)
+	if len(monthDays) > 0 {
+		parts = append(parts, "BYMONTHDAY="+strings.Join(monthDays, ","))
 	}
 	if workday != 0 {
 		parts = append(parts, "TT_WORKDAY="+strconv.Itoa(workday))
@@ -190,7 +207,10 @@ func repeatText(rule string) string {
 	} else {
 		out = append(out, "every "+unit)
 	}
-	known := map[string]bool{"FREQ": true, "INTERVAL": true}
+	known := map[string]bool{"FREQ": true, "INTERVAL": true, "BYMONTH": true}
+	if m, err := strconv.Atoi(p["BYMONTH"]); err == nil && m >= 1 && m <= 12 {
+		out = append(out, months[m-1][:3])
+	}
 	if d := p["BYDAY"]; d != "" {
 		known["BYDAY"] = true
 		if d == "MO,TU,WE,TH,FR" {
@@ -205,7 +225,7 @@ func repeatText(rule string) string {
 				}
 				name := weekdays[i][:3]
 				if n != "" {
-					name = map[string]string{"1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "-1": "last"}[n] + " " + name
+					name = ordText[n] + " " + name
 				}
 				ws = append(ws, name)
 			}
@@ -217,11 +237,16 @@ func repeatText(rule string) string {
 		out = append(out, "first workday")
 	case wd == "-1":
 		out = append(out, "last workday")
-	case md == "-1":
-		out = append(out, "last day")
 	case md != "":
-		n, _ := strconv.Atoi(md)
-		out = append(out, Ordinal(n))
+		var ds []string
+		for _, x := range strings.Split(md, ",") {
+			if n, _ := strconv.Atoi(x); n > 0 {
+				ds = append(ds, Ordinal(n))
+			} else {
+				ds = append(ds, "last day")
+			}
+		}
+		out = append(out, strings.Join(ds, ","))
 	}
 	known["TT_WORKDAY"], known["BYMONTHDAY"] = true, true
 	if c := p["COUNT"]; c != "" {
@@ -264,6 +289,19 @@ func weekday(w string) string {
 		}
 	}
 	return ""
+}
+
+// monthNum returns 1–12 for a month name of at least 3 letters ("oct", "october"), or 0.
+func monthNum(w string) int {
+	if len(w) < 3 {
+		return 0
+	}
+	for i, m := range months {
+		if strings.HasPrefix(m, w) {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 func isNum(s string) bool {

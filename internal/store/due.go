@@ -117,6 +117,11 @@ func RepeatLabel(rrule string) string {
 	if parts["INTERVAL"] != "" && parts["INTERVAL"] != "1" {
 		return "Custom"
 	}
+	for k, v := range parts { // anything beyond the plain menu rules (days, ends, skips…)
+		if k != "FREQ" && k != "INTERVAL" && !(k == "BYDAY" && v == "MO,TU,WE,TH,FR" && parts["FREQ"] == "WEEKLY") {
+			return "Custom"
+		}
+	}
 	switch parts["FREQ"] {
 	case "DAILY":
 		return "Daily"

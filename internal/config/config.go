@@ -32,6 +32,7 @@ type Config struct {
 		WeekStart     string          `toml:"week_start"`
 		DueMenu       []string        `toml:"due_menu"`
 		CompletedDays string          `toml:"completed_days"` // completed tasks downloaded: "7" | "30" | "90" | "365"
+		SmartDates    bool            `toml:"smart_dates"`    // quick add reads day and time words as the due date
 		Sort                          // default for lists without their own
 		ListSort      map[string]Sort `toml:"list_sort,omitempty"` // per list, set with s; keyed by list ("inbox", "today", "p:<id>", "tag:<name>")
 	} `toml:"tasks"`

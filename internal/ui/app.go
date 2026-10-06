@@ -98,7 +98,13 @@ type App struct {
 	cmd                           *cmdBar // command bar, nil when closed
 	edit, editID                  string  // inline edit: field (title|due|tags|notes) and task
 	in                            textInput
-	recent                        []string // recently opened task ids (command bar RECENT)
+	recent                        []string  // recently opened task ids (command bar RECENT)
+	cal                           *calendar // date picker, nil when closed
+	rep                           *repForm  // Custom repeat dialog, nil when closed
+	draft                         *api.Task // New task panel's task, nil when closed
+	draftInit                     api.Task  // the draft as opened, to ask before discarding changes
+	draftAsk                      bool      // the "discard the new task?" prompt is showing
+	mainDF, mainOff, offDraft     int       // details field/scroll saved while the panel is open; its own scroll
 
 	// writes and sync
 	queue    []op
@@ -222,10 +228,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.confirmKey(k)
 		case a.delID != "":
 			return a, a.deleteKey(k)
+		case a.draftAsk:
+			return a, a.discardKey(k)
+		case a.cal != nil:
+			return a, a.calKey(k)
 		case a.cmd != nil:
 			return a, a.cmdKey(k)
 		case a.edit != "":
 			return a, a.editKey(k)
+		case a.rep != nil:
+			return a, a.repKey(k)
+		case a.draft != nil:
+			return a, a.draftKey(k)
 		case a.settings:
 			return a, a.settingsKey(k)
 		case a.help:

@@ -187,7 +187,7 @@ func TestDuePickerKeepsTime(t *testing.T) {
 	task.DueDate, task.IsAllDay = time.Now().Add(-48*time.Hour).Format(api.DateLayout), false
 	at, _ := store.DueTime(task)
 	a.duePicker(task)
-	if n := len(a.cmd.pick.items); n != len(a.cfg.Tasks.DueMenu)+2 {
+	if n := len(a.cmd.pick.items); n != len(a.cfg.Tasks.DueMenu)+3 {
 		t.Fatalf("%d items", n)
 	}
 	a.cmdKey(tea.KeyPressMsg{Code: tea.KeyEnter}) // first entry: today
@@ -360,5 +360,108 @@ func TestInputSelectUndo(t *testing.T) {
 	}
 	if _, cmd := a.Update(ctrl('c')); cmd != nil || a.edit == "" {
 		t.Fatal("ctrl+c while editing must not quit")
+	}
+}
+
+// n → New task: fields are set on a draft, Create sends everything in one create.
+func TestNewTaskPanel(t *testing.T) {
+	a := testApp(t)
+	a.th, _ = theme.Load("terminal")
+	a.screen, a.w, a.h, a.now, a.list = screenMain, 120, 40, time.Now(), "today"
+	key := func(k tea.KeyPressMsg) { a.Update(k) }
+	press := func(s string) {
+		for _, r := range s {
+			key(tea.KeyPressMsg{Code: r, Text: string(r)})
+		}
+	}
+	enter, esc := tea.KeyPressMsg{Code: tea.KeyEnter}, tea.KeyPressMsg{Code: tea.KeyEscape}
+
+	key(tea.KeyPressMsg{Code: 'n', Text: "n"})
+	if a.draft == nil || a.draft.DueDate == "" {
+		t.Fatalf("n didn't open a draft due today: %+v", a.draft)
+	}
+	if v, _ := a.viewMain(); !strings.Contains(ansi.Strip(v), "New task") {
+		t.Fatal("panel not drawn")
+	}
+	key(esc) // unchanged: closes at once
+	if a.draft != nil {
+		t.Fatal("esc on an untouched draft should close it")
+	}
+
+	key(tea.KeyPressMsg{Code: 'n', Text: "n"})
+	key(enter) // title
+	press("Buy milk")
+	key(enter)
+	press("p") // high
+	press("c")
+	press("eggs")
+	key(enter)
+	key(esc)
+	if a.draft.Title != "Buy milk" || a.draft.Priority != store.PrioHigh || len(a.draft.Items) != 1 || len(a.queue) != 0 {
+		t.Fatalf("draft: %+v queue %d", a.draft, len(a.queue))
+	}
+	key(esc) // changed: asks first
+	if !a.draftAsk {
+		t.Fatal("no discard prompt")
+	}
+	key(tea.KeyPressMsg{Code: 'n', Text: "n"}) // no
+	key(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	if a.draft != nil || len(a.queue) != 1 {
+		t.Fatalf("not created: draft %v queue %d", a.draft, len(a.queue))
+	}
+	f := a.queue[0].fields
+	if f["title"] != "Buy milk" || f["priority"] != store.PrioHigh || f["kind"] != "CHECKLIST" || f["dueDate"] == nil || f["projectId"] != nil {
+		t.Fatalf("create body: %v", f)
+	}
+	if nt := a.st.Task(a.taskID); nt == nil || nt.Title != "Buy milk" {
+		t.Fatal("new task not selected")
+	}
+}
+
+// The calendar sets a due date with a time; the repeat form writes the web app's rule.
+func TestCalendarAndRepeatForm(t *testing.T) {
+	a := testApp(t)
+	a.th, _ = theme.Load("terminal")
+	a.screen, a.w, a.h, a.now, a.focus = screenMain, 120, 40, time.Now(), "detail"
+	tk := a.st.Task("a")
+	a.pickDue(tk)
+	key := func(s string) { a.Update(tea.KeyPressMsg{Code: []rune(s)[0], Text: s}) }
+	special := func(c rune) { a.Update(tea.KeyPressMsg{Code: c}) }
+	if v, _ := a.viewMain(); !strings.Contains(ansi.Strip(v), time.Now().Format("January 2006")) {
+		t.Fatal("calendar not drawn")
+	}
+	special(tea.KeyRight)
+	key("t")
+	for _, r := range "17:30" {
+		key(string(r))
+	}
+	special(tea.KeyEnter) // set the time
+	special(tea.KeyEnter) // pick
+	due, _ := store.DueTime(tk)
+	if a.cal != nil || tk.IsAllDay || due.Hour() != 17 || due.Minute() != 30 || daysFrom(time.Now(), due) != 1 {
+		t.Fatalf("due %v allDay %v", due, tk.IsAllDay)
+	}
+
+	a.openRepeatForm(tk)
+	r := a.rep
+	special(tea.KeyDown)  // every
+	special(tea.KeyDown)  // unit
+	special(tea.KeyRight) // week → month
+	special(tea.KeyDown)  // month by: each
+	special(tea.KeyDown)  // grid, cursor on 1
+	key(" ")              // toggle the 1st (the due day is on already)
+	if v, _ := a.viewMain(); !strings.Contains(ansi.Strip(v), "Custom repeat") {
+		t.Fatal("repeat form not drawn")
+	}
+	a.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	want := []int{due.Day()}
+	if due.Day() != 1 {
+		want = []int{1, due.Day()}
+	} else {
+		want = nil
+	}
+	got := parse.FormFromRule(tk.RepeatFlag, tk.RepeatFrom, due)
+	if a.rep != nil || tk.RepeatFlag == "" || got.Unit != "month" || (want != nil && !slices.Equal(got.MonthDays, want)) {
+		t.Fatalf("repeat %q (form %+v)", tk.RepeatFlag, r.f)
 	}
 }

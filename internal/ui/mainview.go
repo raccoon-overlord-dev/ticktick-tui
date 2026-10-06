@@ -362,7 +362,7 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		lines = append(lines, tp.line(w, dot+tp.sp(1)+a.in.view(tp, "text", cw-2), ""))
 	}
 	for i, l := range parse.Wrap(parse.Links(t.Title), cw-2) {
-		if editing("title") {
+		if editing("title") || t.Title == "" {
 			break
 		}
 		lead := dot + tp.sp(1)
@@ -378,6 +378,9 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 			b.WriteString(st.Render(sp.Text))
 		}
 		lines = append(lines, tp.line(w, lead+b.String(), ""))
+	}
+	if t.Title == "" && !editing("title") { // a new task's empty title
+		lines = append(lines, tp.line(w, dot+tp.sp(1)+tp.s("dim").Render("title · ⏎ to type"), ""))
 	}
 	lines = append(lines, "")
 
@@ -552,7 +555,7 @@ func (a *App) viewMain() (string, [][2]string) {
 	n, lw, tw, dw := layout(a.w, a.cfg.Layout.Columns)
 	ef := a.effFocus(n)
 	paneH := a.h - 1
-	overlay := a.settings || a.help || a.cmd != nil || (n == 1 && a.sheet)
+	overlay := a.settings || a.help || a.cmd != nil || (n == 1 && a.sheet) || a.draft != nil || a.rep != nil || a.cal != nil
 	p := a.pen()
 	p.faint = overlay
 
@@ -632,6 +635,35 @@ func (a *App) viewMain() (string, [][2]string) {
 	}
 
 	switch {
+	case a.draft != nil || a.rep != nil || a.cal != nil: // stacked: New task, menu, repeat dialog, calendar
+		z := 0
+		layer := func(box string, bw, y int) {
+			z++
+			base = lipgloss.NewCompositor(lipgloss.NewLayer(base), lipgloss.NewLayer(box).X((a.w-bw)/2).Y(max(y, 0)).Z(z)).Render()
+		}
+		if a.draft != nil {
+			box, bw, bh := a.viewDraft()
+			layer(box, bw, (paneH-bh)/2)
+			hints = [][2]string{{"↑↓", "field"}, {"⏎", "edit"}, {"ctrl+s", "create"}, {"esc", "cancel"}}
+			if a.edit != "" {
+				hints = [][2]string{{"esc", "save"}, {"⏎", map[bool]string{true: "newline", false: "save"}[a.edit == "notes"]}}
+			}
+		}
+		if a.cmd != nil {
+			box, bw, _ := a.viewCmd()
+			layer(box, bw, a.h*14/100)
+			hints = [][2]string{{"↑↓", "select"}, {"⏎", "run"}, {"esc", "close"}}
+		}
+		if a.rep != nil {
+			box, bw, bh := a.viewRepeat()
+			layer(box, bw, (paneH-bh)/2)
+			hints = [][2]string{{"↑↓", "field"}, {"←→", "change"}, {"ctrl+s", "save"}, {"esc", "cancel"}}
+		}
+		if a.cal != nil {
+			box, bw, bh := a.viewCal()
+			layer(box, bw, (paneH-bh)/2)
+			hints = [][2]string{{"←→↑↓", "day"}, {"pgup/pgdn", "month"}, {"⏎", "pick"}, {"esc", "cancel"}}
+		}
 	case a.cmd != nil:
 		if n == 1 && a.sheet { // keep the sheet under the bar
 			sh := max(paneH*68/100, 8)
@@ -794,8 +826,10 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 				}
 			}
 		}
-	case "a", "n":
+	case "a":
 		a.openCmd("+ ")
+	case "n":
+		a.openDraft()
 	case "/", "ctrl+k":
 		a.openCmd("")
 	case ":":

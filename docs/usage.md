@@ -62,7 +62,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). On a checklist item: tick or untick it; ticking the last open one completes the task and unticking one reopens a completed task, as in the web app. In lists, `space` (or `⏎`, `l`) opens or closes a folder; folders start closed and ttui remembers the open ones |
 | `H` | In lists: hide the list from Today, Tomorrow, Next 7 Days and the filters, or show it again (hidden lists get a crossed-out eye icon, `x` without Nerd Fonts). Stands in for TickTick's "Show in smart list: Do not show", which the API doesn't expose |
 | `p` | Cycle priority High → Medium → Low → None |
-| `d` | Due date menu: the dates in `due_menu`, No date, or Custom (type one). A date without a time keeps the task's time |
+| `d` | Due date menu: the dates in `due_menu`, No date, Pick a date (calendar: arrows move by day / week, `pgup` `pgdn` by month, `home` today, `t` sets a time) or Type a date. A date without a time keeps the task's time |
 | `m` | Move the task to another list |
 | `c` | Add checklist items: `⏎` adds one and opens the next, `esc` finishes |
 | `D` / `delete` | Delete the task after a `y / N` prompt. On a repeating task: `o` deletes this occurrence only, `a` the whole series |
@@ -71,7 +71,8 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `shift+←` `shift+→` | Select text while editing (`shift+↑` `shift+↓` in notes, `shift+home` / `shift+end` too). Typing or pasting replaces the selection, `backspace` deletes it |
 | `ctrl+c` / `ctrl+x` | While editing: copy / cut the selection to the clipboard (OSC 52, works over SSH). Never quits while editing |
 | `ctrl+z` / `ctrl+y` | While editing: undo / redo (`ctrl+shift+z` also redoes), a word at a time, until the field is saved. With a terminal that passes `cmd` keys through (kitty keyboard protocol), `cmd+a` / `c` / `x` / `z` / `y` work too |
-| `a` / `n` | Quick add |
+| `a` | Quick add (one line, see below) |
+| `n` | New task panel: the details fields for a task that doesn't exist yet. `⏎` edits or picks each field (due date by calendar or menu, repeat, list, tags, priority, checklist, notes), `ctrl+s` or **Create** adds it, `esc` cancels (asks first if you changed anything). Also in `:` as New task |
 | `/`, `ctrl+k` | Search |
 | `:` | Commands |
 | `@` / `#` | Jump to a list / tag |
@@ -94,19 +95,26 @@ Quick add understands `call mom tomorrow 17:00 !high #errand @home`:
 - `#tag`, `@list` (prefix of the list name)
 
 Without a list, tasks go to the current list or Inbox. Adding from Today or Tomorrow defaults the day.
+Settings → Smart dates off (`smart_dates = false`) keeps day and time words in the title; `!`, `#` and `@` still work.
 
 To make a task repeat, give it a due date, then press `⏎` on **Repeat** in the details pane and pick
 Daily, Weekdays (Mon–Fri), Weekly, Monthly, Yearly or Never. Weekly, Monthly and Yearly follow the due date
 (e.g. "Monthly · on the 23rd").
 
-**Custom…** (or `i` on Repeat) takes a rule in words, the same ones the web app's Custom repeat offers:
+**Custom** opens the web app's Custom repeat dialog: by due date, by completion date or on specific dates (picked in a calendar);
+every N days / weeks / months / years; for weeks the weekdays, for months each chosen day (several, and Last day),
+on the first … fifth / last weekday, or the first / last workday; for years a month and day or the Nth weekday of a month;
+Skip weekends where the web app offers it. `↑↓` moves, `←→` changes a value, `space` toggles, `ctrl+s` saves.
+
+**Type a rule** (or `i` on Repeat) takes a rule in words, including ends the dialog doesn't have (`x5`, `until`):
 
 | Write | Repeats |
 |---|---|
 | `every 3 days`, `every 2 weeks`, `monthly`, `yearly` | every N days / weeks / months / years |
 | `mon,wed,fri`, `weekdays`, `weekends`, `every 2 weeks on mon,fri` | on those weekdays |
-| `23rd` (or `monthly 23`), `last day` | on that day of the month |
-| `first mon`, `3rd wed`, `last fri` | on that weekday of the month |
+| `23rd` (or `monthly 23`), `1st,15th,last day` | on those days of the month |
+| `every year oct 6th`, `every year may 2nd sun` | on that date / weekday of a month each year |
+| `first mon`, `3rd wed`, `5th fri`, `last fri` | on that weekday of the month |
 | `first workday`, `last workday` | on the first / last working day of the month |
 | `curve` | Ebbinghaus forgetting curve |
 | `dates fri 2026-10-22` | on these dates only |
@@ -137,6 +145,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | | `order` | `oldest` · `newest` (default for all lists) |
 | | `list_sort` | per-list overrides written by `s`; "Use default" in the `s` menu removes one |
 | | `due_menu` | dates offered by `d`, in quick-add syntax: `["today", "tomorrow", "+2d", "mon", "+7d"]` (config file only) |
+| | `smart_dates` | `true` · `false`: quick add reads day and time words as the due date (Settings → Smart dates) |
 | | `completed_days` | `"7"` · `"30"` · `"90"` · `"365"`: days of completed tasks to download (Settings → Completed history) |
 | `keys` | `keymap` | `vim+arrows` · `arrows` |
 | `account` | `sync_every` | `1m` · `5m` · `15m` · `manual` |

@@ -235,6 +235,10 @@ func (a *App) syncNow() tea.Cmd {
 // ---- actions on the selected task ----
 
 func (a *App) update(t *api.Task, fields map[string]any, apply func(*api.Task)) tea.Cmd {
+	if t == a.draft { // not created yet: the change is sent with the create
+		apply(t)
+		return nil
+	}
 	before := store.Clone(*t)
 	apply(t)
 	return a.enqueue(op{kind: "update", taskID: t.ID, before: &before, fields: fields})
@@ -321,7 +325,9 @@ func (a *App) cyclePrio(t *api.Task) tea.Cmd {
 	if !ok {
 		p = store.PrioHigh
 	}
-	a.taskID = t.ID
+	if t != a.draft {
+		a.taskID = t.ID
+	}
 	a.setFlash("priority → " + strings.ToLower(store.PrioName(p)))
 	return a.update(t, map[string]any{"priority": p}, func(t *api.Task) { t.Priority = p })
 }
@@ -340,7 +346,7 @@ func (a *App) toggleCheck(t *api.Task, i int) tea.Cmd {
 		return a.update(t, map[string]any{"items": items, "status": 0}, func(t *api.Task) { t.Items, t.Status, t.CompletedTime = items, 0, "" })
 	}
 	cmd := a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
-	if !store.Done(t) && !slices.ContainsFunc(items, func(it api.Item) bool { return it.Status == 0 }) {
+	if t != a.draft && !store.Done(t) && !slices.ContainsFunc(items, func(it api.Item) bool { return it.Status == 0 }) {
 		return tea.Sequence(cmd, a.toggleDone(t))
 	}
 	return cmd
@@ -371,6 +377,10 @@ func (a *App) movePicker(t *api.Task) {
 
 func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
 	to := strings.TrimPrefix(list, "p:")
+	if t == a.draft { // "inbox" stays a placeholder until the create
+		t.ProjectID = to
+		return nil
+	}
 	if list == "inbox" {
 		if to = a.st.InboxID(); to == "" {
 			a.flashError("✗ Inbox id unknown until a task in the Inbox has synced")
@@ -475,7 +485,8 @@ func (a *App) duePicker(t *api.Task) {
 	}
 	items = append(items,
 		cmdItem{icon: "×", iconRole: "dim", label: "No date", run: func() tea.Cmd { a.setFlash("due date cleared"); return a.setDue(t, nil) }},
-		cmdItem{icon: "…", iconRole: "dim", label: "Custom", hint: "tomorrow 17:00, fri, +3d", run: func() tea.Cmd { a.startEdit("due"); return nil }})
+		cmdItem{icon: a.icon("\uf073", "#"), iconRole: "accent", label: "Pick a date", hint: "calendar", run: func() tea.Cmd { a.pickDue(t); return nil }},
+		cmdItem{icon: "…", iconRole: "dim", label: "Type a date", hint: "tomorrow 17:00, fri, +3d", run: func() tea.Cmd { a.startEdit("due"); return nil }})
 	a.openPick("due", items)
 }
 
@@ -550,12 +561,14 @@ func (a *App) repeatPicker(t *api.Task) {
 		}
 		items = append(items, it)
 	}
-	custom := cmdItem{icon: "…", iconRole: "dim", label: "Custom", hint: "3rd wed, last workday, every 2 weeks",
-		run: func() tea.Cmd { a.startEdit("repeat"); return nil }}
+	custom := cmdItem{icon: a.icon("\uf01e", "~"), iconRole: "accent", label: "Custom", hint: "like the web app",
+		run: func() tea.Cmd { a.openRepeatForm(t); return nil }}
 	if cur == "Custom" {
 		custom.hint = parse.RepeatText(t.RepeatFlag, t.RepeatFrom == "1") + " · current"
 	}
-	a.openPick("repeat", append(items, custom))
+	typed := cmdItem{icon: "…", iconRole: "dim", label: "Type a rule", hint: "3rd wed, x5, until 2026-12-31",
+		run: func() tea.Cmd { a.startEdit("repeat"); return nil }}
+	a.openPick("repeat", append(items, custom, typed))
 }
 
 func (a *App) setRepeat(t *api.Task, rule string, fromCompletion bool) tea.Cmd {
@@ -587,7 +600,7 @@ func localZone() string {
 
 // commitEdit saves the inline edit. It returns false (and keeps editing) if the value is invalid.
 func (a *App) commitEdit() (tea.Cmd, bool) {
-	t := a.st.Task(a.editID)
+	t := a.taskByID(a.editID)
 	field, v := a.edit, a.in.value()
 	if t == nil {
 		a.edit = ""
@@ -684,7 +697,7 @@ func dueText(t *api.Task, now time.Time) string {
 }
 
 func (a *App) startEdit(field string) {
-	t := a.selTask()
+	t := a.target()
 	if t == nil {
 		return
 	}
@@ -718,17 +731,37 @@ func (a *App) startEdit(field string) {
 		}
 		v = t.Items[i].Title
 	}
-	a.focus, a.edit, a.editID, a.in = "detail", field, t.ID, newInput(v)
+	a.edit, a.editID, a.in = field, t.ID, newInput(v)
 	a.df = slices.Index(detailKeys(t), field)
+	if t == a.draft {
+		return
+	}
+	a.focus = "detail"
 	if n == 1 {
 		a.sheet = true
 	}
 	a.remember(t.ID)
 }
 
+// target is the task the detail actions work on: the new-task draft while its panel is
+// open, else the selected task.
+func (a *App) target() *api.Task {
+	if a.draft != nil {
+		return a.draft
+	}
+	return a.selTask()
+}
+
+func (a *App) taskByID(id string) *api.Task {
+	if a.draft != nil && id == a.draft.ID {
+		return a.draft
+	}
+	return a.st.Task(id)
+}
+
 // activate is ⏎ on a detail field.
 func (a *App) activate() tea.Cmd {
-	t := a.selTask()
+	t := a.target()
 	if t == nil {
 		return nil
 	}
@@ -753,30 +786,55 @@ func (a *App) createTask(add parse.Add) tea.Cmd {
 		a.setFlash("type a title first")
 		return nil
 	}
+	t := api.Task{Title: add.Title, Priority: add.Prio, Tags: add.Tags, ProjectID: strings.TrimPrefix(add.List, "p:")}
+	setDueFields(&t, add.Due)
+	return a.addTask(t)
+}
+
+// setDueFields sets t's due date from d (nil: none), as dueFields sends it.
+func setDueFields(t *api.Task, d *parse.Due) {
+	if d == nil {
+		return
+	}
+	f := dueFields(d, time.Now())
+	t.DueDate, t.IsAllDay, t.TimeZone = f["dueDate"].(string), !d.HasTime, localZone()
+	t.StartDate = t.DueDate
+}
+
+// addTask creates t optimistically under a temporary id and selects it. A ProjectID of
+// "inbox" means the Inbox, which the server picks when projectId is left out.
+func (a *App) addTask(t api.Task) tea.Cmd {
 	a.tmpN++
-	tmp := fmt.Sprintf("tmp-%d", a.tmpN)
-	now := time.Now()
-	t := api.Task{ID: tmp, Title: add.Title, Priority: add.Prio, Tags: add.Tags, CreatedTime: now.UTC().Format(api.DateLayout), TimeZone: localZone()}
-	body := map[string]any{"title": add.Title, "priority": add.Prio}
-	if len(add.Tags) > 0 {
-		body["tags"] = add.Tags
+	t.ID, t.CreatedTime = fmt.Sprintf("tmp-%d", a.tmpN), time.Now().UTC().Format(api.DateLayout)
+	t.TimeZone = cmp.Or(t.TimeZone, localZone())
+	body := map[string]any{"title": t.Title, "priority": t.Priority}
+	if !store.IsInbox(t.ProjectID) {
+		body["projectId"] = t.ProjectID
 	}
-	t.ProjectID = strings.TrimPrefix(add.List, "p:")
-	if add.List != "inbox" {
-		body["projectId"] = t.ProjectID // Inbox: omit and the server picks it
+	if len(t.Tags) > 0 {
+		body["tags"] = t.Tags
 	}
-	if add.Due != nil {
-		for k, v := range dueFields(add.Due, now) {
-			body[k] = v
-		}
-		t.DueDate, t.IsAllDay = body["dueDate"].(string), !add.Due.HasTime
-		t.StartDate = t.DueDate
+	if t.DueDate != "" {
+		body["dueDate"], body["startDate"], body["isAllDay"], body["timeZone"] = t.DueDate, t.StartDate, t.IsAllDay, t.TimeZone
+	}
+	if t.RepeatFlag != "" {
+		body["repeatFlag"], body["repeatFrom"] = t.RepeatFlag, cmp.Or(t.RepeatFrom, "0")
+	}
+	if len(t.Items) > 0 {
+		body["items"], body["kind"] = t.Items, t.Kind
+	}
+	if key, notes := t.Notes(); *notes != "" {
+		body[key] = *notes
 	}
 	a.st.Upsert(t)
-	a.taskID, a.focus = tmp, "tasks"
-	name, _, _ := a.listMeta(add.List)
+	a.taskID, a.focus = t.ID, "tasks"
+	list := "p:" + t.ProjectID
+	if store.IsInbox(t.ProjectID) {
+		list = "inbox"
+	}
+	name, _, _ := a.listMeta(list)
 	a.setFlash("+ added to " + name)
-	return a.enqueue(op{kind: "create", taskID: tmp, fields: body})
+	return a.enqueue(op{kind: "create", taskID: t.ID, fields: body})
 }
 
 // remember keeps the 3 most recently opened tasks for the command bar's RECENT group.

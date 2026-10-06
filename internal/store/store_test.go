@@ -149,6 +149,7 @@ func TestRepeatLabel(t *testing.T) {
 	for in, want := range map[string]string{
 		"": "", "RRULE:FREQ=DAILY;INTERVAL=1": "Daily", "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR": "Weekdays",
 		"RRULE:FREQ=WEEKLY;INTERVAL=1": "Weekly", "RRULE:FREQ=MONTHLY": "Monthly", "RRULE:FREQ=WEEKLY;INTERVAL=2": "Custom",
+		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=TU,TH": "Custom", "RRULE:FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1,15": "Custom",
 	} {
 		if got := RepeatLabel(in); got != want {
 			t.Errorf("RepeatLabel(%q) = %q, want %q", in, got, want)

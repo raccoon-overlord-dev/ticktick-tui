@@ -58,17 +58,20 @@ func TestParseDue(t *testing.T) {
 
 func TestQuickAdd(t *testing.T) {
 	lists := []List{{"inbox", "Inbox"}, {"p1", "👋Welcome"}, {"p2", "Home Office"}}
-	a := QuickAdd("call mom tomorrow 17:00 !high #errand @homeo", lists, "inbox", nil, now)
+	a := QuickAdd("call mom tomorrow 17:00 !high #errand @homeo", lists, "inbox", nil, now, true)
 	want := Add{Title: "call mom", Prio: 5, PrioSet: true, Due: &Due{Day: 1, HasTime: true, H: 17}, DueSet: true,
 		Tags: []string{"errand"}, List: "p2", ListSet: true}
 	if !reflect.DeepEqual(a, want) {
 		t.Fatalf("got %+v", a)
 	}
-	a = QuickAdd("buy milk @welc", lists, "inbox", &Due{Day: 0}, now)
+	a = QuickAdd("buy milk @welc", lists, "inbox", &Due{Day: 0}, now, true)
 	if a.List != "p1" || a.DueSet || a.Due == nil || a.Due.Day != 0 || a.PrioSet {
 		t.Fatalf("defaults/emoji list: %+v", a)
 	}
-	a = QuickAdd("email @nowhere 5pm", lists, "inbox", nil, now)
+	if a := QuickAdd("call mom tomorrow 17:00 !high", lists, "inbox", nil, now, false); a.Title != "call mom tomorrow 17:00" || a.Due != nil || a.Prio != 5 {
+		t.Errorf("smart dates off: %+v", a)
+	}
+	a = QuickAdd("email @nowhere 5pm", lists, "inbox", nil, now, true)
 	if a.Title != "email @nowhere" || a.Due.Day != 0 || a.Due.H != 17 {
 		t.Fatalf("unknown list stays in title, time means today: %+v", a)
 	}
