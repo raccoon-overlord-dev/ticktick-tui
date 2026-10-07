@@ -118,6 +118,7 @@ func (a *App) commands() []cmdItem {
 	items := []cmdItem{
 		{icon: "+", label: "New task", hint: "n", run: func() tea.Cmd { a.openDraft(); return nil }},
 		{icon: "+", label: "Quick add", hint: "a", run: func() tea.Cmd { a.openCmd("+ "); return nil }},
+		{icon: a.icon("\uf014", "x"), label: fmt.Sprintf("Trash (%d)", len(a.trash)), hint: "deleted in the last 30 days", run: func() tea.Cmd { a.trashPicker(); return nil }},
 		{icon: a.icon("", ","), label: "Open settings", hint: ",", run: func() tea.Cmd { a.settings, a.sIdx = true, 1; return nil }},
 		{icon: a.icon("", "t"), label: "Toggle due-date labels (" + onOff(c.Tasks.DueLabel) + ")", hint: "t", run: func() tea.Cmd { a.toggleDueLabels(); return nil }},
 	}

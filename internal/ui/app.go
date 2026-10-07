@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -45,9 +46,9 @@ func run(version string, demo *store.Store) error {
 		return fmt.Errorf("auth.toml: %w", err)
 	}
 	a := &App{version: version, cfg: cfg, th: th, signed: signed, now: time.Now(),
-		focus: "tasks", list: "today", sideKey: "l:today", idMap: map[string]string{}}
+		focus: "tasks", list: "today", sideKey: "l:today", idMap: map[string]string{}, trash: store.LoadTrash()}
 	if demo != nil {
-		a.signed, a.demo = &auth.Auth{}, true
+		a.signed, a.demo, a.trash = &auth.Auth{}, true, nil
 		a.setStore(demo)
 	}
 	if _, err = tea.NewProgram(a).Run(); err != nil || a.restart == "" {
@@ -98,13 +99,15 @@ type App struct {
 	cmd                           *cmdBar // command bar, nil when closed
 	edit, editID                  string  // inline edit: field (title|due|tags|notes) and task
 	in                            textInput
-	recent                        []string  // recently opened task ids (command bar RECENT)
-	cal                           *calendar // date picker, nil when closed
-	rep                           *repForm  // Custom repeat dialog, nil when closed
-	draft                         *api.Task // New task panel's task, nil when closed
-	draftInit                     api.Task  // the draft as opened, to ask before discarding changes
-	draftAsk                      bool      // the "discard the new task?" prompt is showing
-	mainDF, mainOff, offDraft     int       // details field/scroll saved while the panel is open; its own scroll
+	trash                         []store.Trashed // tasks deleted from ttui, newest first (: Trash)
+	tagSel                        int             // highlighted tag suggestion while editing Tags
+	recent                        []string        // recently opened task ids (command bar RECENT)
+	cal                           *calendar       // date picker, nil when closed
+	rep                           *repForm        // Custom repeat dialog, nil when closed
+	draft                         *api.Task       // New task panel's task, nil when closed
+	draftInit                     api.Task        // the draft as opened, to ask before discarding changes
+	draftAsk                      bool            // the "discard the new task?" prompt is showing
+	mainDF, mainOff, offDraft     int             // details field/scroll saved while the panel is open; its own scroll
 
 	// writes and sync
 	queue    []op
@@ -277,9 +280,28 @@ func (a *App) editKey(k tea.KeyPressMsg) tea.Cmd {
 		a.startEdit("additem") // stay open for the next item
 		return cmd
 	case key == "esc" || key == "ctrl+s" || key == "ctrl+enter" || (key == "enter" && a.edit != "notes"):
-		cmd, _ := a.commitEdit()
+		field := a.edit
+		cmd, ok := a.commitEdit()
+		switch {
+		case a.draft == nil || !ok:
+		case key == "ctrl+s": // in the New task panel ctrl+s creates from any field
+			return tea.Batch(cmd, a.createDraft())
+		case key == "esc" && field == "title" && reflect.DeepEqual(*a.draft, a.draftInit):
+			a.closeDraft() // nothing typed: esc cancels at once
+		}
 		return cmd
 	}
+	if sug := a.tagSuggest(); len(sug) > 0 {
+		switch key {
+		case "tab":
+			a.acceptTag(sug[a.tagSel%len(sug)])
+			return nil
+		case "down", "up":
+			a.tagSel = step(a.tagSel%len(sug), map[bool]int{true: 1, false: -1}[key == "down"], len(sug))
+			return nil
+		}
+	}
+	a.tagSel = 0
 	if a.edit == "notes" && (key == "pgup" || key == "pgdown") {
 		a.in.anchor = -1
 		for range a.page() {
@@ -350,7 +372,7 @@ func (a *App) signOut() tea.Cmd {
 		return nil
 	}
 	a.signed, a.st, a.screen, a.auth, a.settings, a.cmd, a.edit = nil, nil, screenAuth, authScreen{}, false, nil, ""
-	a.queue, a.busy, a.syncGen = nil, false, a.syncGen+1
+	a.queue, a.busy, a.syncGen, a.trash = nil, false, a.syncGen+1, nil
 	a.setFlash("signed out")
 	return a.auth.start()
 }

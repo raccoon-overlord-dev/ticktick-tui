@@ -19,7 +19,9 @@ Ideas planned after v1. Not implemented yet.
 
 - Edit `due_menu` from Settings (today it's in `config.toml` only).
 - Manual task order, like the GUI: overrides the list's sort for that task.
-- Repeat rules in quick add (e.g. `every week`); today a repeat is set from the details pane. `parse.ParseRepeat` already reads the syntax.
+- Repeat rules in quick add (e.g. `every week`); today a repeat is set from the details pane or the New task panel (`n`). `parse.ParseRepeat` already reads the syntax.
+- Friendlier custom repeat text ("every month 1st mon" → "1st Monday of every month").
+- Custom repeat dialog: an Ends row (never / on a date / after N times); today only Type a rule sets `until` / `x5`.
 - Custom repeat: move the due date to the rule's first match (the web app does it for first/last workday; needs a holiday calendar the API doesn't expose).
 
 ## Lists

@@ -23,6 +23,7 @@ func (a *App) openDraft() {
 	a.draft, a.draftInit = t, store.Clone(*t)
 	a.mainDF, a.mainOff = a.df, a.offDetail
 	a.df, a.offDetail, a.offDraft, a.cmd = 0, 0, 0, nil
+	a.startEdit("title") // type the title straight away
 }
 
 func (a *App) closeDraft() {
@@ -88,6 +89,8 @@ func (a *App) draftKey(k tea.KeyPressMsg) tea.Cmd {
 		a.movePicker(t)
 	case "c":
 		a.startEdit("additem")
+	case "C":
+		return a.convert(t)
 	}
 	return nil
 }
@@ -109,7 +112,7 @@ func (a *App) createDraft() tea.Cmd {
 		a.setFlash("type a title first")
 		return nil
 	}
-	if len(t.Items) > 0 {
+	if len(t.Items) > 0 && t.Kind != "CHECKLIST" { // C already moved the notes to desc
 		t.Kind, t.Desc, t.Content = "CHECKLIST", t.Content, ""
 	}
 	a.closeDraft()

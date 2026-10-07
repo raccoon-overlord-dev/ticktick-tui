@@ -65,14 +65,17 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `d` | Due date menu: the dates in `due_menu`, No date, Pick a date (calendar: arrows move by day / week, `pgup` `pgdn` by month, `home` today, `t` sets a time) or Type a date. A date without a time keeps the task's time |
 | `m` | Move the task to another list |
 | `c` | Add checklist items: `⏎` adds one and opens the next, `esc` finishes |
+| `C` | Convert between a note and a checklist, like the web app. Note → checklist: each line of the notes becomes an item (blank lines are skipped, `- ` / `* ` / `+ ` markers dropped, `- [x] ` lines start ticked). Checklist → note: the notes come first, then one line per item (ticks are lost). Works in the New task panel too |
 | `D` / `delete` | Delete the task after a `y / N` prompt. On a repeating task: `o` deletes this occurrence only, `a` the whole series |
+| `:` Trash | Tasks deleted with `D` in the last 30 days (whole tasks, not single occurrences), newest first; older ones are dropped automatically. `⏎` restores one to its list (the Inbox if the list is gone) as an open task; **Empty trash** forgets them all. See Known issues |
 | `i` / `e` | Edit the title (tasks) or the field under the cursor (details). `esc` or `⏎` saves. On the notes `↑` `↓` scroll them when they are long; while editing notes `⏎` is a newline, `↑` `↓` move between lines and `esc` / `ctrl+s` saves (`ctrl+⏎` also saves where the terminal passes it through; Omarchy uses it for fullscreen) |
 | `ctrl+a` | While editing: select all. On a text field (title, notes, checklist item…): edit it with all its text selected |
 | `shift+←` `shift+→` | Select text while editing (`shift+↑` `shift+↓` in notes, `shift+home` / `shift+end` too). Typing or pasting replaces the selection, `backspace` deletes it |
 | `ctrl+c` / `ctrl+x` | While editing: copy / cut the selection to the clipboard (OSC 52, works over SSH). Never quits while editing |
+| `tab` | While editing tags: complete the word you're typing to an existing tag (`#wo` becomes `#work `). Matching tags show under the field and `tab complete` appears in the bottom bar; `↑` `↓` pick which one. Tags the task already has aren't suggested |
 | `ctrl+z` / `ctrl+y` | While editing: undo / redo (`ctrl+shift+z` also redoes), a word at a time, until the field is saved. With a terminal that passes `cmd` keys through (kitty keyboard protocol), `cmd+a` / `c` / `x` / `z` / `y` work too |
 | `a` | Quick add (one line, see below) |
-| `n` | New task panel: the details fields for a task that doesn't exist yet. `⏎` edits or picks each field (due date by calendar or menu, repeat, list, tags, priority, checklist, notes), `ctrl+s` or **Create** adds it, `esc` cancels (asks first if you changed anything). Also in `:` as New task |
+| `n` | New task panel: the details fields for a task that doesn't exist yet. It opens with the title ready to type (`⏎` saves it, `ctrl+s` creates the task straight away). `⏎` edits or picks each field (due date by calendar or menu, repeat, list, tags, priority, checklist, notes), `ctrl+s` or **Create** adds it, `esc` cancels (asks first if you changed anything). Also in `:` as New task |
 | `/`, `ctrl+k` | Search |
 | `:` | Commands |
 | `@` / `#` | Jump to a list / tag |
@@ -162,7 +165,8 @@ and set `theme = "<name>"`.
 
 These come from TickTick's public API (details in [`docs/api-notes.md`](api-notes.md)):
 
-- No Trash and no attachments: the API doesn't expose them.
+- The API has no Trash and can't undelete, so ttui keeps its own Trash (`:` Trash): copies of the tasks you deleted *from ttui* in the last 30 days, stored in `trash.json` in the cache folder. Tasks deleted in the web or phone app don't show up there. Restoring creates the task again with a new id and its title, notes, checklist, tags, due date, repeat and priority (not its created time or completion), and the original stays in the web app's Trash.
+- No attachments: the API doesn't expose them.
 - Smart lists (Today, Tomorrow, Next 7 Days) and filters are computed in ttui, not read from your TickTick filters.
 - A list's "Show in smart list" setting isn't readable through the API, so ttui ignores it; press `H` on the list to hide it in ttui instead.
 - Completed tasks cover the last 7 days by default; Settings → Completed history (`completed_days`) raises it to 30, 90 or 365.

@@ -261,6 +261,7 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "d", desc: "Due date menu (Pick a date: calendar)"},
 	{key: "m", desc: "Move to another list"},
 	{key: "c", desc: "Add checklist items"},
+	{key: "C", desc: "Convert note ↔ checklist (a line per item)"},
 	{key: "D  del", desc: "Delete (asks first; repeating: this one or all)"},
 	{key: "t", desc: "Toggle due-date labels"},
 	{key: "s", desc: "Group / sort this list"},

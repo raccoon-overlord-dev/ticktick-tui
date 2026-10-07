@@ -416,6 +416,17 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 	} else {
 		field("tags", "Tags", "—", "dim")
 	}
+	if sug := a.tagSuggest(); len(sug) > 0 && editing("tags") {
+		var b strings.Builder
+		for i, tag := range sug {
+			st := p.s("secondary")
+			if i == a.tagSel%len(sug) {
+				st = st.Reverse(true)
+			}
+			b.WriteString(st.Render("#"+tag) + p.sp(1))
+		}
+		lines = append(lines, p.line(w, p.sp(9)+b.String(), p.s("dim").Render("tab")))
+	}
 	field("priority", "Priority", "● "+store.PrioName(t.Priority), store.PrioRole(t.Priority))
 
 	// checklist
@@ -647,6 +658,9 @@ func (a *App) viewMain() (string, [][2]string) {
 			hints = [][2]string{{"↑↓", "field"}, {"⏎", "edit"}, {"ctrl+s", "create"}, {"esc", "cancel"}}
 			if a.edit != "" {
 				hints = [][2]string{{"esc", "save"}, {"⏎", map[bool]string{true: "newline", false: "save"}[a.edit == "notes"]}}
+				if len(a.tagSuggest()) > 0 {
+					hints = append(hints, [2]string{"tab", "complete"}, [2]string{"↑↓", "pick tag"})
+				}
 			}
 		}
 		if a.cmd != nil {
@@ -681,6 +695,9 @@ func (a *App) viewMain() (string, [][2]string) {
 			enter = "add"
 		}
 		hints = [][2]string{{"esc", "save"}, {"⏎", enter}}
+		if len(a.tagSuggest()) > 0 {
+			hints = append(hints, [2]string{"tab", "complete"}, [2]string{"↑↓", "pick tag"})
+		}
 		if n == 1 && a.sheet {
 			sh := max(paneH*68/100, 8)
 			base = lipgloss.NewCompositor(lipgloss.NewLayer(base), lipgloss.NewLayer(detail(a.overlayPen(), tw, sh)).X(1).Y(paneH-sh).Z(1)).Render()
@@ -857,7 +874,7 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		a.settings, a.sIdx = true, 1
 	case "?":
 		a.help, a.offHelp = true, 0
-	case "m", "d", "c", "D", "delete":
+	case "m", "d", "c", "C", "D", "delete":
 		t := a.selTask()
 		if t == nil || ef == "lists" {
 			return nil
@@ -869,6 +886,10 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 			a.movePicker(t)
 		case "d":
 			a.duePicker(t)
+		case "C":
+			cmd := a.convert(t)
+			a.df = min(a.df, len(detailKeys(t))-1)
+			return cmd
 		default:
 			a.startEdit("additem")
 		}

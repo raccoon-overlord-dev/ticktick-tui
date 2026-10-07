@@ -72,7 +72,7 @@ func FromToken(t *Token, server string) *Auth {
 
 // SignOut removes auth.toml and the snapshot cache. Missing files are fine.
 func SignOut() error {
-	for _, p := range []string{Path(), filepath.Join(config.CacheDir(), "snapshot.json")} {
+	for _, p := range []string{Path(), filepath.Join(config.CacheDir(), "snapshot.json"), filepath.Join(config.CacheDir(), "trash.json")} {
 		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}

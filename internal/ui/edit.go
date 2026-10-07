@@ -135,6 +135,10 @@ func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
 		return nil
 	}
 	if m.err != nil {
+		if m.op.kind == "delete" { // still there: not in the trash either
+			a.trash = slices.DeleteFunc(a.trash, func(tr store.Trashed) bool { return tr.Task.ID == m.op.taskID })
+			a.saveTrash()
+		}
 		if m.op.kind == "create" {
 			a.st.Remove(m.op.taskID)
 		} else if m.op.kind == "skip" && m.t != nil { // completed on the server already
@@ -293,7 +297,8 @@ func (a *App) deleteKey(k tea.KeyPressMsg) tea.Cmd {
 	case !repeat && key == "y", repeat && key == "a":
 		before := store.Clone(*t)
 		a.st.Remove(t.ID)
-		a.setFlash(fmt.Sprintf("deleted “%s”", before.Title))
+		a.toTrash(before)
+		a.setFlash(fmt.Sprintf("deleted “%s” · : Trash to restore", before.Title))
 		return a.enqueue(op{kind: "delete", taskID: before.ID, before: &before})
 	case repeat && key == "o":
 		before := store.Clone(*t)
@@ -302,6 +307,72 @@ func (a *App) deleteKey(k tea.KeyPressMsg) tea.Cmd {
 		return a.enqueue(op{kind: "skip", taskID: t.ID, before: &before})
 	}
 	return nil
+}
+
+// toTrash keeps a copy of a task deleted with D for the Trash.
+func (a *App) toTrash(t api.Task) {
+	a.trash = append([]store.Trashed{{Task: t, Deleted: time.Now()}}, a.trash...)
+	a.saveTrash()
+}
+
+func (a *App) saveTrash() {
+	if !a.demo {
+		store.SaveTrash(a.trash)
+	}
+}
+
+// trashPicker lists the trash (the last store.TrashDays days), newest first: ⏎ restores
+// a task, the last item empties it.
+func (a *App) trashPicker() {
+	if kept := store.PruneTrash(a.trash, a.now); len(kept) != len(a.trash) { // expired while ttui was open
+		a.trash = kept
+		a.saveTrash()
+	}
+	if len(a.trash) == 0 {
+		a.setFlash("trash is empty · tasks deleted with D show up here")
+		return
+	}
+	var items []cmdItem
+	for _, tr := range a.trash {
+		when := tr.Deleted.Format("Jan 2")
+		if d := a.now.Sub(tr.Deleted); d < 24*time.Hour {
+			when = ago(d)
+		}
+		name, _, _ := a.listMeta(listID(tr.Task.ProjectID))
+		items = append(items, cmdItem{icon: a.icon("\uf014", "x"), iconRole: "dim", label: tr.Task.Title,
+			hint: name + " · deleted " + when, run: func() tea.Cmd { return a.restore(tr) }})
+	}
+	items = append(items, cmdItem{icon: a.icon("\uf1f8", "!"), iconRole: "error", label: "Empty trash",
+		hint: fmt.Sprintf("forget %d · the web app's Trash keeps them", len(a.trash)),
+		run:  func() tea.Cmd { a.trash = nil; a.saveTrash(); a.setFlash("trash emptied"); return nil }})
+	a.openPick("trash", items)
+}
+
+// restore creates a trashed task again, open, in its list (the Inbox if the list is gone).
+// The API can't undelete, so it gets a new id and the original stays in the web app's Trash.
+func (a *App) restore(tr store.Trashed) tea.Cmd {
+	a.trash = slices.DeleteFunc(a.trash, func(x store.Trashed) bool { return x.Task.ID == tr.Task.ID && x.Deleted.Equal(tr.Deleted) })
+	a.saveTrash()
+	t := store.Clone(tr.Task)
+	t.Status, t.CompletedTime = 0, ""
+	for i := range t.Items {
+		t.Items[i].ID = "" // the server assigns new ones
+	}
+	if !store.IsInbox(t.ProjectID) && a.st.Project(t.ProjectID) == nil {
+		t.ProjectID = "inbox"
+	}
+	cmd := a.addTask(t)
+	name, _, _ := a.listMeta(listID(t.ProjectID))
+	a.setFlash(fmt.Sprintf("restored “%s” to %s", t.Title, name))
+	return cmd
+}
+
+// listID is the list id of a project id.
+func listID(projectID string) string {
+	if store.IsInbox(projectID) {
+		return "inbox"
+	}
+	return "p:" + projectID
 }
 
 // undoDone reopens the task completed last, while its "x to undo" message is showing.
@@ -356,6 +427,52 @@ func (a *App) toggleCheck(t *api.Task, i int) tea.Cmd {
 func (a *App) addItem(t *api.Task, title string) tea.Cmd {
 	items := append(slices.Clone(t.Items), api.Item{Title: title})
 	return a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
+}
+
+// convert switches t between a note and a checklist (C), like the web app: each line of
+// the notes becomes an item ("- [x] " ticks it, other list markers are dropped, blank
+// lines skipped), and back, each item becomes a line after the notes.
+func (a *App) convert(t *api.Task) tea.Cmd {
+	_, notes := t.Notes()
+	if t.Kind == "CHECKLIST" {
+		lines := []string{}
+		if *notes != "" {
+			lines = append(lines, *notes)
+		}
+		for _, it := range t.Items {
+			lines = append(lines, it.Title)
+		}
+		text := strings.Join(lines, "\n")
+		a.setFlash("converted to a note")
+		return a.update(t, map[string]any{"kind": "TEXT", "content": text, "desc": "", "items": []api.Item{}},
+			func(t *api.Task) { t.Kind, t.Content, t.Desc, t.Items = "TEXT", text, "", nil })
+	}
+	items := slices.Clone(t.Items)
+	for _, l := range strings.Split(*notes, "\n") {
+		it := checkItem(l)
+		if it.Title != "" {
+			items = append(items, it)
+		}
+	}
+	a.setFlash("converted to a checklist")
+	return a.update(t, map[string]any{"kind": "CHECKLIST", "content": "", "desc": "", "items": items},
+		func(t *api.Task) { t.Kind, t.Content, t.Desc, t.Items = "CHECKLIST", "", "", items })
+}
+
+// checkItem turns a line of notes into a checklist item.
+func checkItem(l string) api.Item {
+	l = strings.TrimSpace(l)
+	for _, p := range []string{"- [x] ", "- [X] ", "* [x] ", "* [X] "} {
+		if rest, ok := strings.CutPrefix(l, p); ok {
+			return api.Item{Title: strings.TrimSpace(rest), Status: 1}
+		}
+	}
+	for _, p := range []string{"- [ ] ", "* [ ] ", "- ", "* ", "+ "} {
+		if rest, ok := strings.CutPrefix(l, p); ok {
+			return api.Item{Title: strings.TrimSpace(rest)}
+		}
+	}
+	return api.Item{Title: l}
 }
 
 // movePicker opens the list menu for t (m, or ⏎ on the List field).
@@ -610,6 +727,10 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 	switch field {
 	case "title":
 		v = strings.TrimSpace(v)
+		if v == "" && t == a.draft { // checked on Create
+			a.edit = ""
+			return nil, true
+		}
 		if v == "" {
 			a.setFlash("title can't be empty")
 			return nil, false
@@ -743,6 +864,54 @@ func (a *App) startEdit(field string) {
 	a.remember(t.ID)
 }
 
+// tagWord is the start of the word being typed in the Tags editor and that word.
+func (a *App) tagWord() (int, string) {
+	i := a.in.cur
+	for i > 0 && a.in.r[i-1] != ' ' && a.in.r[i-1] != ',' {
+		i--
+	}
+	return i, string(a.in.r[i:a.in.cur])
+}
+
+// tagSuggest lists existing tags starting with the word being typed in the Tags editor,
+// leaving out ones the task already has.
+func (a *App) tagSuggest() []string {
+	if a.edit != "tags" {
+		return nil
+	}
+	_, w := a.tagWord()
+	if w == "" {
+		return nil
+	}
+	prefix := strings.ToLower(strings.TrimPrefix(w, "#"))
+	have := map[string]bool{} // the task's other tags
+	for _, f := range strings.FieldsFunc(a.in.value(), func(r rune) bool { return r == ' ' || r == ',' }) {
+		have[strings.ToLower(strings.TrimPrefix(f, "#"))] = true
+	}
+	delete(have, prefix)
+	var out []string
+	for _, tag := range a.st.Tags {
+		if strings.HasPrefix(tag, prefix) && !have[tag] {
+			out = append(out, tag)
+		}
+	}
+	if len(out) == 1 && out[0] == prefix { // already typed in full
+		return nil
+	}
+	return out
+}
+
+// acceptTag replaces the word being typed with #tag and a space.
+func (a *App) acceptTag(tag string) {
+	i, _ := a.tagWord()
+	a.in.save("")
+	a.in.anchor = -1
+	ins := []rune("#" + tag + " ")
+	a.in.r = append(a.in.r[:i:i], append(ins, a.in.r[a.in.cur:]...)...)
+	a.in.cur = i + len(ins)
+	a.tagSel = 0
+}
+
 // target is the task the detail actions work on: the new-task draft while its panel is
 // open, else the selected task.
 func (a *App) target() *api.Task {
@@ -828,11 +997,7 @@ func (a *App) addTask(t api.Task) tea.Cmd {
 	}
 	a.st.Upsert(t)
 	a.taskID, a.focus = t.ID, "tasks"
-	list := "p:" + t.ProjectID
-	if store.IsInbox(t.ProjectID) {
-		list = "inbox"
-	}
-	name, _, _ := a.listMeta(list)
+	name, _, _ := a.listMeta(listID(t.ProjectID))
 	a.setFlash("+ added to " + name)
 	return a.enqueue(op{kind: "create", taskID: t.ID, fields: body})
 }

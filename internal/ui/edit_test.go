@@ -383,13 +383,15 @@ func TestNewTaskPanel(t *testing.T) {
 	if v, _ := a.viewMain(); !strings.Contains(ansi.Strip(v), "New task") {
 		t.Fatal("panel not drawn")
 	}
+	if a.edit != "title" {
+		t.Fatalf("title not in edit: %q", a.edit)
+	}
 	key(esc) // unchanged: closes at once
 	if a.draft != nil {
 		t.Fatal("esc on an untouched draft should close it")
 	}
 
-	key(tea.KeyPressMsg{Code: 'n', Text: "n"})
-	key(enter) // title
+	key(tea.KeyPressMsg{Code: 'n', Text: "n"}) // opens with the title being edited
 	press("Buy milk")
 	key(enter)
 	press("p") // high
@@ -465,3 +467,93 @@ func TestCalendarAndRepeatForm(t *testing.T) {
 		t.Fatalf("repeat %q (form %+v)", tk.RepeatFlag, r.f)
 	}
 }
+
+func TestTagSuggest(t *testing.T) {
+	a := testApp(t)
+	a.st.Upsert(api.Task{ID: "b", ProjectID: "inbox1", Title: "B", Tags: []string{"work", "weekend", "home"}})
+	a.taskID = "b"
+	a.startEdit("tags") // "#work #weekend #home"
+	if s := a.tagSuggest(); s != nil {
+		t.Fatalf("suggested for a full tag: %v", s)
+	}
+	a.in = newInput("#home #w")
+	if s := a.tagSuggest(); !slices.Equal(s, []string{"weekend", "work"}) {
+		t.Fatalf("got %v", s)
+	}
+	a.edit = "tags"
+	a.editKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	a.editKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	if v := a.in.value(); v != "#home #work " {
+		t.Fatalf("accepted %q", v)
+	}
+	a.in = newInput("#work wo") // already has it
+	if s := a.tagSuggest(); s != nil {
+		t.Fatalf("suggested a tag the task has: %v", s)
+	}
+}
+
+// D keeps a copy in the trash; restoring creates the task again (the API can't undelete).
+func TestTrash(t *testing.T) {
+	a := testApp(t)
+	a.st.Upsert(api.Task{ID: "b", ProjectID: "gone", Title: "B", Status: 2, Items: []api.Item{{ID: "i1", Title: "x"}}})
+	a.delID = "b"
+	a.deleteKey(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if a.st.Task("b") != nil || len(a.trash) != 1 || len(store.LoadTrash()) != 1 {
+		t.Fatalf("not trashed: %v", a.trash)
+	}
+	a.onOpDone(opDoneMsg{op: a.queue[0]}) // deleted on the server
+
+	a.trashPicker()
+	if a.cmd == nil || len(a.cmd.pick.items) != 2 { // B + Empty trash
+		t.Fatal("no trash picker")
+	}
+	a.cmd = nil
+	a.restore(a.trash[0])
+	f := a.queue[0].fields
+	if len(a.trash) != 0 || f["title"] != "B" || f["projectId"] != nil || f["items"].([]api.Item)[0].ID != "" {
+		t.Fatalf("restore: trash %v body %v", a.trash, f)
+	}
+	if nt := a.st.Task(a.taskID); nt == nil || store.Done(nt) {
+		t.Fatalf("restored task not open: %+v", nt)
+	}
+
+	c := testApp(t)
+	c.delID = "a"
+	c.deleteKey(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	c.onOpDone(opDoneMsg{op: c.queue[0], err: errors.New("boom")})
+	if c.st.Task("a") == nil || len(c.trash) != 0 {
+		t.Fatalf("failed delete: task %v trash %v", c.st.Task("a"), c.trash)
+	}
+}
+
+func TestPruneTrash(t *testing.T) {
+	now := time.Now()
+	ts := []store.Trashed{{Task: api.Task{ID: "new"}, Deleted: now.AddDate(0, 0, -29)}, {Task: api.Task{ID: "old"}, Deleted: now.AddDate(0, 0, -31)}}
+	if got := store.PruneTrash(ts, now); len(got) != 1 || got[0].Task.ID != "new" {
+		t.Fatalf("got %v", got)
+	}
+}
+
+// C turns each line of the notes into a checklist item, and back.
+func TestConvert(t *testing.T) {
+	a := testApp(t)
+	task := a.st.Task("a")
+	task.Content = "milk\n- [x] eggs\n\n* bread"
+	a.convert(task)
+	want := []api.Item{{Title: "milk"}, {Title: "eggs", Status: 1}, {Title: "bread"}}
+	if task.Kind != "CHECKLIST" || task.Content != "" || !slices.Equal(task.Items, want) {
+		t.Fatalf("to checklist: %+v", task)
+	}
+	if f := a.queue[0].fields; f["kind"] != "CHECKLIST" || f["desc"] != "" {
+		t.Fatalf("sent %v", f)
+	}
+	task.Desc = "shop"
+	a.convert(task)
+	if task.Kind != "TEXT" || task.Content != "shop\nmilk\neggs\nbread" || task.Items != nil || task.Desc != "" {
+		t.Fatalf("to note: %+v", task)
+	}
+	if items := a.queue[1].fields["items"].([]api.Item); items == nil || len(items) != 0 {
+		t.Fatal("items must be sent as [] to clear them")
+	}
+}
+
