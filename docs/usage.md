@@ -126,6 +126,35 @@ Add any of: `until 2026-12-31` or `x5` (`5 times`) to end it, `skip weekends` / 
 `from completion` to count from when you complete it instead of the due date. Leave it empty for no repeat.
 Rules set in the web app show in the same words.
 
+### Reminders and notifications
+
+Give a task a due date, then press `⏎` on **Remind** in the details pane (or the New task panel). Like the web app, a
+task can have several reminders; `⏎` on an option turns it on or off and the menu stays open:
+
+- all-day tasks: On the day, 1 / 2 / 3 days early, 1 week early, at the Settings → Default time (`09:00`);
+- timed tasks: On time, 5 or 30 minutes, 1 hour or 1 day early;
+- **Custom**: all-day tasks pick days or weeks early and a time (`←→` moves 15 minutes, or type `1030`); timed tasks
+  pick minutes, hours or days early. The dialog shows the result ("Remind at 09:00 on Oct 6, 2026").
+
+Reminders set in the web or phone app show up the same way, and a bell on the task row marks tasks that have one.
+The web app's Constant reminder (a paid feature) isn't supported.
+
+Settings → Notifications (`notify`) lets ttui alert you when a reminder comes due:
+
+- `terminal`: your terminal shows a desktop notification (OSC 9). Works in Ghostty, iTerm2, WezTerm and kitty, also
+  over SSH; Ghostty needs `desktop-notifications = true` in its config. Alacritty and Terminal.app don't support it.
+- `system`: `notify-send` on Linux, Notification Center on macOS (through `osascript`), for the machine ttui runs on.
+
+ttui only notifies while it's open, and reminders that came due while it was closed aren't sent afterwards.
+TickTick's own apps notify you too, so you may get the same reminder twice; that's why it's off by default.
+
+### Date and time
+
+Settings → Date & time sets the time format (`24h` 17:30 or `12h` 5:30pm), the date format (`dd/mm/yyyy`,
+`yyyy/mm/dd` or `mm/dd/yyyy`) and the first day of the week (for the calendar). The date format also decides how
+the Due field reads a typed date: with `dd/mm/yyyy`, `8/10` is 8 October (the next one, if the year is left out).
+`2026-10-08` always works. Quick add only takes `2026-10-08`, so "1/2 cup" in a title stays text.
+
 ## Configuration
 
 `~/.config/ttui/config.toml` (or `$XDG_CONFIG_HOME/ttui/config.toml`; `--config <file>` to override) is created
@@ -150,6 +179,10 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | | `due_menu` | dates offered by `d`, in quick-add syntax: `["today", "tomorrow", "+2d", "mon", "+7d"]` (config file only) |
 | | `smart_dates` | `true` · `false`: quick add reads day and time words as the due date (Settings → Smart dates) |
 | | `completed_days` | `"7"` · `"30"` · `"90"` · `"365"`: days of completed tasks to download (Settings → Completed history) |
+| `datetime` | `time_format` | `24h` · `12h` |
+| | `date_format` | `dd/mm/yyyy` · `yyyy/mm/dd` · `mm/dd/yyyy` |
+| `reminders` | `default_time` | time of the preset reminders on all-day tasks: `07:00` · `08:00` · `09:00` · `10:00` · `12:00` · `18:00` · `20:00` (any `HH:MM` in the file) |
+| | `notify` | `off` · `terminal` · `system` |
 | `keys` | `keymap` | `vim+arrows` · `arrows` |
 | `account` | `sync_every` | `1m` · `5m` · `15m` · `manual` |
 | | `update_check` | `true` · `false`: look for a new release once a day (one request to GitHub) |
@@ -167,6 +200,8 @@ These come from TickTick's public API (details in [`docs/api-notes.md`](api-note
 
 - The API has no Trash and can't undelete, so ttui keeps its own Trash (`:` Trash): copies of the tasks you deleted *from ttui* in the last 30 days, stored in `trash.json` in the cache folder. Tasks deleted in the web or phone app don't show up there. Restoring creates the task again with a new id and its title, notes, checklist, tags, due date, repeat and priority (not its created time or completion), and the original stays in the web app's Trash.
 - No attachments: the API doesn't expose them.
+- A task's last reminder can't be removed through the API (an empty list is ignored), so ttui says so; remove it in the TickTick app. Removing one of several works. A paid plan allows more reminders per task than the free one (the free plan kept 2); extra ones are dropped by the server.
+- Notifications only fire while ttui is open; TickTick's own apps may notify you of the same reminder.
 - Smart lists (Today, Tomorrow, Next 7 Days) and filters are computed in ttui, not read from your TickTick filters.
 - A list's "Show in smart list" setting isn't readable through the API, so ttui ignores it; press `H` on the list to hide it in ttui instead.
 - Completed tasks cover the last 7 days by default; Settings → Completed history (`completed_days`) raises it to 30, 90 or 365.

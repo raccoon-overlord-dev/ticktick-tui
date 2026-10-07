@@ -22,6 +22,14 @@ smart_dates      = true         # quick add (a) reads "tomorrow 17:00" etc. as t
 completed_days   = "7"          # 7 | 30 | 90 | 365: how many days of completed tasks to download
 due_menu         = ["today", "tomorrow", "+2d", "mon", "+7d"]  # d menu: today, tomorrow, +Nd, weekday, 2026-10-08, optional 17:00
 
+[datetime]
+time_format = "24h"             # 24h | 12h
+date_format = "dd/mm/yyyy"      # dd/mm/yyyy | yyyy/mm/dd | mm/dd/yyyy   (shown dates, and how 8/10 is read in the Due field)
+
+[reminders]
+default_time = "09:00"          # time of the preset reminders on all-day tasks (On the day, 1 day early…)
+notify       = "off"            # off | terminal | system   (only while ttui is open)
+
 [keys]
 keymap = "vim+arrows"           # vim+arrows | arrows
 

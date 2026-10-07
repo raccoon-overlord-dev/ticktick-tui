@@ -20,6 +20,7 @@ import (
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
 )
@@ -47,6 +48,7 @@ func run(version string, demo *store.Store) error {
 	}
 	a := &App{version: version, cfg: cfg, th: th, signed: signed, now: time.Now(),
 		focus: "tasks", list: "today", sideKey: "l:today", idMap: map[string]string{}, trash: store.LoadTrash()}
+	a.applyDateTime()
 	if demo != nil {
 		a.signed, a.demo, a.trash = &auth.Auth{}, true, nil
 		a.setStore(demo)
@@ -100,6 +102,8 @@ type App struct {
 	edit, editID                  string  // inline edit: field (title|due|tags|notes) and task
 	in                            textInput
 	trash                         []store.Trashed // tasks deleted from ttui, newest first (: Trash)
+	rem                           *remForm        // Custom reminder dialog, nil when closed
+	remChecked                    time.Time       // reminders up to here have been notified
 	tagSel                        int             // highlighted tag suggestion while editing Tags
 	recent                        []string        // recently opened task ids (command bar RECENT)
 	cal                           *calendar       // date picker, nil when closed
@@ -181,7 +185,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.cmd != nil {
 			a.cmd.in.hidden = !a.cmd.in.hidden
 		}
-		return a, a.tick()
+		return a, tea.Batch(a.tick(), a.checkReminders())
 	case flashMsg:
 		a.setFlash(string(msg))
 		return a, nil
@@ -241,6 +245,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.editKey(k)
 		case a.rep != nil:
 			return a, a.repKey(k)
+		case a.rem != nil:
+			return a, a.remKey(k)
 		case a.draft != nil:
 			return a, a.draftKey(k)
 		case a.settings:
@@ -487,7 +493,7 @@ func (a *App) statusBar(mode, modeRole string, hints [][2]string) string {
 	case a.st != nil && a.w >= 70:
 		parts = append(parts, st("ok").Render(a.icon("", "⟳")))
 	}
-	parts = append(parts, st("text").Render(a.now.Format("15:04")))
+	parts = append(parts, st("text").Render(parse.FmtTime(a.now)))
 	right := strings.Join(parts, st("dim").Render(" "+a.th.Separator+" ")) + " "
 	if a.flash == "" {
 		n := 2

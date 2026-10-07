@@ -334,7 +334,7 @@ func (a *App) trashPicker() {
 	}
 	var items []cmdItem
 	for _, tr := range a.trash {
-		when := tr.Deleted.Format("Jan 2")
+		when := parse.FmtDayMonth(tr.Deleted)
 		if d := a.now.Sub(tr.Deleted); d < 24*time.Hour {
 			when = ago(d)
 		}
@@ -585,9 +585,9 @@ func (a *App) duePicker(t *api.Task) {
 		if err != nil || d == nil {
 			continue
 		}
-		hint := d.At(now).Format("Mon 2 Jan")
+		hint := d.At(now).Format("Mon ") + parse.FmtDayMonth(d.At(now))
 		if d.HasTime {
-			hint += d.At(now).Format(" 15:04")
+			hint += " " + parse.FmtTime(d.At(now))
 		}
 		items = append(items, cmdItem{icon: a.icon("\uf017", "~"), iconRole: "secondary", label: s, hint: hint,
 			run: func() tea.Cmd {
@@ -642,6 +642,9 @@ func (a *App) setDue(t *api.Task, d *parse.Due) tea.Cmd {
 		} else {
 			t.RepeatFlag = "" // the server drops the repeat rule with the date
 		}
+		if d == nil { // the server hides them with the date (and brings them back with a new one)
+			t.Reminders = nil
+		}
 	})
 }
 
@@ -659,7 +662,7 @@ func (a *App) repeatPicker(t *api.Task) {
 		{"Weekdays", "Mon–Fri", "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR"},
 		{"Weekly", due.Format("on Mon"), "RRULE:FREQ=WEEKLY;INTERVAL=1"},
 		{"Monthly", "on the " + parse.Ordinal(due.Day()), "RRULE:FREQ=MONTHLY;INTERVAL=1"},
-		{"Yearly", due.Format("on 2 Jan"), "RRULE:FREQ=YEARLY;INTERVAL=1"},
+		{"Yearly", "on " + parse.FmtDayMonth(due), "RRULE:FREQ=YEARLY;INTERVAL=1"},
 		{"Never", "", ""},
 	}
 	cur := cmp.Or(store.RepeatLabel(t.RepeatFlag), "Never")
@@ -809,10 +812,10 @@ func dueText(t *api.Task, now time.Time) string {
 	case day > 1 && day < 7:
 		s = strings.ToLower(d.Format("Mon"))
 	default:
-		s = d.Format("2006-01-02")
+		s = parse.FmtDate(d)
 	}
 	if !t.IsAllDay {
-		s += " " + d.Format("15:04")
+		s += " " + parse.FmtTime(d)
 	}
 	return s
 }
@@ -941,6 +944,8 @@ func (a *App) activate() tea.Cmd {
 		a.duePicker(t)
 	case k == "repeat":
 		a.repeatPicker(t)
+	case k == "reminder":
+		a.reminderPicker(t)
 	case k == "priority":
 		return a.cyclePrio(t)
 	case k == "list":
@@ -988,6 +993,9 @@ func (a *App) addTask(t api.Task) tea.Cmd {
 	}
 	if t.RepeatFlag != "" {
 		body["repeatFlag"], body["repeatFrom"] = t.RepeatFlag, cmp.Or(t.RepeatFrom, "0")
+	}
+	if len(t.Reminders) > 0 {
+		body["reminders"] = t.Reminders
 	}
 	if len(t.Items) > 0 {
 		body["items"], body["kind"] = t.Items, t.Kind

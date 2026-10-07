@@ -36,6 +36,14 @@ type Config struct {
 		Sort                          // default for lists without their own
 		ListSort      map[string]Sort `toml:"list_sort,omitempty"` // per list, set with s; keyed by list ("inbox", "today", "p:<id>", "tag:<name>")
 	} `toml:"tasks"`
+	DateTime struct {
+		TimeFormat string `toml:"time_format"` // 24h | 12h
+		DateFormat string `toml:"date_format"` // dd/mm/yyyy | yyyy/mm/dd | mm/dd/yyyy
+	} `toml:"datetime"`
+	Reminders struct {
+		DefaultTime string `toml:"default_time"` // HH:MM of the all-day presets
+		Notify      string `toml:"notify"`       // off | terminal | system
+	} `toml:"reminders"`
 	Keys struct {
 		Keymap string `toml:"keymap"`
 	} `toml:"keys"`

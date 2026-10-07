@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 )
 
 // DueTime parses the due date. All-day tasks are read in the task's own time zone
@@ -74,7 +75,7 @@ func DueLabel(t *api.Task, now time.Time) *Due {
 	day, _ := DayDiff(t, now)
 	tm := ""
 	if !t.IsAllDay {
-		tm = d.Format("15:04")
+		tm = parse.FmtTime(d)
 	}
 	withTime := func(s string) string {
 		if tm != "" {
@@ -82,7 +83,7 @@ func DueLabel(t *api.Task, now time.Time) *Due {
 		}
 		return s
 	}
-	full := d.Format("Mon 2 Jan")
+	full := d.Format("Mon ") + parse.FmtDayMonth(d)
 	switch {
 	case day < 0:
 		short, long := fmt.Sprintf("%dd ago", -day), full
@@ -101,7 +102,7 @@ func DueLabel(t *api.Task, now time.Time) *Due {
 	case day < 7:
 		return &Due{strings.ToLower(d.Format("Mon")), withTime(full), "muted"}
 	}
-	return &Due{strings.ToLower(d.Format("Jan 2")), withTime(full), "muted"}
+	return &Due{strings.ToLower(parse.FmtDayMonth(d)), withTime(full), "muted"}
 }
 
 // RepeatLabel turns an RRULE into "Daily", "Weekdays", "Weekly", "Monthly", "Yearly" or "Custom".

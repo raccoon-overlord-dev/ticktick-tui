@@ -57,7 +57,7 @@ func (a *App) pickDue(t *api.Task) {
 	}
 	c.done = func(c *calendar) tea.Cmd {
 		d := &parse.Due{Day: daysFrom(time.Now(), c.cur)}
-		label := c.cur.Format("Mon 2 Jan")
+		label := c.cur.Format("Mon ") + parse.FmtDayMonth(c.cur)
 		if c.at != "" {
 			d.H, d.M, d.HasTime = parseClock(c.at)
 			label += " " + c.at

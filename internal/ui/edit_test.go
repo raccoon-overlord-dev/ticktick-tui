@@ -557,3 +557,54 @@ func TestConvert(t *testing.T) {
 	}
 }
 
+func TestReminders(t *testing.T) {
+	a := testApp(t)
+	a.th, _ = theme.Load("terminal")
+	a.w, a.h = 120, 40
+	tk := a.st.Task("a")
+	due := time.Now().Add(10 * time.Minute).UTC()
+	tk.DueDate, tk.IsAllDay = due.Format(api.DateLayout), false
+
+	// menu: toggling a preset sends the whole list
+	a.reminderPicker(tk)
+	a.cmd.pick.items[2].run() // 30 minutes early
+	if !slices.Equal(tk.Reminders, []string{"TRIGGER:-PT30M"}) || a.cmd == nil {
+		t.Fatalf("toggle: %v", tk.Reminders)
+	}
+	a.cmd = nil
+
+	// Custom: 10 minutes early
+	a.openReminderForm(tk)
+	a.rem.row = 1
+	a.remKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	a.remKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	a.remKey(tea.KeyPressMsg{Code: '1', Text: "1"})
+	a.remKey(tea.KeyPressMsg{Code: '0', Text: "0"})
+	if !strings.Contains(ansi.Strip(func() string { s, _, _ := a.viewReminder(); return s }()), "Remind at") {
+		t.Fatal("no preview")
+	}
+	a.remKey(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	if !slices.Contains(tk.Reminders, "TRIGGER:-PT10M") {
+		t.Fatalf("custom: %v", tk.Reminders)
+	}
+
+	// the -10m reminder is due now; notified once, only with notifications on
+	a.cfg.Reminders.Notify = "terminal"
+	a.remChecked = time.Now().Add(-time.Minute)
+	if cmd := a.checkReminders(); cmd == nil || !strings.Contains(a.flash, "🔔") {
+		t.Fatalf("not notified: %q", a.flash)
+	}
+	a.flash = ""
+	if a.checkReminders(); a.flash != "" {
+		t.Fatal("notified twice")
+	}
+	if plain("x\x1b]9;y\x07z") != "x]9;yz" {
+		t.Fatal("control characters kept")
+	}
+
+	// clearing the due date drops the reminders
+	a.setDue(tk, nil)
+	if tk.Reminders != nil {
+		t.Fatalf("reminders kept without a due date: %v", tk.Reminders)
+	}
+}

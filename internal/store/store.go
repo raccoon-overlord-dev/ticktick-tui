@@ -168,6 +168,7 @@ func (s *Store) Remove(id string) {
 func Clone(t api.Task) api.Task {
 	t.Tags = slices.Clone(t.Tags)
 	t.Items = slices.Clone(t.Items)
+	t.Reminders = slices.Clone(t.Reminders)
 	return t
 }
 

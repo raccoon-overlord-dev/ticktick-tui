@@ -40,7 +40,7 @@ func TestDueLabel(t *testing.T) {
 		{0, "", "today", "Today", "secondary"},
 		{1, "", "tomorrow", "Tomorrow", "sub"},
 		{2, "", "fri", "Fri 2 Oct", "muted"},
-		{8, "", "oct 8", "Thu 8 Oct", "muted"},
+		{8, "", "8 oct", "Thu 8 Oct", "muted"},
 	}
 	for _, c := range cases {
 		task := &api.Task{DueDate: due(c.days, c.hhmm), IsAllDay: c.hhmm == ""}

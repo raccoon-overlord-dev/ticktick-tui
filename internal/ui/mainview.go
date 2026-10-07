@@ -278,6 +278,9 @@ func (a *App) taskLine(p pen, t *api.Task, w int, sel, focused bool) string {
 		}
 		meta = append(meta, fmt.Sprintf("%d/%d", d, n))
 	}
+	if len(t.Reminders) > 0 {
+		meta = append(meta, a.icon("\uf0f3", "!"))
+	}
 	if t.RepeatFlag != "" {
 		meta = append(meta, "↻")
 	}
@@ -313,7 +316,7 @@ func (a *App) taskLine(p pen, t *api.Task, w int, sel, focused bool) string {
 // ---- details pane ----
 
 func detailKeys(t *api.Task) []string {
-	k := []string{"title", "due", "repeat", "list", "tags", "priority"}
+	k := []string{"title", "due", "repeat", "reminder", "list", "tags", "priority"}
 	for _, i := range itemOrder(t) {
 		k = append(k, fmt.Sprintf("c%d", i))
 	}
@@ -409,6 +412,15 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		field("repeat", "Repeat", "↻ "+r, "text")
 	} else {
 		field("repeat", "Repeat", "never", "dim")
+	}
+	if len(t.Reminders) > 0 {
+		var rs []string
+		for _, r := range t.Reminders {
+			rs = append(rs, parse.ReminderText(r, t.IsAllDay))
+		}
+		field("reminder", "Remind", a.icon("\uf0f3 ", "")+strings.Join(rs, " · "), "text")
+	} else {
+		field("reminder", "Remind", "none", "dim")
 	}
 	field("list", "List", a.st.ListPath(t.ProjectID), "text")
 	if len(t.Tags) > 0 {
@@ -566,7 +578,7 @@ func (a *App) viewMain() (string, [][2]string) {
 	n, lw, tw, dw := layout(a.w, a.cfg.Layout.Columns)
 	ef := a.effFocus(n)
 	paneH := a.h - 1
-	overlay := a.settings || a.help || a.cmd != nil || (n == 1 && a.sheet) || a.draft != nil || a.rep != nil || a.cal != nil
+	overlay := a.settings || a.help || a.cmd != nil || (n == 1 && a.sheet) || a.draft != nil || a.rep != nil || a.rem != nil || a.cal != nil
 	p := a.pen()
 	p.faint = overlay
 
@@ -646,7 +658,7 @@ func (a *App) viewMain() (string, [][2]string) {
 	}
 
 	switch {
-	case a.draft != nil || a.rep != nil || a.cal != nil: // stacked: New task, menu, repeat dialog, calendar
+	case a.draft != nil || a.rep != nil || a.rem != nil || a.cal != nil: // stacked: New task, menu, repeat / reminder dialog, calendar
 		z := 0
 		layer := func(box string, bw, y int) {
 			z++
@@ -672,6 +684,11 @@ func (a *App) viewMain() (string, [][2]string) {
 			box, bw, bh := a.viewRepeat()
 			layer(box, bw, (paneH-bh)/2)
 			hints = [][2]string{{"↑↓", "field"}, {"←→", "change"}, {"ctrl+s", "save"}, {"esc", "cancel"}}
+		}
+		if a.rem != nil {
+			box, bw, bh := a.viewReminder()
+			layer(box, bw, (paneH-bh)/2)
+			hints = [][2]string{{"↑↓", "field"}, {"←→", "change"}, {"ctrl+s", "add"}, {"esc", "cancel"}}
 		}
 		if a.cal != nil {
 			box, bw, bh := a.viewCal()

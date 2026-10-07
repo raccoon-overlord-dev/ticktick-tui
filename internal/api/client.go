@@ -150,6 +150,7 @@ type Task struct {
 	ModifiedTime  string   `json:"modifiedTime,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 	Items         []Item   `json:"items,omitempty"`
+	Reminders     []string `json:"reminders,omitempty"` // "TRIGGER:-PT30M"…, relative to the due date (parse.ParseTrigger)
 }
 
 // Notes returns the JSON key and field holding the task's description:

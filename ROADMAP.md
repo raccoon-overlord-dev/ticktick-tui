@@ -29,6 +29,10 @@ Ideas planned after v1. Not implemented yet.
 - Create folders and lists.
 - Kanban boards: display and interact with lists in board view.
 
+## Calendar
+
+- Calendar view like the TickTick app: month, week and day views of tasks by due date (timed tasks placed by hour in week / day), move between periods with the keyboard, open a task from it, and change a task's date from the calendar.
+
 ## Editing and navigation
 
 - Better insert mode for task details.

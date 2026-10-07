@@ -323,7 +323,7 @@ func (a *App) viewRepeat() (string, int, int) {
 			var ds []string
 			for _, d := range f.Dates {
 				if t, err := time.Parse("20060102", d); err == nil {
-					ds = append(ds, t.Format("2 Jan"))
+					ds = append(ds, parse.FmtDayMonth(t))
 				}
 			}
 			v := rp.s("dim").Render("none yet")

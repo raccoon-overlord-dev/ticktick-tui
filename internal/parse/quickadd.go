@@ -82,7 +82,8 @@ func (d Due) At(now time.Time) time.Time {
 	return time.Date(y, mo, day, d.H, d.M, 0, 0, now.Location())
 }
 
-// ParseDue reads the details "Due" field: "tomorrow 17:00", "fri", "17:00" (= today).
+// ParseDue reads the details "Due" field: "tomorrow 17:00", "fri", "17:00" (= today),
+// "08/10/2026" or "8/10" (in the Date format setting's order).
 // Empty input returns nil (no due date).
 func ParseDue(s string, now time.Time) (*Due, error) {
 	words := strings.Fields(s)
@@ -95,6 +96,9 @@ func ParseDue(s string, now time.Time) (*Due, error) {
 			d.H, d.M, d.HasTime = h, m, true
 		} else if n, ok := ParseDay(w, now); ok {
 			d.Day = n
+		} else if t, ok := parseNumDate(w, now); ok { // not in quick add: "1/2" in a title isn't a date
+			y, m, dd := now.Date()
+			d.Day = int(t.Sub(time.Date(y, m, dd, 0, 0, 0, 0, now.Location())).Hours()/24 + 0.5)
 		} else {
 			return nil, errors.New("couldn't read date: " + w)
 		}

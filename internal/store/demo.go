@@ -66,8 +66,12 @@ func Demo(now time.Time) *Store {
 			t.Tags = []string{"deep-work"}
 		}),
 		task("04", "hiring", "Reply to Lena about the interview panel", PrioMed, 0, "14:00", func(t *api.Task) { t.Tags = []string{"waiting"} }),
-		task("05", "inbox1", "Pick up dry cleaning", PrioMed, 0, "18:30", func(t *api.Task) { t.Tags = []string{"errand"} }),
-		task("06", "home", "Pay electricity bill", PrioMed, 0, "", repeat("RRULE:FREQ=MONTHLY;INTERVAL=1")),
+		task("05", "inbox1", "Pick up dry cleaning", PrioMed, 0, "18:30", func(t *api.Task) {
+			t.Tags, t.Reminders = []string{"errand"}, []string{"TRIGGER:-PT30M"}
+		}),
+		task("06", "home", "Pay electricity bill", PrioMed, 0, "", func(t *api.Task) {
+			t.RepeatFlag, t.Reminders = "RRULE:FREQ=MONTHLY;INTERVAL=1", []string{"TRIGGER:P0DT9H0M0S", "TRIGGER:-P0DT15H0M0S"}
+		}),
 		task("07", "home", "Water the plants", PrioLow, 0, "", func(t *api.Task) {
 			t.RepeatFlag = "RRULE:FREQ=WEEKLY;INTERVAL=1"
 			t.Tags = []string{"home"}

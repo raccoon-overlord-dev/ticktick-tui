@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"os"
 	"slices"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/update"
 )
@@ -37,7 +39,13 @@ var setRows = []setRow{
 	{key: "order", label: "Order", opts: orderOpts, desc: "Default for all lists · s in the task list sets one list's own"},
 	{key: "smartdates", label: "Smart dates", opts: []string{"on", "off"}, desc: "Quick add (a) reads tomorrow, fri, 17:00… as the due date; off keeps them in the title"},
 	{key: "history", label: "Completed history", opts: []string{"7", "30", "90", "365"}, desc: "Days of completed tasks to download (Completed list and groups); changing it syncs"},
-	{key: "week", label: "Week starts on", opts: []string{"mon", "sun"}, desc: ""},
+	{sec: "DATE & TIME"},
+	{key: "timefmt", label: "Time format", opts: []string{"24h", "12h"}, desc: "17:30 or 5:30pm"},
+	{key: "datefmt", label: "Date format", opts: []string{"dd/mm/yyyy", "yyyy/mm/dd", "mm/dd/yyyy"}, desc: "Dates shown, and how 8/10 is read in the Due field"},
+	{key: "week", label: "Week starts on", opts: []string{"mon", "sun"}, desc: "The calendar's first day"},
+	{sec: "REMINDERS"},
+	{key: "remtime", label: "Default time", opts: []string{"07:00", "08:00", "09:00", "10:00", "12:00", "18:00", "20:00"}, desc: "Time of the preset reminders on all-day tasks (On the day, 1 day early…)"},
+	{key: "notify", label: "Notifications", opts: []string{"off", "terminal", "system"}, desc: "terminal: your terminal shows it (Ghostty, iTerm2, WezTerm, kitty) · system: notify-send / macOS · only while ttui is open"},
 	{sec: "KEYS"},
 	{key: "keymap", label: "Keymap", opts: []string{"vim + arrows", "arrows only"}, desc: "vim: hjkl, / search, : command · arrows + letters always work"},
 	{sec: "ACCOUNT"},
@@ -56,7 +64,8 @@ func (a *App) field(key string) *string {
 		"theme": &c.Appearance.Theme, "prio": &c.Appearance.PriorityHeaders, "focus": &c.Appearance.FocusedPanel,
 		"bg": &c.Appearance.Background, "columns": &c.Layout.Columns, "group": &c.Tasks.GroupBy,
 		"sort": &c.Tasks.SortBy, "order": &c.Tasks.Order,
-		"week": &c.Tasks.WeekStart, "history": &c.Tasks.CompletedDays, "keymap": &c.Keys.Keymap, "sync": &c.Account.SyncEvery,
+		"week": &c.Tasks.WeekStart, "timefmt": &c.DateTime.TimeFormat, "datefmt": &c.DateTime.DateFormat,
+		"remtime": &c.Reminders.DefaultTime, "notify": &c.Reminders.Notify, "history": &c.Tasks.CompletedDays, "keymap": &c.Keys.Keymap, "sync": &c.Account.SyncEvery,
 	}[key]
 }
 
@@ -125,6 +134,7 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 		a.th = th
 	}
 	a.save()
+	a.applyDateTime()
 	switch r.key {
 	case "sync":
 		return a.scheduleSync()
@@ -338,4 +348,10 @@ func (a *App) viewAbout() (string, int, int) {
 	}
 	h := len(body) + 2
 	return a.frame(p, frameOpts{w: w, h: h, title: "About ttui", modal: true, topRight: "esc close", body: body}), w, h
+}
+
+// applyDateTime passes Settings → Date & time to the date formatting in parse.
+func (a *App) applyDateTime() {
+	parse.Clock12 = a.cfg.DateTime.TimeFormat == "12h"
+	parse.DateOrder = cmp.Or(a.cfg.DateTime.DateFormat, "dd/mm/yyyy")
 }
