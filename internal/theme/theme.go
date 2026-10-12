@@ -7,6 +7,8 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/BurntSushi/toml"
@@ -27,6 +29,29 @@ type Theme struct {
 
 // C returns the color for role; unknown or empty roles give the terminal default.
 func (t *Theme) C(role string) color.Color { return lipgloss.Color(t.Colors[role]) }
+
+// Names lists the themes: terminal, the other built-in ones, then the user's own files
+// that don't replace a built-in one.
+func Names() []string {
+	tomls := func(es []os.DirEntry) (out []string) {
+		for _, e := range es {
+			if n, ok := strings.CutSuffix(e.Name(), ".toml"); ok && n != "terminal" {
+				out = append(out, n)
+			}
+		}
+		slices.Sort(out)
+		return out
+	}
+	built, _ := builtin.ReadDir("themes")
+	user, _ := os.ReadDir(filepath.Join(config.Dir(), "themes"))
+	names := append([]string{"terminal"}, tomls(built)...)
+	for _, n := range tomls(user) {
+		if !slices.Contains(names, n) {
+			names = append(names, n)
+		}
+	}
+	return names
+}
 
 // Load prefers a user theme file, then a built-in one.
 func Load(name string) (*Theme, error) {

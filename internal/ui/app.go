@@ -92,8 +92,10 @@ type App struct {
 	sheet                         bool // 1-pane detail sheet open
 	settings                      bool
 	sIdx                          int
-	help                          bool // ? shortcuts panel
-	about                         bool // Settings → About box
+	themes                        []string // Settings → Theme dropdown while open: the names, nil when closed
+	themeIdx                      int      // highlighted theme (previewed live)
+	help                          bool     // ? shortcuts panel
+	about                         bool     // Settings → About box
 	offHelp                       int
 	offLists, offTasks, offDetail int
 	notesTop                      int     // detail line of the Notes header, for scrolling long notes
@@ -114,14 +116,15 @@ type App struct {
 	mainDF, mainOff, offDraft     int             // details field/scroll saved while the panel is open; its own scroll
 
 	// writes and sync
-	queue    []op
-	busy     bool              // an op is in flight
-	idMap    map[string]string // temporary id → server id for created tasks
-	tmpN     int
-	lastDone string // for "x to undo"
-	delID    string // task the "delete?" prompt is about
-	syncGen  int
-	syncing  bool
+	queue      []op
+	busy       bool              // an op is in flight
+	idMap      map[string]string // temporary id → server id for created tasks
+	tmpN       int
+	lastDone   []string  // for "x to undo": the task completed last, then the subtasks completed with it
+	delID      string    // task the "delete?" prompt is about
+	parentUndo [2]string // task and its previous parent id, for "< to undo" / "> to undo"
+	syncGen    int
+	syncing    bool
 
 	flash      string
 	flashRole  string

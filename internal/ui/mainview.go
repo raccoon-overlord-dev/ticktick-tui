@@ -172,16 +172,24 @@ func (a *App) listsLines(p pen, w int, focused bool) ([]string, int) {
 
 // ---- tasks pane ----
 
+// groups are the current list's groups as shown, folded subtasks left out.
 func (a *App) groups() []store.Group {
 	ts := a.st.TasksFor(a.list, a.now)
 	if a.list == "completed" {
 		if len(ts) == 0 {
 			return nil
 		}
-		return []store.Group{{Label: "Completed", Role: "ok", Done: true, Items: ts}}
+		return []store.Group{{Label: "Completed", Role: "ok", Done: true, Items: ts, Depth: make([]int, len(ts)), Hidden: make([]int, len(ts))}}
 	}
-	return a.st.TaskGroups(ts, a.sortFor(a.list), a.cfg.Layout.ShowCompleted, a.now)
+	gs := a.st.TaskGroups(ts, a.sortFor(a.list), a.cfg.Layout.ShowCompleted, a.now)
+	for i := range gs {
+		gs[i] = gs[i].Fold(a.folded)
+	}
+	return gs
 }
+
+// folded tells whether a task's subtasks are hidden (z); remembered in config.toml.
+func (a *App) folded(id string) bool { return slices.Contains(a.cfg.Layout.Folded, id) }
 
 // sortFor is the list's own sort (set with s), or the default from Settings.
 func (a *App) sortFor(list string) config.Sort {
@@ -227,13 +235,13 @@ func (a *App) tasksLines(p pen, w int, focused bool) (lines []string, sel, pos, 
 		if g.Label != "" { // Group by: none
 			lines = append(lines, a.groupHeader(p, g, w))
 		}
-		for _, t := range g.Items {
+		for i, t := range g.Items {
 			total++
 			isSel := cur != nil && t.ID == cur.ID
 			if isSel {
 				sel, pos = len(lines), total
 			}
-			lines = append(lines, a.taskLine(p, t, w, isSel, focused))
+			lines = append(lines, a.taskLine(p, t, g.Depth[i], g.Hidden[i], w, isSel, focused))
 		}
 	}
 	return lines, sel, pos, total
@@ -244,7 +252,11 @@ func (a *App) groupHeader(p pen, g store.Group, w int) string {
 	if g.Done {
 		dot = "✓"
 	}
-	count := fmt.Sprint(len(g.Items))
+	n := len(g.Items)
+	for _, h := range g.Hidden {
+		n += h
+	}
+	count := fmt.Sprint(n)
 	switch a.cfg.Appearance.PriorityHeaders {
 	case "label":
 		return p.line(w, p.s(g.Role).Bold(true).Render(g.Label)+p.sp(1)+p.s("dim").Render(count), "")
@@ -257,7 +269,9 @@ func (a *App) groupHeader(p pen, g store.Group, w int) string {
 	return p.line(w, left+p.s("line").Render(strings.Repeat("─", fill))+p.sp(1), p.s("dim").Render(count))
 }
 
-func (a *App) taskLine(p pen, t *api.Task, w int, sel, focused bool) string {
+// taskLine is one row of the tasks pane: depth is its subtask level, hidden the number of
+// subtasks folded under it.
+func (a *App) taskLine(p pen, t *api.Task, depth, hidden, w int, sel, focused bool) string {
 	rp := p
 	if sel {
 		rp = p.on(a.selBg(focused))
@@ -269,6 +283,9 @@ func (a *App) taskLine(p pen, t *api.Task, w int, sel, focused bool) string {
 	}
 
 	var meta []string
+	if hidden > 0 {
+		meta = append(meta, fmt.Sprintf("▸%d", hidden))
+	}
 	if n := len(t.Items); n > 0 {
 		d := 0
 		for _, it := range t.Items {
@@ -308,19 +325,35 @@ func (a *App) taskLine(p pen, t *api.Task, w int, sel, focused bool) string {
 	case done:
 		titleRole = "dim"
 	}
-	room := w - 4 - 2 - lipgloss.Width(right) - 1
+	indent := 2 * min(depth, 6)
+	room := w - 4 - 2 - indent - lipgloss.Width(right) - 1
 	title := linkify(rp.s(titleRole).Strikethrough(done), rp.s("info").Strikethrough(done), t.Title, room)
-	return rp.line(w, dot+rp.sp(1)+title, right)
+	return rp.line(w, rp.sp(indent)+dot+rp.sp(1)+title, right)
 }
 
 // ---- details pane ----
 
-func detailKeys(t *api.Task) []string {
-	k := []string{"title", "due", "repeat", "reminder", "list", "tags", "priority"}
+func (a *App) detailKeys(t *api.Task) []string {
+	k := []string{"title", "due", "repeat", "reminder", "list", "parent", "tags", "priority"}
 	for _, i := range itemOrder(t) {
 		k = append(k, fmt.Sprintf("c%d", i))
 	}
-	return append(k, "additem", "notes")
+	k = append(k, "additem")
+	for _, s := range a.subtasks(t) {
+		k = append(k, "s:"+s.ID)
+	}
+	return append(k, "notes")
+}
+
+// subtasks are t's subtasks as the details pane lists them: open ones first, in the order
+// of the tasks pane, then the done ones.
+func (a *App) subtasks(t *api.Task) []*api.Task {
+	ss := a.st.Subtasks(t.ID)
+	open, done := slices.Clone(ss), slices.Clone(ss)
+	open = slices.DeleteFunc(open, store.Done)
+	done = slices.DeleteFunc(done, func(x *api.Task) bool { return !store.Done(x) })
+	store.SortTasks(open, a.sortFor(a.list), a.now)
+	return append(open, done...)
 }
 
 // itemOrder is the order checklist items are shown in: open ones first, then the done
@@ -341,7 +374,7 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 	if t == nil {
 		return []string{p.line(w, p.s("dim").Render("No task selected"), "")}, -1
 	}
-	keys := detailKeys(t)
+	keys := a.detailKeys(t)
 	cw := w - 4
 	var lines []string
 	sel := -1
@@ -423,6 +456,11 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		field("reminder", "Remind", "none", "dim")
 	}
 	field("list", "List", a.st.ListPath(t.ProjectID), "text")
+	if par := a.st.Parent(t); par != nil {
+		field("parent", "Parent", "↑ "+par.Title, "text")
+	} else {
+		field("parent", "Parent", "none", "dim")
+	}
 	if len(t.Tags) > 0 {
 		field("tags", "Tags", "#"+strings.Join(t.Tags, "  #"), "secondary")
 	} else {
@@ -478,6 +516,26 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		lines = append(lines, ap.line(w, ap.s("ok").Render("+")+ap.sp(1)+v, ""))
 	} else {
 		lines = append(lines, ap.line(w, ap.s("dim").Render("+ add checklist item"), ""))
+	}
+
+	// subtasks
+	if ss := a.subtasks(t); len(ss) > 0 {
+		d := 0
+		for _, s := range ss {
+			if store.Done(s) {
+				d++
+			}
+		}
+		lines = append(lines, "", p.line(w, p.s("sub").Render("Subtasks ")+p.s("line").Render(strings.Repeat("─", max(cw-9-5, 0))), p.s("sub").Render(fmt.Sprintf("%d/%d", d, len(ss)))))
+		for _, s := range ss {
+			sp := pick("s:" + s.ID)
+			mark, text := sp.s(store.PrioRole(s.Priority)).Render("●"), linkify(sp.s("text"), sp.s("info"), s.Title, cw-2)
+			if store.Done(s) {
+				st := sp.s("dim").Strikethrough(true)
+				mark, text = sp.s("ok").Render("✓"), linkify(st, st, s.Title, cw-2)
+			}
+			lines = append(lines, sp.line(w, mark+sp.sp(1)+text, ""))
+		}
 	}
 
 	// notes
@@ -832,15 +890,31 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		if t == nil {
 			return nil
 		}
-		if k := detailKeys(t)[min(a.df, len(detailKeys(t))-1)]; ef == "detail" && k != "additem" && strings.HasPrefix(k, "c") {
+		k := a.detailKeys(t)[min(a.df, len(a.detailKeys(t))-1)]
+		if ef == "detail" && k != "additem" && strings.HasPrefix(k, "c") {
 			var i int
 			fmt.Sscanf(k, "c%d", &i)
 			return a.toggleCheck(t, i)
+		}
+		if s := a.st.Task(strings.TrimPrefix(k, "s:")); ef == "detail" && strings.HasPrefix(k, "s:") && s != nil {
+			return a.toggleDone(s)
 		}
 		return a.toggleDone(t)
 	case "p":
 		if t := a.selTask(); t != nil && ef != "lists" {
 			return a.cyclePrio(t)
+		}
+	case "z":
+		if t := a.selTask(); t != nil && ef != "lists" {
+			a.toggleFold(t)
+		}
+	case ">", "<":
+		if t := a.selTask(); t != nil && ef != "lists" {
+			return a.indent(t, key == "<")
+		}
+	case "A":
+		if ef != "lists" {
+			a.openSubDraft()
 		}
 	case "i", "e", "ctrl+a", "super+a": // ctrl+a: edit with all the text selected
 		defer func() {
@@ -853,7 +927,7 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 			a.startEdit("title")
 		case "detail":
 			if t := a.selTask(); t != nil {
-				if k := detailKeys(t)[a.df]; k == "title" || k == "due" || k == "repeat" || k == "tags" || k == "notes" || strings.HasPrefix(k, "c") {
+				if k := a.detailKeys(t)[a.df]; k == "title" || k == "due" || k == "repeat" || k == "tags" || k == "notes" || strings.HasPrefix(k, "c") {
 					a.startEdit(k)
 				} else if key == "i" || key == "e" {
 					return a.activate()
@@ -905,7 +979,7 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 			a.duePicker(t)
 		case "C":
 			cmd := a.convert(t)
-			a.df = min(a.df, len(detailKeys(t))-1)
+			a.df = min(a.df, len(a.detailKeys(t))-1)
 			return cmd
 		default:
 			a.startEdit("additem")
@@ -956,7 +1030,7 @@ func (a *App) move(ef string, d int) {
 		// On the notes (the last field) ↑↓ and pgup/pgdown scroll them; going up leaves once
 		// their header is back on top, ↓ at their end wraps to the title. home/end keep
 		// jumping between fields.
-		keys := detailKeys(t)
+		keys := a.detailKeys(t)
 		if a.df == len(keys)-1 && d == 1 && a.detailEnd {
 			a.df, a.offDetail = 0, 0
 			return
@@ -999,6 +1073,7 @@ func (a *App) toggleFolder(id string) {
 func (a *App) setStore(st *store.Store) {
 	if a.st = st; st != nil {
 		st.SmartHidden = a.cfg.Layout.SmartHidden
+		a.pruneFolded()
 	}
 }
 

@@ -42,6 +42,7 @@ func Demo(now time.Time) *Store {
 		return out
 	}
 	repeat := func(r string) func(*api.Task) { return func(t *api.Task) { t.RepeatFlag = r } }
+	sub := func(parent string) func(*api.Task) { return func(t *api.Task) { t.ParentID = parent } }
 
 	projects := []api.Project{
 		{ID: "roadmap", Name: "Q4 Roadmap", GroupID: "work", SortOrder: 1},
@@ -93,6 +94,12 @@ func Demo(now time.Time) *Store {
 		task("18", "home", "Call landlord about heating", PrioMed, 5, "", func(t *api.Task) { t.Tags = []string{"waiting"} }),
 		task("19", "groceries", "Pick up parcel", PrioNone, 1, "", func(t *api.Task) { t.Tags = []string{"errand"} }),
 		task("20", "ttui", "Write install.sh", PrioMed, 8, "", func(t *api.Task) { t.Tags = []string{"release"} }),
+		task("21", "roadmap", "Collect input from tech leads", PrioMed, 1, "", sub("13")),
+		task("22", "roadmap", "Write the first draft", PrioNone, 2, "", sub("13")),
+		task("23", "roadmap", "Align with infra goals", PrioNone, none, "", sub("22")),
+		task("24", "roadmap", "Book a room for the review", PrioNone, none, "", func(t *api.Task) {
+			t.ParentID, t.Status, t.CompletedTime = "13", 2, at(0, "08:15")
+		}),
 	}
 	return New(projects, groups, tasks, "jane@doe.dev", now.Add(-2*time.Minute))
 }

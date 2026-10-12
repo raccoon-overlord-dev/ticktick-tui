@@ -24,7 +24,7 @@ type setRow struct {
 
 var setRows = []setRow{
 	{sec: "APPEARANCE"},
-	{key: "theme", label: "Theme", opts: []string{"terminal", "colorful", "lotr"}, desc: "terminal inherits your emulator’s 16 ANSI colors"},
+	{key: "theme", label: "Theme", desc: "⏎ opens the list · terminal inherits your emulator’s 16 ANSI colors · custom ones: ~/.config/ttui/themes"},
 	{key: "prio", label: "Group headers", opts: []string{"rule", "label", "tab"}, desc: "How task groups are separated in the task list"},
 	{key: "focus", label: "Focused panel", opts: []string{"border", "title"}, desc: "Accent border, or an inverted title chip"},
 	{key: "bg", label: "Background", opts: []string{"solid", "transparent", "blur"}, desc: "transparent/blur: ttui paints no background, so your terminal’s opacity + blur show through"},
@@ -101,6 +101,13 @@ func (a *App) changeSetting(r setRow, dir int) tea.Cmd {
 		a.about = dir > 0
 		return nil
 	}
+	if r.key == "theme" {
+		if dir > 0 {
+			a.themes = theme.Names()
+			a.themeIdx = max(slices.Index(a.themes, a.cfg.Appearance.Theme), 0)
+		}
+		return nil
+	}
 	if r.key == "checknow" {
 		switch {
 		case dir < 0:
@@ -148,12 +155,45 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 	return nil
 }
 
+// themeKey drives the open Theme dropdown: moving previews the theme, ⏎ keeps it, esc
+// goes back to the saved one.
+func (a *App) themeKey(k tea.KeyPressMsg) tea.Cmd {
+	vim := a.cfg.Keys.Keymap != "arrows"
+	n := len(a.themes)
+	switch key := k.String(); {
+	case key == "down" || (vim && key == "j"):
+		a.themeIdx = (a.themeIdx + 1) % n
+	case key == "up" || (vim && key == "k"):
+		a.themeIdx = (a.themeIdx - 1 + n) % n
+	case key == "enter" || key == "space" || key == "right" || (vim && key == "l"):
+		name := a.themes[a.themeIdx]
+		a.themes = nil
+		return a.setOption("theme", name)
+	case key == "esc" || key == "left" || (vim && key == "h") || key == "q":
+		a.themes = nil
+		a.th, _ = theme.Load(a.cfg.Appearance.Theme)
+		if a.th == nil {
+			a.th, _ = theme.Load("terminal")
+		}
+		return nil
+	default:
+		return nil
+	}
+	if th, err := theme.Load(a.themes[a.themeIdx]); err == nil {
+		a.th = th
+	}
+	return nil
+}
+
 func (a *App) settingsKey(k tea.KeyPressMsg) tea.Cmd {
 	if a.about {
 		if key := k.String(); key == "esc" || key == "enter" || key == "q" || key == "," {
 			a.about = false
 		}
 		return nil
+	}
+	if a.themes != nil {
+		return a.themeKey(k)
 	}
 	move := func(d int) { // wraps around, skipping section headers
 		for i := (a.sIdx + d + len(setRows)) % len(setRows); i != a.sIdx; i = (i + d + len(setRows)) % len(setRows) {
@@ -208,6 +248,8 @@ func (a *App) viewSettings() (string, int, int) {
 			val = rp.s("text").Render(email) + rp.sp(2) + rp.s("error").Render("⏎ sign out")
 		} else if r.key == "about" {
 			val = rp.s("dim").Render("⏎ open")
+		} else if r.key == "theme" {
+			val = rp.s("accent").Bold(true).Render(a.cfg.Appearance.Theme) + rp.sp(1) + rp.s("dim").Render("▾")
 		} else if r.key == "checknow" && a.newVersion != "" {
 			val = rp.s("info").Render("⏎ update to " + a.newVersion)
 		} else if r.key == "checknow" {
@@ -226,12 +268,29 @@ func (a *App) viewSettings() (string, int, int) {
 			}
 		}
 		lines = append(lines, rp.line(w, label+val, ""))
+		if r.key == "theme" && a.themes != nil { // the dropdown, under the row
+			for j, n := range a.themes {
+				op := p
+				if j == a.themeIdx {
+					sel, op = len(lines), p.on(a.selBg(true))
+				}
+				mark := op.sp(2)
+				if n == a.cfg.Appearance.Theme {
+					mark = op.s("accent").Render("●") + op.sp(1)
+				}
+				lines = append(lines, op.line(w, op.sp(22)+mark+op.s("text").Render(n), ""))
+			}
+		}
 	}
 	desc := setRows[a.sIdx].desc
+	hint := "j/k move · h/l change · esc close"
+	if a.themes != nil {
+		desc, hint = "Previewed as you move", "j/k pick · ⏎ choose · esc cancel"
+	}
 	footer := []string{
 		p.s("line").Render(strings.Repeat("─", w-2)),
 		p.line(w, p.s("muted").Render(trunc(desc, w-4)), ""),
-		p.line(w, p.s("dim").Render("j/k move · h/l change · esc close"), ""),
+		p.line(w, p.s("dim").Render(hint), ""),
 	}
 	maxBody := max(a.h-1-2-len(footer), 1)
 	body := append(window(lines, sel, maxBody, new(int)), footer...)
@@ -273,6 +332,9 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "c", desc: "Add checklist items"},
 	{key: "C", desc: "Convert note ↔ checklist (a line per item)"},
 	{key: "D  del", desc: "Delete (asks first; repeating: this one or all)"},
+	{key: "A", desc: "New subtask of this task"},
+	{key: "> <", desc: "Nest under the task above / move up a level (again: undo)"},
+	{key: "z", desc: "Fold / unfold subtasks"},
 	{key: "t", desc: "Toggle due-date labels"},
 	{key: "s", desc: "Group / sort this list"},
 	{sec: "EVERYWHERE"},

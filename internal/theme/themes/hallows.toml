@@ -1,0 +1,24 @@
+# ticktick-tui theme: hallows
+# Halloween: pumpkin orange on violet-plum (the Ember Hearth "Hallows" dark palette).
+name = "hallows"
+separator = "·"
+
+[colors]
+base      = "#1f1824" # bg
+surface   = "#1a1420" # side
+surface2  = "#35283f" # activeBg
+line      = "#382c44" # border
+dim       = "#7a6c84" # faint
+muted     = "#a596ae" # muted
+sub       = "#cdbfd6" # fileText
+text      = "#e6dcea" # text
+accent    = "#e8894a" # accent (pumpkin)
+secondary = "#d2b6f2" # tag
+ok        = "#c9a8ee" # folderText
+info      = "#f0a160" # link
+error     = "#e08468" # num
+warn      = "#e4b56a" # h3
+p_high    = "#e08468" # num
+p_med     = "#e4b56a" # h3
+p_low     = "#b98ae6" # h2
+p_none    = "#7a6c84" # faint

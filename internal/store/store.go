@@ -313,20 +313,92 @@ func PrioRole(p int) string {
 }
 
 type Group struct {
-	Label string // "High", ..., "Completed"
-	Role  string // theme role for the header
-	Done  bool
-	Items []*api.Task
-	rank  int
+	Label  string // "High", ..., "Completed"
+	Role   string // theme role for the header
+	Done   bool
+	Items  []*api.Task // each task followed by its subtasks
+	Depth  []int       // Items[i]'s nesting level, 0 = top
+	Hidden []int       // subtasks folded away under Items[i] (Fold)
+	rank   int
+}
+
+// Parent is t's parent task, or nil. As in the web app, a parent in another list (or a
+// deleted one) doesn't count: the task shows as a normal task.
+func (s *Store) Parent(t *api.Task) *api.Task {
+	if t.ParentID == "" || t.ParentID == t.ID {
+		return nil
+	}
+	if p := s.Task(t.ParentID); p != nil && p.ProjectID == t.ProjectID {
+		return p
+	}
+	return nil
+}
+
+// Subtasks are the tasks whose parent is id (open and done).
+func (s *Store) Subtasks(id string) []*api.Task {
+	var out []*api.Task
+	for i := range s.Tasks {
+		if t := &s.Tasks[i]; t.ParentID == id && t.ID != id && s.Parent(t) != nil {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// Descendants are id's subtasks, their subtasks and so on.
+func (s *Store) Descendants(id string) []*api.Task {
+	var out []*api.Task
+	seen := map[string]bool{id: true}
+	var walk func(string)
+	walk = func(id string) {
+		for _, t := range s.Subtasks(id) {
+			if !seen[t.ID] {
+				seen[t.ID] = true
+				out = append(out, t)
+				walk(t.ID)
+			}
+		}
+	}
+	walk(id)
+	return out
 }
 
 // TaskGroups splits tasks by so.GroupBy (list, date, created, tag, priority, none), sorts each
 // group by so.SortBy and so.Order, then adds Completed (newest first) if showCompleted.
+// An open task whose parent is open in tasks goes under it, whatever its own group; done
+// tasks are listed flat in Completed.
 func (s *Store) TaskGroups(tasks []*api.Task, so config.Sort, showCompleted bool, now time.Time) []Group {
+	open := map[string]*api.Task{}
+	for _, t := range tasks {
+		if !Done(t) {
+			open[t.ID] = t
+		}
+	}
+	parent := func(t *api.Task) *api.Task {
+		if p := open[t.ParentID]; p != nil && p != t && p.ProjectID == t.ProjectID {
+			return p
+		}
+		return nil
+	}
+	kids := map[string][]*api.Task{}
+	isKid := func(t *api.Task) bool {
+		seen := map[*api.Task]bool{t: true}
+		for p := parent(t); p != nil; p = parent(p) {
+			if seen[p] { // a parent loop: show the task at the top
+				return false
+			}
+			seen[p] = true
+		}
+		return parent(t) != nil
+	}
 	var out []Group
 	byKey := map[string]int{}
 	for _, t := range tasks {
 		if Done(t) {
+			continue
+		}
+		if isKid(t) {
+			kids[t.ParentID] = append(kids[t.ParentID], t)
 			continue
 		}
 		label, role, rank := s.groupOf(t, so.GroupBy, now)
@@ -339,19 +411,51 @@ func (s *Store) TaskGroups(tasks []*api.Task, so config.Sort, showCompleted bool
 		out[i].Items = append(out[i].Items, t)
 	}
 	slices.SortStableFunc(out, func(a, b Group) int { return cmp.Or(cmp.Compare(a.rank, b.rank), cmp.Compare(a.Label, b.Label)) })
-	for _, g := range out {
-		sortTasks(g.Items, so, now)
+	for _, k := range kids {
+		SortTasks(k, so, now)
+	}
+	for i, g := range out {
+		SortTasks(g.Items, so, now)
+		var items []*api.Task
+		var depth []int
+		var add func(*api.Task, int)
+		add = func(t *api.Task, d int) {
+			items, depth = append(items, t), append(depth, d)
+			for _, k := range kids[t.ID] {
+				add(k, d+1)
+			}
+		}
+		for _, t := range g.Items {
+			add(t, 0)
+		}
+		out[i].Items, out[i].Depth = items, depth
 	}
 	if showCompleted {
 		g := Group{Label: "Completed", Role: "ok", Done: true}
 		for _, t := range tasks {
 			if Done(t) {
-				g.Items = append(g.Items, t)
+				g.Items, g.Depth = append(g.Items, t), append(g.Depth, 0)
 			}
 		}
 		if len(g.Items) > 0 {
 			slices.SortStableFunc(g.Items, func(a, b *api.Task) int { return strings.Compare(b.CompletedTime, a.CompletedTime) })
 			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// Fold leaves out the subtasks of the tasks folded reports true for, and counts them in Hidden.
+func (g Group) Fold(folded func(id string) bool) Group {
+	out := Group{Label: g.Label, Role: g.Role, Done: g.Done, rank: g.rank}
+	for i := 0; i < len(g.Items); i++ {
+		out.Items, out.Depth, out.Hidden = append(out.Items, g.Items[i]), append(out.Depth, g.Depth[i]), append(out.Hidden, 0)
+		if !folded(g.Items[i].ID) {
+			continue
+		}
+		for d := g.Depth[i]; i+1 < len(g.Items) && g.Depth[i+1] > d; {
+			i++
+			out.Hidden[len(out.Hidden)-1]++
 		}
 	}
 	return out
@@ -418,9 +522,9 @@ func normPrio(p int) int {
 	return PrioNone
 }
 
-// sortTasks sorts by so.SortBy; Order "newest" reverses it. Tasks missing the key (no date,
+// SortTasks sorts by so.SortBy; Order "newest" reverses it. Tasks missing the key (no date,
 // no tag) stay last either way. Ties fall back to due date, then created time.
-func sortTasks(ts []*api.Task, so config.Sort, now time.Time) {
+func SortTasks(ts []*api.Task, so config.Sort, now time.Time) {
 	dir := 1
 	if so.Order == "newest" {
 		dir = -1

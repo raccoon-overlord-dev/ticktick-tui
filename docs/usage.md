@@ -58,7 +58,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `h` `l` / `←` `→` | Previous / next pane; `l` opens a list, a folder or a task |
 | `1` `2` `3` | Focus the lists / tasks / details pane. With fewer than 3 panes, `1` opens the list jumper (`@`) and `3` opens the details |
 | `tab` | Next pane |
-| `⏎` | Open; on a detail field: edit it, pick a due date, repeat or list, cycle Priority, or edit a checklist item |
+| `⏎` | Open; on a detail field: edit it, pick a due date, repeat, list or parent, cycle Priority, or edit a checklist item |
 | `x` / `space` | Complete or reopen the task (right after completing, `x` undoes). On a checklist item: tick or untick it; ticking the last open one completes the task and unticking one reopens a completed task, as in the web app. In lists, `space` (or `⏎`, `l`) opens or closes a folder; folders start closed and ttui remembers the open ones |
 | `H` | In lists: hide the list from Today, Tomorrow, Next 7 Days and the filters, or show it again (hidden lists get a crossed-out eye icon, `x` without Nerd Fonts). Stands in for TickTick's "Show in smart list: Do not show", which the API doesn't expose |
 | `p` | Cycle priority High → Medium → Low → None |
@@ -66,8 +66,11 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `m` | Move the task to another list |
 | `c` | Add checklist items: `⏎` adds one and opens the next, `esc` finishes |
 | `C` | Convert between a note and a checklist, like the web app. Note → checklist: each line of the notes becomes an item (blank lines are skipped, `- ` / `* ` / `+ ` markers dropped, `- [x] ` lines start ticked). Checklist → note: the notes come first, then one line per item (ticks are lost). Works in the New task panel too |
-| `D` / `delete` | Delete the task after a `y / N` prompt. On a repeating task: `o` deletes this occurrence only, `a` the whole series |
-| `:` Trash | Tasks deleted with `D` in the last 30 days (whole tasks, not single occurrences), newest first; older ones are dropped automatically. `⏎` restores one to its list (the Inbox if the list is gone) as an open task; **Empty trash** forgets them all. See Known issues |
+| `D` / `delete` | Delete the task after a `y / N` prompt, with its subtasks. On a repeating task: `o` deletes this occurrence only, `a` the whole series |
+| `:` Trash | Tasks deleted with `D` in the last 30 days (whole tasks, not single occurrences), newest first; older ones are dropped automatically. `⏎` restores one to its list (the Inbox if the list is gone) as an open task, with the subtasks deleted along with it; **Empty trash** forgets them all. See Known issues |
+| `A` | New subtask: the New task panel for a subtask of the selected task (it shows "subtask of …"). Also in `:` as New subtask. See Subtasks below |
+| `>` / `<` | Make the task a subtask of the task above it at its level / move it up a level, next to its parent. Pressing the same key again right after undoes it, as `x` does after completing |
+| `z` | Fold or unfold a task's subtasks (a folded task shows `▸3`); on a subtask, folds its parent. Remembered |
 | `i` / `e` | Edit the title (tasks) or the field under the cursor (details). `esc` or `⏎` saves. On the notes `↑` `↓` scroll them when they are long; while editing notes `⏎` is a newline, `↑` `↓` move between lines and `esc` / `ctrl+s` saves (`ctrl+⏎` also saves where the terminal passes it through; Omarchy uses it for fullscreen) |
 | `ctrl+a` | While editing: select all. On a text field (title, notes, checklist item…): edit it with all its text selected |
 | `shift+←` `shift+→` | Select text while editing (`shift+↑` `shift+↓` in notes, `shift+home` / `shift+end` too). Typing or pasting replaces the selection, `backspace` deletes it |
@@ -86,6 +89,23 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `,` | Settings |
 | `?` | All keys |
 | `esc` / `q` | Back / quit |
+
+### Subtasks
+
+Subtasks are tasks inside a task, as in the web app (not checklist items, which `c` adds). In the tasks pane they show
+indented under their parent, at any depth, and stay with it whatever the grouping or sorting (the parent decides the group;
+subtasks are sorted among themselves). Completed subtasks go to Completed like other tasks.
+
+In the details pane, the **Parent** field shows the task a subtask belongs to; `⏎` on it opens a menu with the open tasks
+of the same list (as a tree; type to filter) to put the task under, **None** to make it a top-level task again and, on a subtask,
+**Open** to go to its parent. A task can't go under itself or its own subtasks. It works in the New task panel too. A parent gets a **Subtasks** section: `⏎` opens one, `x` completes or reopens it.
+
+As in the web app:
+
+- completing a task completes its open subtasks too (`x` right after undoes all of them); a repeating task doesn't, since it stays open. Reopening a task leaves its subtasks as they are.
+- deleting a task deletes its subtasks (the prompt says how many), and restoring it from the Trash brings them back under it.
+- moving a task to another list moves its subtasks; moving a subtask to another list makes it a normal task there.
+- a subtask whose parent is in another list, completed or deleted shows as a normal task. In smart lists (Today…) a subtask shows under its parent only when the parent is there too.
 
 ### Command bar
 
@@ -162,7 +182,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 
 | Section | Key | Values |
 |---|---|---|
-| `appearance` | `theme` | `terminal` · `colorful` · `lotr` · a custom theme name |
+| `appearance` | `theme` | `terminal` · `colorful` · `lotr` · `harvest` · `hallows` · a custom theme name (Settings → Theme: `⏎` opens the list, moving previews a theme, `⏎` keeps it, `esc` goes back) |
 | | `background` | `solid` · `transparent` · `blur` (the last two let your terminal's opacity and blur show through) |
 | | `priority_headers` | `rule` · `label` · `tab` |
 | | `focused_panel` | `border` · `title` |
@@ -170,6 +190,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | `layout` | `columns` | `auto` · `3` · `2` · `1` |
 | | `show_completed` | `true` · `false` |
 | | `open_folders` | folders shown open in Lists, written by ttui when you open or close one (folders start closed) |
+| | `folded` | tasks whose subtasks are folded in the tasks pane, written by ttui when you press `z` |
 | | `smart_hidden` | lists hidden from Today, Tomorrow, Next 7 Days and the filters, written by ttui when you press `H` |
 | `tasks` | `due_label`, `week_start` | `true`/`false`; `mon`·`sun` |
 | | `group_by` | `list` · `date` · `created` · `tag` · `priority` · `none` (default for all lists) |
@@ -189,7 +210,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 
 ### Themes
 
-`terminal` (default) uses your terminal's 16 ANSI colors, so it follows your terminal theme. `colorful` and `lotr` are built in.
+`terminal` (default) uses your terminal's 16 ANSI colors, so it follows your terminal theme. `colorful`, `lotr`, `harvest` (autumn: burnt orange and amber on warm browns) and `hallows` (Halloween: pumpkin orange on violet-plum) are built in. Custom themes show up in Settings → Theme next to them.
 For a custom theme, copy one of [`internal/theme/themes/*.toml`](../internal/theme/themes) to
 `~/.config/ttui/themes/<name>.toml`, edit the colors (`#rrggbb`, an ANSI index `0`–`255`, or `""` for the terminal default)
 and set `theme = "<name>"`.
@@ -200,6 +221,7 @@ These come from TickTick's public API (details in [`docs/api-notes.md`](api-note
 
 - The API has no Trash and can't undelete, so ttui keeps its own Trash (`:` Trash): copies of the tasks you deleted *from ttui* in the last 30 days, stored in `trash.json` in the cache folder. Tasks deleted in the web or phone app don't show up there. Restoring creates the task again with a new id and its title, notes, checklist, tags, due date, repeat and priority (not its created time or completion), and the original stays in the web app's Trash.
 - No attachments: the API doesn't expose them.
+- The API doesn't apply a parent's completion or deletion to its subtasks, so ttui sends one request per subtask; a large tree takes a moment, and if some fail the rest stay done.
 - A task's last reminder can't be removed through the API (an empty list is ignored), so ttui says so; remove it in the TickTick app. Removing one of several works. A paid plan allows more reminders per task than the free one (the free plan kept 2); extra ones are dropped by the server.
 - Notifications only fire while ttui is open; TickTick's own apps may notify you of the same reminder.
 - Smart lists (Today, Tomorrow, Next 7 Days) and filters are computed in ttui, not read from your TickTick filters.
@@ -218,6 +240,7 @@ These come from TickTick's public API (details in [`docs/api-notes.md`](api-note
 | `~/.config/ttui/auth.toml` | Sign-in token (`0600`) |
 | `~/.config/ttui/themes/` | Custom themes |
 | `~/.cache/ttui/snapshot.json` | Last synced data, for instant startup (`0600`) |
+| `~/.cache/ttui/trash.json` | Tasks deleted from ttui in the last 30 days, for `:` Trash (`0600`; removed on sign-out) |
 
 ## Development
 

@@ -103,7 +103,7 @@ func TestLongNotes(t *testing.T) {
 	a.st.Task("a").Content = note
 	a.taskID = "a"
 	a.openDetail(3)
-	a.df = len(detailKeys(a.st.Task("a"))) - 1
+	a.df = len(a.detailKeys(a.st.Task("a"))) - 1
 	a.viewMain()
 	for range 100 {
 		if a.detailEnd {
@@ -118,18 +118,21 @@ func TestLongNotes(t *testing.T) {
 	if a.move("detail", 1); a.df != 0 || a.offDetail != 0 { // ↓ at the end wraps to the title
 		t.Fatalf("no wrap at the end of the notes: df %d off %d", a.df, a.offDetail)
 	}
-	a.df = len(detailKeys(a.st.Task("a"))) - 1
+	a.df = len(a.detailKeys(a.st.Task("a"))) - 1
 	a.viewMain()
 	for range 100 {
+		if a.detailKeys(a.st.Task("a"))[a.df] != "notes" {
+			break
+		}
 		a.move("detail", -1)
 		a.viewMain()
 	}
-	if k := detailKeys(a.st.Task("a"))[a.df]; k == "notes" {
+	if k := a.detailKeys(a.st.Task("a"))[a.df]; k == "notes" {
 		t.Fatal("↑ never left the notes")
 	}
 
 	// pgdown scrolls the notes too
-	a.df, a.focus = len(detailKeys(a.st.Task("a")))-1, "detail"
+	a.df, a.focus = len(a.detailKeys(a.st.Task("a")))-1, "detail"
 	a.screen = screenMain
 	a.viewMain()
 	off := a.offDetail
@@ -229,7 +232,7 @@ func TestChecklistItems(t *testing.T) {
 	a := testApp(t)
 	tk := a.st.Task("a")
 	tk.Items = []api.Item{{Title: "one", Status: 1}, {Title: "two"}}
-	a.focus, a.df = "detail", slices.Index(detailKeys(tk), "c1")
+	a.focus, a.df = "detail", slices.Index(a.detailKeys(tk), "c1")
 	a.activate()
 	if a.edit != "c1" || a.in.value() != "two" {
 		t.Fatalf("⏎ didn't edit the item: edit=%q value=%q", a.edit, a.in.value())
@@ -350,7 +353,7 @@ func TestInputSelectUndo(t *testing.T) {
 	a.th, _ = theme.Load("terminal")
 	tk := a.st.Task("a")
 	tk.Items = []api.Item{{Title: "item"}}
-	a.taskID, a.focus, a.df = "a", "detail", slices.Index(detailKeys(tk), "c0")
+	a.taskID, a.focus, a.df = "a", "detail", slices.Index(a.detailKeys(tk), "c0")
 	a.mainKey(ctrl('a'))
 	if a.edit != "c0" || a.in.selected() != "item" {
 		t.Fatalf("ctrl+a on an item: edit=%q selected=%q", a.edit, a.in.selected())
@@ -606,5 +609,33 @@ func TestReminders(t *testing.T) {
 	a.setDue(tk, nil)
 	if tk.Reminders != nil {
 		t.Fatalf("reminders kept without a due date: %v", tk.Reminders)
+	}
+}
+
+// Settings → Theme opens a dropdown: moving previews a theme, esc goes back, ⏎ keeps one.
+func TestThemeDropdown(t *testing.T) {
+	a := testApp(t)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	config.Path = t.TempDir() + "/config.toml"
+	a.th, _ = theme.Load("terminal")
+	a.settings, a.sIdx = true, slices.IndexFunc(setRows, func(r setRow) bool { return r.key == "theme" })
+	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if len(a.themes) < 3 || a.themes[0] != "terminal" || a.themeIdx != 0 {
+		t.Fatalf("dropdown: %v at %d", a.themes, a.themeIdx)
+	}
+	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyDown})
+	if a.th.Name != a.themes[1] || a.cfg.Appearance.Theme != "terminal" {
+		t.Fatalf("preview: %s, saved %s", a.th.Name, a.cfg.Appearance.Theme)
+	}
+	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if a.themes != nil || a.th.Name != "terminal" || !a.settings {
+		t.Fatalf("esc: open=%v theme %s settings %v", a.themes != nil, a.th.Name, a.settings)
+	}
+	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyUp}) // wraps to the last one
+	last := a.themes[len(a.themes)-1]
+	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if a.cfg.Appearance.Theme != last || a.th.Name != last {
+		t.Fatalf("pick: saved %s, shown %s", a.cfg.Appearance.Theme, a.th.Name)
 	}
 }

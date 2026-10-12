@@ -260,3 +260,71 @@ func TestCompletedPastCap(t *testing.T) {
 		t.Fatalf("got %d of 300 (err %v)", len(got), err)
 	}
 }
+
+// Subtasks go under their open parent in the same list, whatever their own group; the
+// rest (parent done, deleted, in another list, or a loop) show at the top.
+func TestSubtaskTree(t *testing.T) {
+	tasks := []api.Task{
+		{ID: "p", ProjectID: "l", Title: "parent", Priority: 1},
+		{ID: "k2", ProjectID: "l", Title: "kid b", ParentID: "p", Priority: 5},
+		{ID: "k1", ProjectID: "l", Title: "kid a", ParentID: "p"},
+		{ID: "g", ProjectID: "l", Title: "grandkid", ParentID: "k1"},
+		{ID: "x", ProjectID: "other", Title: "cross-list", ParentID: "p"},
+		{ID: "o", ProjectID: "l", Title: "orphan", ParentID: "deleted"},
+		{ID: "d", ProjectID: "l", Title: "done parent", Status: 2},
+		{ID: "dk", ProjectID: "l", Title: "kid of done", ParentID: "d"},
+		{ID: "dd", ProjectID: "l", Title: "done kid", ParentID: "p", Status: 2},
+		{ID: "l1", ProjectID: "l", Title: "loop 1", ParentID: "l2"},
+		{ID: "l2", ProjectID: "l", Title: "loop 2", ParentID: "l1"},
+	}
+	s := New(nil, nil, tasks, "", now)
+	var all []*api.Task
+	for i := range s.Tasks {
+		all = append(all, &s.Tasks[i])
+	}
+	str := func(gs []Group) string {
+		out := ""
+		for _, g := range gs {
+			out += g.Label + ":"
+			for i, t := range g.Items {
+				out += fmt.Sprint(" ", g.Depth[i], t.ID)
+				if len(g.Hidden) > 0 && g.Hidden[i] > 0 {
+					out += fmt.Sprint("+", g.Hidden[i])
+				}
+			}
+			out += " | "
+		}
+		return out
+	}
+	gs := s.TaskGroups(all, config.Sort{GroupBy: "priority", SortBy: "title"}, true, now)
+	want := "Low: 0p 1k1 2g 1k2 | None: 0x 0dk 0l1 0l2 0o | Completed: 0d 0dd | "
+	if got := str(gs); got != want {
+		t.Errorf("tree =\n %q, want\n %q", got, want)
+	}
+	folded := str([]Group{gs[0].Fold(func(id string) bool { return id == "k1" })})
+	if folded != "Low: 0p 1k1+1 1k2 | " {
+		t.Errorf("fold k1 = %q", folded)
+	}
+	if folded := str([]Group{gs[0].Fold(func(id string) bool { return id == "p" })}); folded != "Low: 0p+3 | " {
+		t.Errorf("fold p = %q", folded)
+	}
+
+	if p := s.Parent(s.Task("x")); p != nil {
+		t.Errorf("cross-list parent = %v", p.ID)
+	}
+	if p := s.Parent(s.Task("dk")); p == nil || p.ID != "d" {
+		t.Errorf("parent of dk = %v", p)
+	}
+	ids := func(ts []*api.Task) (out string) {
+		for _, t := range ts {
+			out += t.ID + " "
+		}
+		return
+	}
+	if got := ids(s.Descendants("p")); got != "k2 k1 g dd " {
+		t.Errorf("descendants = %q", got)
+	}
+	if got := ids(s.Descendants("l1")); got != "l2 " {
+		t.Errorf("loop descendants = %q", got)
+	}
+}

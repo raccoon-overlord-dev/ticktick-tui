@@ -56,6 +56,13 @@ func (a *App) pump() tea.Cmd {
 	if real, ok := a.idMap[id]; ok {
 		id = real
 	}
+	if p, ok := o.fields["parentId"].(string); ok && strings.HasPrefix(p, "tmp-") {
+		if real, ok := a.idMap[p]; ok { // the parent was created meanwhile
+			o.fields["parentId"] = real
+		} else { // its create failed
+			delete(o.fields, "parentId")
+		}
+	}
 	pid := ""
 	if t := a.st.Task(id); t != nil {
 		pid = t.ProjectID
@@ -158,8 +165,16 @@ func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
 	}
 	// Take the server's copy unless more local edits to this task are still queued.
 	pending := slices.ContainsFunc(a.queue, func(o op) bool { return o.taskID == m.op.taskID })
+	if p, ok := m.op.fields["parentId"].(string); ok && m.t != nil && (m.op.kind == "create" || m.op.kind == "update") {
+		m.t.ParentID = p // these responses leave parentId out
+	}
 	if m.op.kind == "create" {
 		a.idMap[m.op.taskID] = m.t.ID
+		for i := range a.st.Tasks { // subtasks added before it was created
+			if a.st.Tasks[i].ParentID == m.op.taskID {
+				a.st.Tasks[i].ParentID = m.t.ID
+			}
+		}
 		if local := a.st.Task(m.op.taskID); local != nil && pending {
 			l := *local // keep the queued local edits, under the server's id
 			l.ID, l.ProjectID = m.t.ID, m.t.ProjectID
@@ -248,29 +263,64 @@ func (a *App) update(t *api.Task, fields map[string]any, apply func(*api.Task)) 
 	return a.enqueue(op{kind: "update", taskID: t.ID, before: &before, fields: fields})
 }
 
+// toggleDone completes t, or reopens it. Like the web app, completing a task completes its
+// open subtasks too (the API doesn't), except on a repeating task, which stays open.
 func (a *App) toggleDone(t *api.Task) tea.Cmd {
 	if store.Done(t) {
 		a.setFlash(fmt.Sprintf("reopened “%s”", t.Title))
-		return a.update(t, map[string]any{"status": 0}, func(t *api.Task) { t.Status, t.CompletedTime = 0, "" })
+		return a.reopen(t)
 	}
-	a.selectNeighbor(t)
-	before := store.Clone(*t)
-	t.Status, t.CompletedTime = 2, time.Now().UTC().Format(api.DateLayout)
-	a.lastDone = t.ID
-	a.setFlash(fmt.Sprintf("✓ completed “%s” · x to undo", t.Title))
-	return a.enqueue(op{kind: "complete", taskID: t.ID, before: &before})
+	if sel := a.selTask(); sel != nil && sel.ID == t.ID {
+		a.selectNeighbor(t)
+	}
+	done := []*api.Task{t}
+	if t.RepeatFlag == "" {
+		for _, s := range a.st.Descendants(t.ID) {
+			if !store.Done(s) {
+				done = append(done, s)
+			}
+		}
+	}
+	a.lastDone = nil
+	var cmds []tea.Cmd
+	for _, x := range done {
+		before := store.Clone(*x)
+		x.Status, x.CompletedTime = 2, time.Now().UTC().Format(api.DateLayout)
+		a.lastDone = append(a.lastDone, x.ID)
+		cmds = append(cmds, a.enqueue(op{kind: "complete", taskID: x.ID, before: &before}))
+	}
+	msg := fmt.Sprintf("✓ completed “%s” · x to undo", t.Title)
+	if n := len(done) - 1; n > 0 {
+		msg = fmt.Sprintf("✓ completed “%s” and %d subtask%s · x to undo", t.Title, n, map[bool]string{true: "s"}[n > 1])
+	}
+	a.setFlash(msg)
+	return tea.Batch(cmds...)
 }
 
-// selectNeighbor moves the cursor off t, to the next task (or the previous one at the end).
+func (a *App) reopen(t *api.Task) tea.Cmd {
+	return a.update(t, map[string]any{"status": 0}, func(t *api.Task) { t.Status, t.CompletedTime = 0, "" })
+}
+
+// selectNeighbor moves the cursor off t and its subtasks, to the next task (or the
+// previous one at the end).
 func (a *App) selectNeighbor(t *api.Task) {
 	nav := navTasks(a.groups())
-	if i := slices.Index(nav, t); i >= 0 {
-		switch {
-		case i+1 < len(nav):
-			a.taskID = nav[i+1].ID
-		case i > 0:
-			a.taskID = nav[i-1].ID
+	skip := map[*api.Task]bool{t: true}
+	for _, s := range a.st.Descendants(t.ID) {
+		skip[s] = true
+	}
+	i := slices.Index(nav, t)
+	if i < 0 {
+		return
+	}
+	for j := i + 1; j < len(nav); j++ {
+		if !skip[nav[j]] {
+			a.taskID = nav[j].ID
+			return
 		}
+	}
+	if i > 0 {
+		a.taskID = nav[i-1].ID
 	}
 }
 
@@ -278,9 +328,13 @@ func (a *App) selectNeighbor(t *api.Task) {
 // this occurrence only or the whole series; anything else cancels.
 func (a *App) askDelete(t *api.Task) {
 	a.delID = t.ID
-	q := fmt.Sprintf("Delete “%s”? y / N", t.Title)
+	name := "“" + t.Title + "”"
+	if n := len(a.st.Descendants(t.ID)); n > 0 {
+		name += fmt.Sprintf(" and %d subtask%s", n, map[bool]string{true: "s"}[n > 1])
+	}
+	q := fmt.Sprintf("Delete %s? y / N", name)
 	if t.RepeatFlag != "" && !store.Done(t) {
-		q = fmt.Sprintf("Delete “%s”? o this occurrence · a all occurrences · N cancel", t.Title)
+		q = fmt.Sprintf("Delete %s? o this occurrence · a all occurrences · N cancel", name)
 	}
 	a.flash, a.flashRole, a.flashUntil = q, "warn", time.Now().Add(time.Hour)
 }
@@ -295,11 +349,19 @@ func (a *App) deleteKey(k tea.KeyPressMsg) tea.Cmd {
 	defer a.keepPlace(t)()
 	switch key := k.String(); {
 	case !repeat && key == "y", repeat && key == "a":
-		before := store.Clone(*t)
-		a.st.Remove(t.ID)
-		a.toTrash(before)
-		a.setFlash(fmt.Sprintf("deleted “%s” · : Trash to restore", before.Title))
-		return a.enqueue(op{kind: "delete", taskID: before.ID, before: &before})
+		// The API leaves the subtasks behind as normal tasks; the web app deletes them too.
+		var gone []api.Task
+		for _, x := range append(a.st.Descendants(t.ID), t) {
+			gone = append(gone, store.Clone(*x))
+		}
+		var cmds []tea.Cmd
+		for _, before := range gone {
+			a.st.Remove(before.ID)
+			a.toTrash(before)
+			cmds = append(cmds, a.enqueue(op{kind: "delete", taskID: before.ID, before: &before}))
+		}
+		a.setFlash(fmt.Sprintf("deleted “%s” · : Trash to restore", gone[len(gone)-1].Title))
+		return tea.Batch(cmds...)
 	case repeat && key == "o":
 		before := store.Clone(*t)
 		t.Status = 2 // hidden until the server returns the next occurrence
@@ -350,21 +412,44 @@ func (a *App) trashPicker() {
 
 // restore creates a trashed task again, open, in its list (the Inbox if the list is gone).
 // The API can't undelete, so it gets a new id and the original stays in the web app's Trash.
+// Its subtasks in the trash come back with it, under it.
 func (a *App) restore(tr store.Trashed) tea.Cmd {
-	a.trash = slices.DeleteFunc(a.trash, func(x store.Trashed) bool { return x.Task.ID == tr.Task.ID && x.Deleted.Equal(tr.Deleted) })
-	a.saveTrash()
-	t := store.Clone(tr.Task)
-	t.Status, t.CompletedTime = 0, ""
-	for i := range t.Items {
-		t.Items[i].ID = "" // the server assigns new ones
+	parent := ""
+	if p := a.st.Task(tr.Task.ParentID); p != nil && p.ProjectID == tr.Task.ProjectID {
+		parent = p.ID
 	}
-	if !store.IsInbox(t.ProjectID) && a.st.Project(t.ProjectID) == nil {
-		t.ProjectID = "inbox"
-	}
-	cmd := a.addTask(t)
+	id, cmd := a.restoreTree(tr, parent, "")
+	t := a.st.Task(id)
+	a.taskID = id
 	name, _, _ := a.listMeta(listID(t.ProjectID))
 	a.setFlash(fmt.Sprintf("restored “%s” to %s", t.Title, name))
 	return cmd
+}
+
+// restoreTree creates tr's task again under parentID (in projectID if set) and then the
+// subtasks it had in the trash. It returns the new temporary id.
+func (a *App) restoreTree(tr store.Trashed, parentID, projectID string) (string, tea.Cmd) {
+	a.trash = slices.DeleteFunc(a.trash, func(x store.Trashed) bool { return x.Task.ID == tr.Task.ID && x.Deleted.Equal(tr.Deleted) })
+	a.saveTrash()
+	t := store.Clone(tr.Task)
+	t.Status, t.CompletedTime, t.ParentID = 0, "", parentID
+	for i := range t.Items {
+		t.Items[i].ID = "" // the server assigns new ones
+	}
+	if projectID != "" {
+		t.ProjectID = projectID
+	} else if !store.IsInbox(t.ProjectID) && a.st.Project(t.ProjectID) == nil {
+		t.ProjectID = "inbox"
+	}
+	cmds := []tea.Cmd{a.addTask(t)}
+	id := a.taskID
+	for _, kid := range slices.Clone(a.trash) {
+		if kid.Task.ParentID == tr.Task.ID {
+			_, cmd := a.restoreTree(kid, id, t.ProjectID)
+			cmds = append(cmds, cmd)
+		}
+	}
+	return id, tea.Batch(cmds...)
 }
 
 // listID is the list id of a project id.
@@ -377,16 +462,24 @@ func listID(projectID string) string {
 
 // undoDone reopens the task completed last, while its "x to undo" message is showing.
 func (a *App) undoDone() (tea.Cmd, bool) {
-	if a.lastDone == "" || !strings.HasPrefix(a.flash, "✓ completed") {
+	if len(a.lastDone) == 0 || !strings.HasPrefix(a.flash, "✓ completed") {
 		return nil, false
 	}
-	t := a.st.Task(a.lastDone)
-	a.lastDone = ""
+	ids := a.lastDone
+	a.lastDone = nil
+	t := a.st.Task(ids[0])
 	if t == nil || !store.Done(t) {
 		return nil, false
 	}
 	a.taskID = t.ID
-	return a.toggleDone(t), true
+	a.setFlash(fmt.Sprintf("reopened “%s”", t.Title))
+	var cmds []tea.Cmd
+	for _, id := range ids { // with the subtasks it completed
+		if x := a.st.Task(id); x != nil && store.Done(x) {
+			cmds = append(cmds, a.reopen(x))
+		}
+	}
+	return tea.Batch(cmds...), true
 }
 
 var prioNext = map[int]int{store.PrioHigh: store.PrioMed, store.PrioMed: store.PrioLow, store.PrioLow: store.PrioNone, store.PrioNone: store.PrioHigh}
@@ -495,6 +588,9 @@ func (a *App) movePicker(t *api.Task) {
 func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
 	to := strings.TrimPrefix(list, "p:")
 	if t == a.draft { // "inbox" stays a placeholder until the create
+		if listID(t.ProjectID) != list {
+			t.ParentID = "" // a subtask stays in its parent's list
+		}
 		t.ProjectID = to
 		return nil
 	}
@@ -514,10 +610,19 @@ func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
 	defer a.keepPlace(t)()
 	before := store.Clone(*t)
 	from := t.ProjectID
+	for _, s := range a.st.Descendants(t.ID) { // the server moves them along
+		s.ProjectID = to
+	}
 	t.ProjectID = to
 	name, _, _ := a.listMeta(list)
 	a.setFlash("moved to " + name)
-	return a.enqueue(op{kind: "move", taskID: t.ID, before: &before, fields: map[string]any{"from": from, "to": to}})
+	cmd := a.enqueue(op{kind: "move", taskID: t.ID, before: &before, fields: map[string]any{"from": from, "to": to}})
+	if t.ParentID == "" {
+		return cmd
+	}
+	// The server keeps a moved subtask linked to its parent in the old list; the web app
+	// makes it a normal task.
+	return tea.Batch(cmd, a.update(t, map[string]any{"parentId": ""}, func(t *api.Task) { t.ParentID = "" }))
 }
 
 var (
@@ -856,7 +961,7 @@ func (a *App) startEdit(field string) {
 		v = t.Items[i].Title
 	}
 	a.edit, a.editID, a.in = field, t.ID, newInput(v)
-	a.df = slices.Index(detailKeys(t), field)
+	a.df = slices.Index(a.detailKeys(t), field)
 	if t == a.draft {
 		return
 	}
@@ -937,7 +1042,7 @@ func (a *App) activate() tea.Cmd {
 	if t == nil {
 		return nil
 	}
-	switch k := detailKeys(t)[a.df]; {
+	switch k := a.detailKeys(t)[a.df]; {
 	case k == "title" || k == "tags" || k == "notes" || k == "additem" || strings.HasPrefix(k, "c"):
 		a.startEdit(k)
 	case k == "due":
@@ -950,6 +1055,10 @@ func (a *App) activate() tea.Cmd {
 		return a.cyclePrio(t)
 	case k == "list":
 		a.movePicker(t)
+	case k == "parent":
+		a.parentPicker(t)
+	case strings.HasPrefix(k, "s:"):
+		a.openTask(k[2:])
 	}
 	return nil
 }
@@ -987,6 +1096,9 @@ func (a *App) addTask(t api.Task) tea.Cmd {
 	}
 	if len(t.Tags) > 0 {
 		body["tags"] = t.Tags
+	}
+	if t.ParentID != "" {
+		body["parentId"] = t.ParentID
 	}
 	if t.DueDate != "" {
 		body["dueDate"], body["startDate"], body["isAllDay"], body["timeZone"] = t.DueDate, t.StartDate, t.IsAllDay, t.TimeZone

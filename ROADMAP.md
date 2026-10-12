@@ -29,6 +29,12 @@ Ideas planned after v1. Not implemented yet.
 - Create folders and lists.
 - Kanban boards: display and interact with lists in board view.
 
+## Reminders
+
+- Notify reminders that came due while ttui was closed (today they're skipped).
+- 12-hour time input in the calendar's time field (it still takes 24h times with Settings → Time format 12h).
+- Constant reminder (a paid TickTick feature; not tested, the test account is on the free plan).
+
 ## Calendar
 
 - Calendar view like the TickTick app: month, week and day views of tasks by due date (timed tasks placed by hour in week / day), move between periods with the keyboard, open a task from it, and change a task's date from the calendar.

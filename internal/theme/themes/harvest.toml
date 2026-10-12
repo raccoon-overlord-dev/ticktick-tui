@@ -1,0 +1,24 @@
+# ticktick-tui theme: harvest
+# Autumn: burnt orange, amber and rust on fireside browns (the Ember Hearth "Leaves" dark palette).
+name = "harvest"
+separator = "·"
+
+[colors]
+base      = "#221a16" # bg
+surface   = "#1b1512" # side
+surface2  = "#3a2a20" # activeBg
+line      = "#3a2c24" # border
+dim       = "#7a6a5e" # faint
+muted     = "#a8968a" # muted
+sub       = "#c9b8a8" # fileText
+text      = "#e9dccb" # text
+accent    = "#e8894a" # accent
+secondary = "#f3b27a" # tag
+ok        = "#c9b35f" # str
+info      = "#f0a160" # link
+error     = "#e08468" # h3
+warn      = "#e4b56a" # h2
+p_high    = "#e08468" # h3
+p_med     = "#e4b56a" # h2
+p_low     = "#b8a07e" # h4
+p_none    = "#7a6a5e" # faint

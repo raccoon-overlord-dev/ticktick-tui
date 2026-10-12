@@ -1,6 +1,6 @@
 # ~/.config/ttui/config.toml  (defaults shown)
 [appearance]
-theme            = "terminal"   # terminal | colorful | lotr | <custom file in ~/.config/ttui/themes/>
+theme            = "terminal"   # terminal | colorful | lotr | harvest | hallows | <custom file in ~/.config/ttui/themes/>
 background       = "solid"      # solid | transparent | blur   (transparent/blur = don't paint bg; terminal composites)
 priority_headers = "rule"       # rule | label | tab
 focused_panel    = "border"     # border | title
@@ -10,6 +10,7 @@ nerd_font_icons  = true
 columns        = "auto"         # auto | 3 | 2 | 1   (auto: 3 ≥ 120 cols, 2 ≥ 80, else 1)
 show_completed = true
 open_folders   = []             # folders shown expanded in Lists (space / ⏎ toggles; written by ttui)
+folded         = []             # tasks whose subtasks are hidden in the tasks pane (z toggles; written by ttui)
 smart_hidden   = []             # lists left out of Today, Tomorrow, Next 7 Days and filters (H toggles; written by ttui)
 
 [tasks]

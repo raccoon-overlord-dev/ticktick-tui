@@ -13,6 +13,7 @@ import (
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
 )
 
 // cmdBar is the centered command bar (handoff §2). The query's first character sets the mode.
@@ -117,12 +118,13 @@ func (a *App) commands() []cmdItem {
 	}
 	items := []cmdItem{
 		{icon: "+", label: "New task", hint: "n", run: func() tea.Cmd { a.openDraft(); return nil }},
+		{icon: "+", label: "New subtask", hint: "A · under the selected task", run: func() tea.Cmd { a.openSubDraft(); return nil }},
 		{icon: "+", label: "Quick add", hint: "a", run: func() tea.Cmd { a.openCmd("+ "); return nil }},
 		{icon: a.icon("\uf014", "x"), label: fmt.Sprintf("Trash (%d)", len(a.trash)), hint: "deleted in the last 30 days", run: func() tea.Cmd { a.trashPicker(); return nil }},
 		{icon: a.icon("", ","), label: "Open settings", hint: ",", run: func() tea.Cmd { a.settings, a.sIdx = true, 1; return nil }},
 		{icon: a.icon("", "t"), label: "Toggle due-date labels (" + onOff(c.Tasks.DueLabel) + ")", hint: "t", run: func() tea.Cmd { a.toggleDueLabels(); return nil }},
 	}
-	for _, th := range []string{"terminal", "colorful", "lotr"} {
+	for _, th := range theme.Names() {
 		items = append(items, cmdItem{icon: a.icon("", "~"), label: "Theme: " + th, hint: cur(c.Appearance.Theme, th),
 			run: func() tea.Cmd { return a.setOption("theme", th) }})
 	}
@@ -314,6 +316,7 @@ func (a *App) gotoTask(id string) {
 	if t == nil {
 		return
 	}
+	a.unfoldAbove(t)
 	if !slices.Contains(navTasks(a.groups()), t) {
 		list := "p:" + t.ProjectID
 		switch {

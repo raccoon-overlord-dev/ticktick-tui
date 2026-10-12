@@ -31,11 +31,11 @@ func (a *App) closeDraft() {
 	a.df, a.offDetail = a.mainDF, a.mainOff
 }
 
-func draftKeys(t *api.Task) []string { return append(detailKeys(t), "create") }
+func (a *App) draftKeys(t *api.Task) []string { return append(a.detailKeys(t), "create") }
 
 func (a *App) draftKey(k tea.KeyPressMsg) tea.Cmd {
 	t := a.draft
-	keys := draftKeys(t)
+	keys := a.draftKeys(t)
 	a.df = min(a.df, len(keys)-1)
 	key := k.String()
 	if a.cfg.Keys.Keymap != "arrows" {
@@ -123,7 +123,7 @@ func (a *App) createDraft() tea.Cmd {
 func (a *App) viewDraft() (string, int, int) {
 	p := a.overlayPen()
 	w := min(64, a.w-4)
-	keys := draftKeys(a.draft)
+	keys := a.draftKeys(a.draft)
 	lines, sel := a.detailLines(p, a.draft, w, true)
 	cp := p
 	if keys[min(a.df, len(keys)-1)] == "create" {
@@ -134,5 +134,9 @@ func (a *App) viewDraft() (string, int, int) {
 		p.line(w, p.s("dim").Render("↑↓ field · ⏎ edit / pick · ctrl+s create · esc cancel"), "")}
 	body := append(window(lines, sel, max(a.h-3-len(footer), 3), &a.offDraft), footer...)
 	h := len(body) + 2
-	return a.frame(p, frameOpts{w: w, h: h, title: "New task", modal: true, body: body}), w, h
+	title := "New task"
+	if a.draft.ParentID != "" {
+		title = "New subtask"
+	}
+	return a.frame(p, frameOpts{w: w, h: h, title: title, modal: true, body: body}), w, h
 }
