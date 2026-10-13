@@ -1,0 +1,28 @@
+# ticktick-tui theme: Solarized Light (light)
+# Colors from terminalcolors.com/themes/solarized/light/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "solarized"
+family = "Solarized"
+variant = ""
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#fdf6e3"
+surface   = "#f7f1df"
+surface2  = "#e6e4d5"
+line      = "#dfddd0"
+dim       = "#97a4a3"
+muted     = "#798b90"
+sub       = "#657b83"
+text      = "#657b83"
+accent    = "#309d96"
+secondary = "#d33682"
+ok        = "#839807"
+info      = "#268bd2"
+error     = "#dc322f"
+warn      = "#b18807"
+p_high    = "#dc322f"
+p_med     = "#b18807"
+p_low     = "#268bd2"
+p_none    = "#97a4a3"

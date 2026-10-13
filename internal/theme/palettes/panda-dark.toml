@@ -1,0 +1,28 @@
+# ticktick-tui theme: Panda Default (dark)
+# Colors from terminalcolors.com/themes/panda/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "panda"
+family = "Panda"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#292a2b"
+surface   = "#303031"
+surface2  = "#5f4e3b"
+line      = "#4a4a4b"
+dim       = "#727373"
+muted     = "#8e8e8f"
+sub       = "#abacac"
+text      = "#cccccc"
+accent    = "#19f9d8"
+secondary = "#ff75b5"
+ok        = "#19f9d8"
+info      = "#45a9f9"
+error     = "#ff2c6d"
+warn      = "#ffb86c"
+p_high    = "#ff2c6d"
+p_med     = "#ffb86c"
+p_low     = "#45a9f9"
+p_none    = "#727373"

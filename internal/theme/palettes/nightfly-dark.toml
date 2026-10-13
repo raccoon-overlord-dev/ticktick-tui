@@ -1,0 +1,28 @@
+# ticktick-tui theme: Nightfly Default (dark)
+# Colors from terminalcolors.com/themes/nightfly/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "nightfly"
+family = "Nightfly"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#011627"
+surface   = "#091d2d"
+surface2  = "#1d303f"
+line      = "#273847"
+dim       = "#56636f"
+muted     = "#76808a"
+sub       = "#979fa6"
+text      = "#bdc1c6"
+accent    = "#80a0ff"
+secondary = "#c792ea"
+ok        = "#a1cd5e"
+info      = "#82aaff"
+error     = "#fc514e"
+warn      = "#e7d37a"
+p_high    = "#fc514e"
+p_med     = "#e7d37a"
+p_low     = "#82aaff"
+p_none    = "#56636f"

@@ -1,0 +1,28 @@
+# ticktick-tui theme: Catppuccin Latte (light)
+# Colors from terminalcolors.com/themes/catppuccin/latte/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "catppuccin"
+family = "Catppuccin"
+variant = "Latte"
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#eff1f5"
+surface   = "#e8ebef"
+surface2  = "#d8dae1"
+line      = "#ced1d9"
+dim       = "#9d9fae"
+muted     = "#818496"
+sub       = "#6a6c82"
+text      = "#4c4f69"
+accent    = "#6e81ee"
+secondary = "#c26cb2"
+ok        = "#419c2e"
+info      = "#1e66f5"
+error     = "#d20f39"
+warn      = "#ba7e30"
+p_high    = "#d20f39"
+p_med     = "#ba7e30"
+p_low     = "#1e66f5"
+p_none    = "#9d9fae"

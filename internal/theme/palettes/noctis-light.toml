@@ -1,0 +1,28 @@
+# ticktick-tui theme: Noctis Lux (light)
+# Colors from terminalcolors.com/themes/noctis/lux/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "noctis"
+family = "Noctis"
+variant = "Lux"
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#f6edda"
+surface   = "#ece7d5"
+surface2  = "#d1d6c8"
+line      = "#c5cfc2"
+dim       = "#80a5a1"
+muted     = "#588c8d"
+sub       = "#317479"
+text      = "#005661"
+accent    = "#0094a7"
+secondary = "#d9578b"
+ok        = "#009c66"
+info      = "#008ee2"
+error     = "#e34e1c"
+warn      = "#9f803a"
+p_high    = "#e34e1c"
+p_med     = "#9f803a"
+p_low     = "#008ee2"
+p_none    = "#80a5a1"

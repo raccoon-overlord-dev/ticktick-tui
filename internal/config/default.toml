@@ -1,6 +1,7 @@
 # ~/.config/ttui/config.toml  (defaults shown)
 [appearance]
-theme            = "terminal"   # terminal | colorful | lotr | harvest | hallows | <custom file in ~/.config/ttui/themes/>
+theme            = "terminal"   # terminal | colorful | lotr | harvest | hallows | a palette (catppuccin, gruvbox, tokyo-night…) | <custom file in ~/.config/ttui/themes/>
+mode             = "system"     # system | dark | light: a palette's dark or light variant (system: from the terminal's background)
 background       = "solid"      # solid | transparent | blur   (transparent/blur = don't paint bg; terminal composites)
 priority_headers = "rule"       # rule | label | tab
 focused_panel    = "border"     # border | title

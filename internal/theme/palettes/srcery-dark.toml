@@ -1,0 +1,28 @@
+# ticktick-tui theme: Srcery Default (dark)
+# Colors from terminalcolors.com/themes/srcery/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "srcery"
+family = "Srcery"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#1c1b19"
+surface   = "#252320"
+surface2  = "#3e3a32"
+line      = "#49443b"
+dim       = "#817766"
+muted     = "#a79a82"
+sub       = "#cfbfa1"
+text      = "#fce8c3"
+accent    = "#fbb829"
+secondary = "#e02c6d"
+ok        = "#519f50"
+info      = "#2c78bf"
+error     = "#ef2f27"
+warn      = "#fbb829"
+p_high    = "#ef2f27"
+p_med     = "#fbb829"
+p_low     = "#2c78bf"
+p_none    = "#817766"

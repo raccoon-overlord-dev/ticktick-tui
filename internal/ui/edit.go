@@ -1069,8 +1069,16 @@ func (a *App) createTask(add parse.Add) tea.Cmd {
 		a.setFlash("type a title first")
 		return nil
 	}
-	t := api.Task{Title: add.Title, Priority: add.Prio, Tags: add.Tags, ProjectID: strings.TrimPrefix(add.List, "p:")}
+	if add.Parent != "" && add.ParentID == "" {
+		a.setFlash("no open task matches ^" + add.Parent)
+		return nil
+	}
+	t := api.Task{Title: add.Title, Priority: add.Prio, Tags: add.Tags, ProjectID: strings.TrimPrefix(add.List, "p:"), ParentID: add.ParentID}
 	setDueFields(&t, add.Due)
+	if p := a.st.Task(t.ParentID); p != nil {
+		t.ProjectID = p.ProjectID // the real inbox id, so the parent counts before the next sync
+		a.unfoldAbove(&t)
+	}
 	return a.addTask(t)
 }
 

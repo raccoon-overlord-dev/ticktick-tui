@@ -1,0 +1,28 @@
+# ticktick-tui theme: Nightfox Dayfox (light)
+# Colors from terminalcolors.com/themes/nightfox/dayfox/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "nightfox"
+family = "Nightfox"
+variant = "Dayfox"
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#f6f2ee"
+surface   = "#efeae8"
+surface2  = "#e7d2be"
+line      = "#d1cad0"
+dim       = "#a398ab"
+muted     = "#837792"
+sub       = "#625378"
+text      = "#3d2b5a"
+accent    = "#287980"
+secondary = "#6e33ce"
+ok        = "#396847"
+info      = "#2848a9"
+error     = "#a5222f"
+warn      = "#ac5402"
+p_high    = "#a5222f"
+p_med     = "#ac5402"
+p_low     = "#2848a9"
+p_none    = "#a398ab"

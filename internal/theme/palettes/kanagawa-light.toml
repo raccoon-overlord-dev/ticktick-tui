@@ -1,0 +1,28 @@
+# ticktick-tui theme: Kanagawa Lotus (light)
+# Colors from terminalcolors.com/themes/kanagawa/lotus/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "kanagawa"
+family = "Kanagawa"
+variant = "Lotus"
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#f2ecbc"
+surface   = "#ece6b8"
+surface2  = "#c9cbd1"
+line      = "#d2ceaa"
+dim       = "#9e9b8d"
+muted     = "#81807d"
+sub       = "#6a6971"
+text      = "#545464"
+accent    = "#545464"
+secondary = "#b35b79"
+ok        = "#6f894e"
+info      = "#4d699b"
+error     = "#c84053"
+warn      = "#77713f"
+p_high    = "#c84053"
+p_med     = "#77713f"
+p_low     = "#4d699b"
+p_none    = "#9e9b8d"

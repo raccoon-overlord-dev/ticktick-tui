@@ -1,0 +1,28 @@
+# ticktick-tui theme: Tender Default (dark)
+# Colors from terminalcolors.com/themes/tender/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "tender"
+family = "Tender"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#282828"
+surface   = "#303030"
+surface2  = "#293b44"
+line      = "#505050"
+dim       = "#818181"
+muted     = "#a3a3a3"
+sub       = "#c6c6c6"
+text      = "#eeeeee"
+accent    = "#ffc24b"
+secondary = "#d3b987"
+ok        = "#c9d05c"
+info      = "#b3deef"
+error     = "#f43753"
+warn      = "#ffc24b"
+p_high    = "#f43753"
+p_med     = "#ffc24b"
+p_low     = "#b3deef"
+p_none    = "#818181"

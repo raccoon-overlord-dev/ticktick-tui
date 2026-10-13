@@ -365,22 +365,22 @@ func (s *Store) Descendants(id string) []*api.Task {
 
 // TaskGroups splits tasks by so.GroupBy (list, date, created, tag, priority, none), sorts each
 // group by so.SortBy and so.Order, then adds Completed (newest first) if showCompleted.
-// An open task whose parent is open in tasks goes under it, whatever its own group; done
-// tasks are listed flat in Completed.
+// An open task whose parent is open in tasks goes under it, whatever its own group. With
+// showCompleted, a done task goes under its parent too (after the open subtasks, newest
+// first); done tasks without one are listed in Completed.
 func (s *Store) TaskGroups(tasks []*api.Task, so config.Sort, showCompleted bool, now time.Time) []Group {
-	open := map[string]*api.Task{}
+	byID := map[string]*api.Task{}
 	for _, t := range tasks {
-		if !Done(t) {
-			open[t.ID] = t
+		if showCompleted || !Done(t) {
+			byID[t.ID] = t
 		}
 	}
 	parent := func(t *api.Task) *api.Task {
-		if p := open[t.ParentID]; p != nil && p != t && p.ProjectID == t.ProjectID {
+		if p := byID[t.ParentID]; p != nil && p != t && p.ProjectID == t.ProjectID && (Done(t) || !Done(p)) {
 			return p
 		}
 		return nil
 	}
-	kids := map[string][]*api.Task{}
 	isKid := func(t *api.Task) bool {
 		seen := map[*api.Task]bool{t: true}
 		for p := parent(t); p != nil; p = parent(p) {
@@ -391,31 +391,47 @@ func (s *Store) TaskGroups(tasks []*api.Task, so config.Sort, showCompleted bool
 		}
 		return parent(t) != nil
 	}
+	kids := map[string][]*api.Task{}
 	var out []Group
 	byKey := map[string]int{}
+	done := Group{Label: "Completed", Role: "ok", Done: true}
 	for _, t := range tasks {
-		if Done(t) {
-			continue
-		}
-		if isKid(t) {
+		switch {
+		case byID[t.ID] == nil:
+		case isKid(t):
 			kids[t.ParentID] = append(kids[t.ParentID], t)
-			continue
+		case Done(t):
+			done.Items = append(done.Items, t)
+		default:
+			label, role, rank := s.groupOf(t, so.GroupBy, now)
+			i, ok := byKey[label]
+			if !ok {
+				i = len(out)
+				byKey[label] = i
+				out = append(out, Group{Label: label, Role: role, rank: rank})
+			}
+			out[i].Items = append(out[i].Items, t)
 		}
-		label, role, rank := s.groupOf(t, so.GroupBy, now)
-		i, ok := byKey[label]
-		if !ok {
-			i = len(out)
-			byKey[label] = i
-			out = append(out, Group{Label: label, Role: role, rank: rank})
-		}
-		out[i].Items = append(out[i].Items, t)
 	}
 	slices.SortStableFunc(out, func(a, b Group) int { return cmp.Or(cmp.Compare(a.rank, b.rank), cmp.Compare(a.Label, b.Label)) })
-	for _, k := range kids {
-		SortTasks(k, so, now)
+	newest := func(ts []*api.Task) {
+		slices.SortStableFunc(ts, func(a, b *api.Task) int { return strings.Compare(b.CompletedTime, a.CompletedTime) })
+	}
+	for id, k := range kids {
+		open := slices.DeleteFunc(slices.Clone(k), Done)
+		closed := slices.DeleteFunc(k, func(t *api.Task) bool { return !Done(t) })
+		SortTasks(open, so, now)
+		newest(closed)
+		kids[id] = append(open, closed...)
+	}
+	for i := range out {
+		SortTasks(out[i].Items, so, now)
+	}
+	newest(done.Items)
+	if len(done.Items) > 0 {
+		out = append(out, done)
 	}
 	for i, g := range out {
-		SortTasks(g.Items, so, now)
 		var items []*api.Task
 		var depth []int
 		var add func(*api.Task, int)
@@ -429,18 +445,6 @@ func (s *Store) TaskGroups(tasks []*api.Task, so config.Sort, showCompleted bool
 			add(t, 0)
 		}
 		out[i].Items, out[i].Depth = items, depth
-	}
-	if showCompleted {
-		g := Group{Label: "Completed", Role: "ok", Done: true}
-		for _, t := range tasks {
-			if Done(t) {
-				g.Items, g.Depth = append(g.Items, t), append(g.Depth, 0)
-			}
-		}
-		if len(g.Items) > 0 {
-			slices.SortStableFunc(g.Items, func(a, b *api.Task) int { return strings.Compare(b.CompletedTime, a.CompletedTime) })
-			out = append(out, g)
-		}
 	}
 	return out
 }

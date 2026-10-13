@@ -1,0 +1,28 @@
+# ticktick-tui theme: Tomorrow Night (dark)
+# Colors from terminalcolors.com/themes/tomorrow/night/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "tomorrow"
+family = "Tomorrow"
+variant = "Night"
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#1d1f21"
+surface   = "#242628"
+surface2  = "#373b41"
+line      = "#3f4142"
+dim       = "#696b6b"
+muted     = "#858887"
+sub       = "#a3a6a5"
+text      = "#c5c8c6"
+accent    = "#f0c674"
+secondary = "#b294bb"
+ok        = "#b5bd68"
+info      = "#81a2be"
+error     = "#cc6666"
+warn      = "#f0c674"
+p_high    = "#cc6666"
+p_med     = "#f0c674"
+p_low     = "#81a2be"
+p_none    = "#696b6b"

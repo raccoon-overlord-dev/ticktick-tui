@@ -1,0 +1,28 @@
+# ticktick-tui theme: Miasma Default (dark)
+# Colors from terminalcolors.com/themes/miasma/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "miasma"
+family = "Miasma"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#222222"
+surface   = "#282828"
+surface2  = "#3a3a37"
+line      = "#42423e"
+dim       = "#6a6a62"
+muted     = "#85857a"
+sub       = "#a2a294"
+text      = "#c2c2b0"
+accent    = "#b36d43"
+secondary = "#bb7744"
+ok        = "#5f875f"
+info      = "#78824b"
+error     = "#7a6c58"
+warn      = "#b36d43"
+p_high    = "#7a6c58"
+p_med     = "#b36d43"
+p_low     = "#78824b"
+p_none    = "#6a6a62"

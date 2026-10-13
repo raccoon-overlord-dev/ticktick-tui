@@ -1,0 +1,28 @@
+# ticktick-tui theme: Ayu Dark (dark)
+# Colors from terminalcolors.com/themes/ayu/dark/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "ayu"
+family = "Ayu"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#0b0e14"
+surface   = "#12151a"
+surface2  = "#1b3a5b"
+line      = "#2f3134"
+dim       = "#5c5d5d"
+muted     = "#7b7a78"
+sub       = "#9b9a96"
+text      = "#bfbdb6"
+accent    = "#e6b450"
+secondary = "#cda1fa"
+ok        = "#7fd962"
+info      = "#53bdfa"
+error     = "#ea6c73"
+warn      = "#f9af4f"
+p_high    = "#ea6c73"
+p_med     = "#f9af4f"
+p_low     = "#53bdfa"
+p_none    = "#5c5d5d"

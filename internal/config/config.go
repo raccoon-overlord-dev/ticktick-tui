@@ -16,6 +16,7 @@ var defaultTOML string
 type Config struct {
 	Appearance struct {
 		Theme           string `toml:"theme"`
+		Mode            string `toml:"mode"` // system | dark | light: which variant of a palette theme
 		Background      string `toml:"background"`
 		PriorityHeaders string `toml:"priority_headers"`
 		FocusedPanel    string `toml:"focused_panel"`

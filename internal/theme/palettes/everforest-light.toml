@@ -1,0 +1,28 @@
+# ticktick-tui theme: Everforest Light (light)
+# Colors from terminalcolors.com/themes/everforest/light/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "everforest"
+family = "Everforest"
+variant = ""
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#fdf6e3"
+surface   = "#f7f0de"
+surface2  = "#e5e1d2"
+line      = "#dddacc"
+dim       = "#9fa4a0"
+muted     = "#818a8c"
+sub       = "#667279"
+text      = "#5c6a72"
+accent    = "#3b9e7a"
+secondary = "#d269b3"
+ok        = "#839618"
+info      = "#3a94c5"
+error     = "#f85552"
+warn      = "#ab8a2e"
+p_high    = "#f85552"
+p_med     = "#ab8a2e"
+p_low     = "#3a94c5"
+p_none    = "#9fa4a0"

@@ -1,0 +1,28 @@
+# ticktick-tui theme: Ayu Light (light)
+# Colors from terminalcolors.com/themes/ayu/light/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "ayu"
+family = "Ayu"
+variant = ""
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#f8f9fa"
+surface   = "#f2f3f4"
+surface2  = "#d3e1f5"
+line      = "#d9dbdc"
+dim       = "#a1a4a7"
+muted     = "#888c90"
+sub       = "#6f7378"
+text      = "#5c6166"
+accent    = "#ae864c"
+secondary = "#9e75c7"
+ok        = "#669e4f"
+info      = "#3396db"
+error     = "#e36b6d"
+warn      = "#ab8953"
+p_high    = "#e36b6d"
+p_med     = "#ab8953"
+p_low     = "#3396db"
+p_none    = "#a1a4a7"

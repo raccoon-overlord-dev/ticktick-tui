@@ -1,0 +1,28 @@
+# ticktick-tui theme: GitHub Dark (dark)
+# Colors from terminalcolors.com/themes/github/dark/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "github"
+family = "GitHub"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#010409"
+surface   = "#0a0d12"
+surface2  = "#264f78"
+line      = "#2f3338"
+dim       = "#686d72"
+muted     = "#8f949a"
+sub       = "#b8bec4"
+text      = "#e6edf3"
+accent    = "#f78166"
+secondary = "#bc8cff"
+ok        = "#3fb950"
+info      = "#58a6ff"
+error     = "#ff7b72"
+warn      = "#d29922"
+p_high    = "#ff7b72"
+p_med     = "#d29922"
+p_low     = "#58a6ff"
+p_none    = "#686d72"

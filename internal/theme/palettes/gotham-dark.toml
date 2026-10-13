@@ -1,0 +1,28 @@
+# ticktick-tui theme: Gotham Default (dark)
+# Colors from terminalcolors.com/themes/gotham/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "gotham"
+family = "Gotham"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#0c1014"
+surface   = "#12181b"
+surface2  = "#0a3749"
+line      = "#283739"
+dim       = "#4b6768"
+muted     = "#638887"
+sub       = "#7daaa9"
+text      = "#99d1ce"
+accent    = "#2aa889"
+secondary = "#596476"
+ok        = "#2aa889"
+info      = "#2c6776"
+error     = "#c23127"
+warn      = "#edb443"
+p_high    = "#c23127"
+p_med     = "#edb443"
+p_low     = "#2c6776"
+p_none    = "#4b6768"

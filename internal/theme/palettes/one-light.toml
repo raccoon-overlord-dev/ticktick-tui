@@ -1,0 +1,28 @@
+# ticktick-tui theme: One Light (light)
+# Colors from terminalcolors.com/themes/one/light/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "one"
+family = "One"
+variant = ""
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#f8f8f8"
+surface   = "#f0f0f0"
+surface2  = "#d9d9da"
+line      = "#cfcfd1"
+dim       = "#9b9c9f"
+muted     = "#78797e"
+sub       = "#53545a"
+text      = "#2a2b33"
+accent    = "#2f5af3"
+secondary = "#a00095"
+ok        = "#3e953a"
+info      = "#2f5af3"
+error     = "#de3d35"
+warn      = "#a08c65"
+p_high    = "#de3d35"
+p_med     = "#a08c65"
+p_low     = "#2f5af3"
+p_none    = "#9b9c9f"

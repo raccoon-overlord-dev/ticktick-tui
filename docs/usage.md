@@ -71,6 +71,7 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 | `A` | New subtask: the New task panel for a subtask of the selected task (it shows "subtask of …"). Also in `:` as New subtask. See Subtasks below |
 | `>` / `<` | Make the task a subtask of the task above it at its level / move it up a level, next to its parent. Pressing the same key again right after undoes it, as `x` does after completing |
 | `z` | Fold or unfold a task's subtasks (a folded task shows `▸3`); on a subtask, folds its parent. Remembered |
+| `Z` | Fold every task with subtasks in the list, or unfold them all when they're all folded. Also in `:` |
 | `i` / `e` | Edit the title (tasks) or the field under the cursor (details). `esc` or `⏎` saves. On the notes `↑` `↓` scroll them when they are long; while editing notes `⏎` is a newline, `↑` `↓` move between lines and `esc` / `ctrl+s` saves (`ctrl+⏎` also saves where the terminal passes it through; Omarchy uses it for fullscreen) |
 | `ctrl+a` | While editing: select all. On a text field (title, notes, checklist item…): edit it with all its text selected |
 | `shift+←` `shift+→` | Select text while editing (`shift+↑` `shift+↓` in notes, `shift+home` / `shift+end` too). Typing or pasting replaces the selection, `backspace` deletes it |
@@ -94,7 +95,9 @@ Vim keys and arrows both work (Settings → Keymap can switch vim keys off).
 
 Subtasks are tasks inside a task, as in the web app (not checklist items, which `c` adds). In the tasks pane they show
 indented under their parent, at any depth, and stay with it whatever the grouping or sorting (the parent decides the group;
-subtasks are sorted among themselves). Completed subtasks go to Completed like other tasks.
+subtasks are sorted among themselves). With completed tasks shown, a completed subtask stays under its parent, after the
+open ones (newest first); a completed parent takes its completed subtasks into the Completed group.
+Quick add puts a task under another with `^` and the start of the parent's title (`eggs ^groc`, see Command bar).
 
 In the details pane, the **Parent** field shows the task a subtask belongs to; `⏎` on it opens a menu with the open tasks
 of the same list (as a tree; type to filter) to put the task under, **None** to make it a top-level task again and, on a subtask,
@@ -111,14 +114,16 @@ As in the web app:
 
 The first character picks the mode: nothing = search, `>` commands, `+` quick add, `@` lists, `#` tags.
 
-Quick add understands `call mom tomorrow 17:00 !high #errand @home`:
+Quick add understands `call mom tomorrow 17:00 !high #errand @home ^chores`:
 
 - priority `!high` `!med` `!low` (or `!h` `!m` `!l`, `!3` `!2` `!1`)
 - day `today`, `tomorrow`/`tmr`, weekday names (`fri` = next Friday), `+3d` (in 3 days), `2026-10-08`; time `17:00` or `5pm` (a time alone means today)
 - `#tag`, `@list` (prefix of the list name)
+- `^parent` (prefix of an open task's title, spaces ignored) adds it as a subtask: looked up in the `@list` if given,
+  else the current list first, then any list (the subtask goes to its parent's list). No match: the preview shows `^… ?` and ⏎ says so
 
 Without a list, tasks go to the current list or Inbox. Adding from Today or Tomorrow defaults the day.
-Settings → Smart dates off (`smart_dates = false`) keeps day and time words in the title; `!`, `#` and `@` still work.
+Settings → Smart dates off (`smart_dates = false`) keeps day and time words in the title; `!`, `#`, `@` and `^` still work.
 
 To make a task repeat, give it a due date, then press `⏎` on **Repeat** in the details pane and pick
 Daily, Weekdays (Mon–Fri), Weekly, Monthly, Yearly or Never. Weekly, Monthly and Yearly follow the due date
@@ -182,7 +187,8 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 
 | Section | Key | Values |
 |---|---|---|
-| `appearance` | `theme` | `terminal` · `colorful` · `lotr` · `harvest` · `hallows` · a custom theme name (Settings → Theme: `⏎` opens the list, moving previews a theme, `⏎` keeps it, `esc` goes back) |
+| `appearance` | `theme` | a palette (`catppuccin`, `gruvbox`, `tokyo-night`… see Themes) · `terminal` · `colorful` · `lotr` · `harvest` · `hallows` · a custom theme name (Settings → Theme: `⏎` opens the list, moving previews a theme, `⏎` keeps it, `esc` goes back) |
+| | `mode` | `system` · `dark` · `light`: which variant of a palette theme to use; `system` reads your terminal's background color when ttui starts (Settings → Mode) |
 | | `background` | `solid` · `transparent` · `blur` (the last two let your terminal's opacity and blur show through) |
 | | `priority_headers` | `rule` · `label` · `tab` |
 | | `focused_panel` | `border` · `title` |
@@ -190,7 +196,7 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | `layout` | `columns` | `auto` · `3` · `2` · `1` |
 | | `show_completed` | `true` · `false` |
 | | `open_folders` | folders shown open in Lists, written by ttui when you open or close one (folders start closed) |
-| | `folded` | tasks whose subtasks are folded in the tasks pane, written by ttui when you press `z` |
+| | `folded` | tasks whose subtasks are folded in the tasks pane, written by ttui when you press `z` or `Z` |
 | | `smart_hidden` | lists hidden from Today, Tomorrow, Next 7 Days and the filters, written by ttui when you press `H` |
 | `tasks` | `due_label`, `week_start` | `true`/`false`; `mon`·`sun` |
 | | `group_by` | `list` · `date` · `created` · `tag` · `priority` · `none` (default for all lists) |
@@ -210,7 +216,15 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 
 ### Themes
 
-`terminal` (default) uses your terminal's 16 ANSI colors, so it follows your terminal theme. `colorful`, `lotr`, `harvest` (autumn: burnt orange and amber on warm browns) and `hallows` (Halloween: pumpkin orange on violet-plum) are built in. Custom themes show up in Settings → Theme next to them.
+**Palettes**: the 36 color schemes on [terminalcolors.com](https://terminalcolors.com/) (Catppuccin, Dracula, Gruvbox,
+Nord, Rosé Pine, Solarized, Tokyo Night…), each in its main dark variant and, for the 18 that have one, its main light
+variant. Pick one in Settings → Theme; Settings → Mode chooses dark or light, and **system** follows your terminal's
+background (read when ttui starts: switch your terminal to light and restart ttui), so `theme = "catppuccin"` is Mocha
+on a dark terminal and Latte on a light one. The list shows the palettes of the current mode; one that has only a dark
+variant keeps it in light mode. Terminals that don't answer the background query count as dark.
+The palette files are generated by [`scripts/palettes.py`](../scripts/palettes.py) (`make palettes` refreshes them).
+
+**Custom**: `terminal` (default) uses your terminal's 16 ANSI colors, so it follows your terminal theme. `colorful`, `lotr`, `harvest` (autumn: burnt orange and amber on warm browns) and `hallows` (Halloween: pumpkin orange on violet-plum) are built in. Your own themes show up in Settings → Theme next to them, under Custom.
 For a custom theme, copy one of [`internal/theme/themes/*.toml`](../internal/theme/themes) to
 `~/.config/ttui/themes/<name>.toml`, edit the colors (`#rrggbb`, an ANSI index `0`–`255`, or `""` for the terminal default)
 and set `theme = "<name>"`.

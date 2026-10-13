@@ -1,0 +1,28 @@
+# ticktick-tui theme: Cobalt2 Default (dark)
+# Colors from terminalcolors.com/themes/cobalt2/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "cobalt2"
+family = "Cobalt2"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#122738"
+surface   = "#1b3040"
+surface2  = "#0050a4"
+line      = "#415260"
+dim       = "#7d8892"
+muted     = "#a5adb3"
+sub       = "#d0d4d7"
+text      = "#ffffff"
+accent    = "#ffc600"
+secondary = "#fb94ff"
+ok        = "#3ad900"
+info      = "#0088ff"
+error     = "#ff628c"
+warn      = "#ffc600"
+p_high    = "#ff628c"
+p_med     = "#ffc600"
+p_low     = "#0088ff"
+p_none    = "#7d8892"

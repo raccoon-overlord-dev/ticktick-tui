@@ -1,0 +1,28 @@
+# ticktick-tui theme: Everforest Dark (dark)
+# Colors from terminalcolors.com/themes/everforest/dark/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "everforest"
+family = "Everforest"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#2d353b"
+surface   = "#343b3f"
+surface2  = "#414b51"
+line      = "#4e5251"
+dim       = "#78766d"
+muted     = "#948f80"
+sub       = "#b2a994"
+text      = "#d3c6aa"
+accent    = "#83c092"
+secondary = "#d699b6"
+ok        = "#a7c080"
+info      = "#7fbbb3"
+error     = "#e67e80"
+warn      = "#dbbc7f"
+p_high    = "#e67e80"
+p_med     = "#dbbc7f"
+p_low     = "#7fbbb3"
+p_none    = "#78766d"

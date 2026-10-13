@@ -1,0 +1,28 @@
+# ticktick-tui theme: One Half Light (light)
+# Colors from terminalcolors.com/themes/one-half/light/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "one-half"
+family = "One Half"
+variant = ""
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#fafafa"
+surface   = "#f2f2f3"
+surface2  = "#bfceff"
+line      = "#d3d4d5"
+dim       = "#a3a4a7"
+muted     = "#828388"
+sub       = "#5f6067"
+text      = "#383a42"
+accent    = "#50a14f"
+secondary = "#a626a4"
+ok        = "#50a14f"
+info      = "#0184bc"
+error     = "#e45649"
+warn      = "#c18401"
+p_high    = "#e45649"
+p_med     = "#c18401"
+p_low     = "#0184bc"
+p_none    = "#a3a4a7"

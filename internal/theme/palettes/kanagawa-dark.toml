@@ -1,0 +1,28 @@
+# ticktick-tui theme: Kanagawa Wave (dark)
+# Colors from terminalcolors.com/themes/kanagawa/wave/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "kanagawa"
+family = "Kanagawa"
+variant = "Wave"
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#1f1f28"
+surface   = "#27262e"
+surface2  = "#2d4f67"
+line      = "#454445"
+dim       = "#74726a"
+muted     = "#949183"
+sub       = "#b6b29d"
+text      = "#dcd7ba"
+accent    = "#dcd7ba"
+secondary = "#957fb8"
+ok        = "#76946a"
+info      = "#7e9cd8"
+error     = "#c34043"
+warn      = "#c0a36e"
+p_high    = "#c34043"
+p_med     = "#c0a36e"
+p_low     = "#7e9cd8"
+p_none    = "#74726a"

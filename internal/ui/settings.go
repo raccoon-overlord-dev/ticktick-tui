@@ -24,7 +24,8 @@ type setRow struct {
 
 var setRows = []setRow{
 	{sec: "APPEARANCE"},
-	{key: "theme", label: "Theme", desc: "⏎ opens the list · terminal inherits your emulator’s 16 ANSI colors · custom ones: ~/.config/ttui/themes"},
+	{key: "mode", label: "Mode", opts: []string{"system", "dark", "light"}, desc: "Dark or light variant of the palette themes · system: from your terminal’s background, read at start"},
+	{key: "theme", label: "Theme", desc: "⏎ opens the list · palettes from terminalcolors.com · terminal inherits your emulator’s 16 ANSI colors · custom ones: ~/.config/ttui/themes"},
 	{key: "prio", label: "Group headers", opts: []string{"rule", "label", "tab"}, desc: "How task groups are separated in the task list"},
 	{key: "focus", label: "Focused panel", opts: []string{"border", "title"}, desc: "Accent border, or an inverted title chip"},
 	{key: "bg", label: "Background", opts: []string{"solid", "transparent", "blur"}, desc: "transparent/blur: ttui paints no background, so your terminal’s opacity + blur show through"},
@@ -61,7 +62,7 @@ var setRows = []setRow{
 func (a *App) field(key string) *string {
 	c := a.cfg
 	return map[string]*string{
-		"theme": &c.Appearance.Theme, "prio": &c.Appearance.PriorityHeaders, "focus": &c.Appearance.FocusedPanel,
+		"theme": &c.Appearance.Theme, "mode": &c.Appearance.Mode, "prio": &c.Appearance.PriorityHeaders, "focus": &c.Appearance.FocusedPanel,
 		"bg": &c.Appearance.Background, "columns": &c.Layout.Columns, "group": &c.Tasks.GroupBy,
 		"sort": &c.Tasks.SortBy, "order": &c.Tasks.Order,
 		"week": &c.Tasks.WeekStart, "timefmt": &c.DateTime.TimeFormat, "datefmt": &c.DateTime.DateFormat,
@@ -103,8 +104,7 @@ func (a *App) changeSetting(r setRow, dir int) tea.Cmd {
 	}
 	if r.key == "theme" {
 		if dir > 0 {
-			a.themes = theme.Names()
-			a.themeIdx = max(slices.Index(a.themes, a.cfg.Appearance.Theme), 0)
+			a.openThemes()
 		}
 		return nil
 	}
@@ -132,13 +132,11 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 	} else {
 		*a.field(r.key) = opt
 	}
-	if r.key == "theme" {
-		th, err := theme.Load(opt)
-		if err != nil {
+	if r.key == "theme" || r.key == "mode" {
+		if err := a.loadTheme(a.cfg.Appearance.Theme); err != nil {
 			a.setFlash(err.Error())
 			return nil
 		}
-		a.th = th
 	}
 	a.save()
 	a.applyDateTime()
@@ -153,6 +151,23 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 		return a.checkUpdate(false)
 	}
 	return nil
+}
+
+// openThemes fills the Theme dropdown: the palettes in the current mode, then the custom
+// themes (built-in and the user's own files).
+func (a *App) openThemes() {
+	a.themes, a.themeLabels, a.themeSecs = nil, nil, map[int]string{}
+	a.themeSecs[0] = map[bool]string{true: "DARK", false: "LIGHT"}[a.isDark()]
+	for _, t := range theme.Palettes(a.isDark()) {
+		a.themes, a.themeLabels = append(a.themes, t.Name), append(a.themeLabels, [2]string{t.Family, t.Variant})
+	}
+	a.themeSecs[len(a.themes)] = "CUSTOM"
+	for _, n := range theme.Names() {
+		if !slices.Contains(a.themes, n) {
+			a.themes, a.themeLabels = append(a.themes, n), append(a.themeLabels, [2]string{n})
+		}
+	}
+	a.themeIdx = max(slices.Index(a.themes, a.cfg.Appearance.Theme), 0)
 }
 
 // themeKey drives the open Theme dropdown: moving previews the theme, ⏎ keeps it, esc
@@ -171,17 +186,14 @@ func (a *App) themeKey(k tea.KeyPressMsg) tea.Cmd {
 		return a.setOption("theme", name)
 	case key == "esc" || key == "left" || (vim && key == "h") || key == "q":
 		a.themes = nil
-		a.th, _ = theme.Load(a.cfg.Appearance.Theme)
-		if a.th == nil {
-			a.th, _ = theme.Load("terminal")
+		if a.loadTheme(a.cfg.Appearance.Theme) != nil {
+			a.loadTheme("terminal")
 		}
 		return nil
 	default:
 		return nil
 	}
-	if th, err := theme.Load(a.themes[a.themeIdx]); err == nil {
-		a.th = th
-	}
+	a.loadTheme(a.themes[a.themeIdx])
 	return nil
 }
 
@@ -249,7 +261,7 @@ func (a *App) viewSettings() (string, int, int) {
 		} else if r.key == "about" {
 			val = rp.s("dim").Render("⏎ open")
 		} else if r.key == "theme" {
-			val = rp.s("accent").Bold(true).Render(a.cfg.Appearance.Theme) + rp.sp(1) + rp.s("dim").Render("▾")
+			val = rp.s("accent").Bold(true).Render(a.th.Label()) + rp.sp(1) + rp.s("dim").Render("▾")
 		} else if r.key == "checknow" && a.newVersion != "" {
 			val = rp.s("info").Render("⏎ update to " + a.newVersion)
 		} else if r.key == "checknow" {
@@ -270,6 +282,9 @@ func (a *App) viewSettings() (string, int, int) {
 		lines = append(lines, rp.line(w, label+val, ""))
 		if r.key == "theme" && a.themes != nil { // the dropdown, under the row
 			for j, n := range a.themes {
+				if sec, ok := a.themeSecs[j]; ok {
+					lines = append(lines, p.line(w, p.sp(22)+p.s("dim").Render(sec), ""))
+				}
 				op := p
 				if j == a.themeIdx {
 					sel, op = len(lines), p.on(a.selBg(true))
@@ -278,7 +293,8 @@ func (a *App) viewSettings() (string, int, int) {
 				if n == a.cfg.Appearance.Theme {
 					mark = op.s("accent").Render("●") + op.sp(1)
 				}
-				lines = append(lines, op.line(w, op.sp(22)+mark+op.s("text").Render(n), ""))
+				l := a.themeLabels[j]
+				lines = append(lines, op.line(w, op.sp(22)+mark+op.s("text").Render(l[0])+op.sp(1)+op.s("dim").Render(l[1]), ""))
 			}
 		}
 	}
@@ -335,6 +351,7 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "A", desc: "New subtask of this task"},
 	{key: "> <", desc: "Nest under the task above / move up a level (again: undo)"},
 	{key: "z", desc: "Fold / unfold subtasks"},
+	{key: "Z", desc: "Fold / unfold all subtasks"},
 	{key: "t", desc: "Toggle due-date labels"},
 	{key: "s", desc: "Group / sort this list"},
 	{sec: "EVERYWHERE"},

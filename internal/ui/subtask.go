@@ -12,7 +12,7 @@ import (
 )
 
 // Subtasks are tasks with a parentId (see docs/api-notes.md). The tasks pane shows them
-// indented under their parent (store.TaskGroups); z folds them, > and < change the level,
+// indented under their parent (store.TaskGroups); z folds them (Z all), > and < change the level,
 // A opens the New task panel for one.
 
 // row finds t in the tasks pane: its group and index there.
@@ -67,6 +67,39 @@ func (a *App) toggleFold(t *api.Task) {
 	default:
 		a.setFlash("no subtasks to fold")
 	}
+}
+
+// toggleFoldAll folds every task with subtasks in the current list (Z), or unfolds them all
+// when they're already folded. The cursor moves up to the top-level task it was under.
+func (a *App) toggleFoldAll() {
+	var parents []string
+	fold := false
+	for _, g := range a.st.TaskGroups(a.st.TasksFor(a.list, a.now), a.sortFor(a.list), a.cfg.Layout.ShowCompleted || a.list == "completed", a.now) {
+		for i, t := range g.Items {
+			if i+1 < len(g.Items) && g.Depth[i+1] > g.Depth[i] {
+				parents = append(parents, t.ID)
+				fold = fold || !a.folded(t.ID)
+			}
+		}
+	}
+	if len(parents) == 0 {
+		a.setFlash("no subtasks to fold")
+		return
+	}
+	if fold {
+		if t := a.selTask(); t != nil {
+			for p, n := a.st.Parent(t), 0; p != nil && n < 100; p, n = a.st.Parent(p), n+1 {
+				a.taskID = p.ID
+			}
+		}
+	}
+	f := slices.DeleteFunc(a.cfg.Layout.Folded, func(id string) bool { return slices.Contains(parents, id) })
+	if fold {
+		f = append(f, parents...)
+	}
+	a.cfg.Layout.Folded = f
+	a.save()
+	a.setFlash(map[bool]string{true: "folded all subtasks · Z to unfold", false: "unfolded all subtasks"}[fold])
 }
 
 func (a *App) setFolded(id string, on bool) {

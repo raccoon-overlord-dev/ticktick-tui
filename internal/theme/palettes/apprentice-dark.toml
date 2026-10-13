@@ -1,0 +1,28 @@
+# ticktick-tui theme: Apprentice Default (dark)
+# Colors from terminalcolors.com/themes/apprentice/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "apprentice"
+family = "Apprentice"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#262626"
+surface   = "#2c2c2c"
+surface2  = "#3c3c3c"
+line      = "#444444"
+dim       = "#6a6a6a"
+muted     = "#838383"
+sub       = "#9e9e9e"
+text      = "#bcbcbc"
+accent    = "#5f875f"
+secondary = "#6d6d8f"
+ok        = "#5f875f"
+info      = "#5f87af"
+error     = "#af5f5f"
+warn      = "#87875f"
+p_high    = "#af5f5f"
+p_med     = "#87875f"
+p_low     = "#5f87af"
+p_none    = "#6a6a6a"

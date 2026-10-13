@@ -119,14 +119,23 @@ func (a *App) commands() []cmdItem {
 	items := []cmdItem{
 		{icon: "+", label: "New task", hint: "n", run: func() tea.Cmd { a.openDraft(); return nil }},
 		{icon: "+", label: "New subtask", hint: "A · under the selected task", run: func() tea.Cmd { a.openSubDraft(); return nil }},
+		{icon: "▸", label: "Fold / unfold all subtasks", hint: "Z", run: func() tea.Cmd { a.toggleFoldAll(); return nil }},
 		{icon: "+", label: "Quick add", hint: "a", run: func() tea.Cmd { a.openCmd("+ "); return nil }},
 		{icon: a.icon("\uf014", "x"), label: fmt.Sprintf("Trash (%d)", len(a.trash)), hint: "deleted in the last 30 days", run: func() tea.Cmd { a.trashPicker(); return nil }},
 		{icon: a.icon("", ","), label: "Open settings", hint: ",", run: func() tea.Cmd { a.settings, a.sIdx = true, 1; return nil }},
 		{icon: a.icon("", "t"), label: "Toggle due-date labels (" + onOff(c.Tasks.DueLabel) + ")", hint: "t", run: func() tea.Cmd { a.toggleDueLabels(); return nil }},
 	}
+	for _, t := range theme.Palettes(a.isDark()) {
+		items = append(items, cmdItem{icon: a.icon("", "~"), label: "Theme: " + t.Label(), hint: cur(c.Appearance.Theme, t.Name),
+			run: func() tea.Cmd { return a.setOption("theme", t.Name) }})
+	}
 	for _, th := range theme.Names() {
 		items = append(items, cmdItem{icon: a.icon("", "~"), label: "Theme: " + th, hint: cur(c.Appearance.Theme, th),
 			run: func() tea.Cmd { return a.setOption("theme", th) }})
+	}
+	for _, m := range []string{"system", "dark", "light"} {
+		items = append(items, cmdItem{icon: a.icon("", "~"), label: "Mode: " + m, hint: cur(c.Appearance.Mode, m),
+			run: func() tea.Cmd { return a.setOption("mode", m) }})
 	}
 	for _, l := range [][2]string{{"auto", "Layout: auto (by width)"}, {"3", "Layout: 3 columns"}, {"2", "Layout: 2 columns"}, {"1", "Layout: 1 column"}} {
 		items = append(items, cmdItem{icon: a.icon("", "|"), label: l[1], hint: cur(c.Layout.Columns, l[0]),
@@ -190,7 +199,30 @@ func (a *App) quickAdd(term string) parse.Add {
 	case "tomorrow":
 		defDue = &parse.Due{Day: 1}
 	}
-	return parse.QuickAdd(term, lists, def, defDue, time.Now(), a.cfg.Tasks.SmartDates)
+	add := parse.QuickAdd(term, lists, def, defDue, time.Now(), a.cfg.Tasks.SmartDates)
+	if add.Parent != "" {
+		a.quickParent(&add)
+	}
+	return add
+}
+
+// quickParent finds the open task "^parent" names: in the @list if one is given, else in the
+// current list first, then anywhere. Without @list the subtask goes to its parent's list.
+func (a *App) quickParent(add *parse.Add) {
+	var here, other []parse.List
+	for i := range a.st.Tasks {
+		t := &a.st.Tasks[i]
+		switch {
+		case store.Done(t):
+		case listID(t.ProjectID) == add.List:
+			here = append(here, parse.List{ID: t.ID, Name: t.Title})
+		case !add.ListSet:
+			other = append(other, parse.List{ID: t.ID, Name: t.Title})
+		}
+	}
+	if id, ok := parse.MatchName(add.Parent, append(here, other...)); ok {
+		add.ParentID, add.List = id, listID(a.st.Task(id).ProjectID)
+	}
 }
 
 func (a *App) cmdData() (string, []cmdGroup) {
@@ -435,11 +467,18 @@ func (a *App) addRows(rp, p pen, it cmdItem, w int) []string {
 		chips = append(chips, rp.s("secondary").Render("#"+t))
 	}
 	chips = append(chips, chip(add.ListSet, "accent", "@"+name))
+	if add.Parent != "" {
+		if p := a.st.Task(add.ParentID); p != nil {
+			chips = append(chips, rp.s("accent").Render("^"+trunc(p.Title, 30)))
+		} else {
+			chips = append(chips, rp.s("warn").Render("^"+add.Parent+" ?"))
+		}
+	}
 	return []string{
 		rp.line(w, rp.s("ok").Render("+")+rp.sp(1)+rp.s("text").Bold(true).Render(trunc(it.label, w-6)), ""),
 		rp.line(w, rp.sp(2)+strings.Join(chips, rp.sp(2)), ""),
 		"",
-		p.line(w, p.s("dim").Render("!high !med !low · #tag · @list · today tomorrow fri · 17:00"), ""),
+		p.line(w, p.s("dim").Render("!high !med !low · #tag · @list · ^parent · today tomorrow fri · 17:00"), ""),
 	}
 }
 

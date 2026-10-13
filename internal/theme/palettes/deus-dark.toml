@@ -1,0 +1,28 @@
+# ticktick-tui theme: Deus Default (dark)
+# Colors from terminalcolors.com/themes/deus/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "deus"
+family = "Deus"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#2c323b"
+surface   = "#343942"
+surface2  = "#484e55"
+line      = "#52575e"
+dim       = "#82858a"
+muted     = "#a2a4a8"
+sub       = "#c4c5c7"
+text      = "#eaeaea"
+accent    = "#98c379"
+secondary = "#c678dd"
+ok        = "#98c379"
+info      = "#83a598"
+error     = "#d54e53"
+warn      = "#e5c07b"
+p_high    = "#d54e53"
+p_med     = "#e5c07b"
+p_low     = "#83a598"
+p_none    = "#82858a"

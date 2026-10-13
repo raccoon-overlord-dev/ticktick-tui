@@ -171,3 +171,28 @@ func TestParentPicker(t *testing.T) {
 		t.Fatalf("after undo: parent %q", b.st.Task("g").ParentID)
 	}
 }
+
+func TestFoldAllAndQuickAddParent(t *testing.T) {
+	a := subApp(t)
+	a.taskID = "g"
+	a.toggleFoldAll() // Z folds p and k, the cursor goes up to p
+	if got := order(a); got != "0p 0s " || a.taskID != "p" {
+		t.Fatalf("fold all = %q sel=%s", got, a.taskID)
+	}
+	a.toggleFoldAll() // all folded already: Z unfolds them
+	if got := order(a); got != "0p 1k 2g 1k2 0s " {
+		t.Fatalf("unfold all = %q", got)
+	}
+
+	a.toggleFold(a.st.Task("k"))
+	a.createTask(a.quickAdd("eggs ^kid !high"))
+	if n := a.st.Task(a.taskID); n == nil || n.ParentID != "k" || n.ProjectID != "inbox1" || a.queue[0].fields["parentId"] != "k" {
+		t.Fatalf("quick add ^kid: %+v", n)
+	}
+	if got := order(a); !strings.Contains(got, "2"+a.taskID) {
+		t.Fatalf("new subtask hidden in a folded parent: %q", got)
+	}
+	if a.createTask(a.quickAdd("milk ^nothing")); !strings.Contains(a.flash, "no open task matches ^nothing") {
+		t.Fatalf("flash = %q", a.flash)
+	}
+}

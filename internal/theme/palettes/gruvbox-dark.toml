@@ -1,0 +1,28 @@
+# ticktick-tui theme: Gruvbox Dark (dark)
+# Colors from terminalcolors.com/themes/gruvbox/dark/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "gruvbox"
+family = "Gruvbox"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#282828"
+surface   = "#302f2e"
+surface2  = "#45433d"
+line      = "#4f4c44"
+dim       = "#807966"
+muted     = "#a1977e"
+sub       = "#c4b796"
+text      = "#ebdbb2"
+accent    = "#d65d0e"
+secondary = "#b16286"
+ok        = "#98971a"
+info      = "#458588"
+error     = "#d13f33"
+warn      = "#d79921"
+p_high    = "#d13f33"
+p_med     = "#d79921"
+p_low     = "#458588"
+p_none    = "#807966"

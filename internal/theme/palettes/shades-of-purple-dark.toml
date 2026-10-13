@@ -1,0 +1,28 @@
+# ticktick-tui theme: Shades of Purple Default (dark)
+# Colors from terminalcolors.com/themes/shades-of-purple/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "shades-of-purple"
+family = "Shades of Purple"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#1e1e3f"
+surface   = "#272747"
+surface2  = "#6d42a5"
+line      = "#4b4b65"
+dim       = "#838395"
+muted     = "#aaaab6"
+sub       = "#d2d2d9"
+text      = "#ffffff"
+accent    = "#fad000"
+secondary = "#ff2c70"
+ok        = "#3ad900"
+info      = "#7857fe"
+error     = "#e43937"
+warn      = "#fad000"
+p_high    = "#e43937"
+p_med     = "#fad000"
+p_low     = "#7857fe"
+p_none    = "#838395"

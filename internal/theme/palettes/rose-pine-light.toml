@@ -1,0 +1,28 @@
+# ticktick-tui theme: Rosé Pine Dawn (light)
+# Colors from terminalcolors.com/themes/rose-pine/dawn/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "rose-pine"
+family = "Rosé Pine"
+variant = "Dawn"
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#fffaf3"
+surface   = "#f8f3ee"
+surface2  = "#e6e1e1"
+line      = "#ddd8db"
+dim       = "#aaa5b5"
+muted     = "#8d88a0"
+sub       = "#746f8d"
+text      = "#575279"
+accent    = "#575279"
+secondary = "#907aa9"
+ok        = "#286983"
+info      = "#56949f"
+error     = "#b4637a"
+warn      = "#be8649"
+p_high    = "#b4637a"
+p_med     = "#be8649"
+p_low     = "#56949f"
+p_none    = "#aaa5b5"

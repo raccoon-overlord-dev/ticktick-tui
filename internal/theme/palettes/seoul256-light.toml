@@ -1,0 +1,28 @@
+# ticktick-tui theme: Seoul256 Light (light)
+# Colors from terminalcolors.com/themes/seoul256/light/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "seoul256"
+family = "Seoul256"
+variant = ""
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#dadada"
+surface   = "#d4d4d4"
+surface2  = "#c5c5c5"
+line      = "#bebebe"
+dim       = "#8f8f8f"
+muted     = "#767676"
+sub       = "#5f5f5f"
+text      = "#4e4e4e"
+accent    = "#5e855e"
+secondary = "#875f87"
+ok        = "#5e855e"
+info      = "#5c7ea0"
+error     = "#af5f5f"
+warn      = "#92765b"
+p_high    = "#af5f5f"
+p_med     = "#92765b"
+p_low     = "#5c7ea0"
+p_none    = "#8f8f8f"

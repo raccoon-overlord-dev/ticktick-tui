@@ -1,0 +1,28 @@
+# ticktick-tui theme: Nordic Default (dark)
+# Colors from terminalcolors.com/themes/nordic/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "nordic"
+family = "Nordic"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#242933"
+surface   = "#2a2f39"
+surface2  = "#3b404b"
+line      = "#424853"
+dim       = "#686e7b"
+muted     = "#828897"
+sub       = "#9da4b4"
+text      = "#bbc3d4"
+accent    = "#ebcb8b"
+secondary = "#b48ead"
+ok        = "#a3be8c"
+info      = "#5e81ac"
+error     = "#bf616a"
+warn      = "#ebcb8b"
+p_high    = "#bf616a"
+p_med     = "#ebcb8b"
+p_low     = "#5e81ac"
+p_none    = "#686e7b"

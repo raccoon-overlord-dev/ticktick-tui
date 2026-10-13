@@ -27,7 +27,7 @@ func BenchmarkView(b *testing.B) {
 		}
 		ts = append(ts, t)
 	}
-	th, _ := theme.Load("terminal")
+	th, _ := theme.Load("terminal", true)
 	a := &App{cfg: config.Default(), th: th, st: store.New(ps, nil, ts, "", time.Now()), signed: &auth.Auth{AccessToken: "fake"},
 		list: "today", focus: "tasks", sideKey: "l:today", screen: screenMain, idMap: map[string]string{}, w: 160, h: 45, now: time.Now()}
 	b.ResetTimer()

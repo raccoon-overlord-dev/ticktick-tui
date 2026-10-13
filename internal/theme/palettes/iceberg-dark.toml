@@ -1,0 +1,28 @@
+# ticktick-tui theme: Iceberg Dark (dark)
+# Colors from terminalcolors.com/themes/iceberg/dark/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "iceberg"
+family = "Iceberg"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#161821"
+surface   = "#1d1f28"
+surface2  = "#272c42"
+line      = "#393b44"
+dim       = "#656770"
+muted     = "#83858e"
+sub       = "#a3a5ae"
+text      = "#c6c8d1"
+accent    = "#89b8c2"
+secondary = "#a093c7"
+ok        = "#b4be82"
+info      = "#84a0c6"
+error     = "#e27878"
+warn      = "#e2a478"
+p_high    = "#e27878"
+p_med     = "#e2a478"
+p_low     = "#84a0c6"
+p_none    = "#656770"

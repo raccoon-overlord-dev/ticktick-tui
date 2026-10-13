@@ -1,0 +1,28 @@
+# ticktick-tui theme: Iceberg Light (light)
+# Colors from terminalcolors.com/themes/iceberg/light/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "iceberg"
+family = "Iceberg"
+variant = ""
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#e8e9ec"
+surface   = "#e1e2e6"
+surface2  = "#cacdd7"
+line      = "#c4c5cc"
+dim       = "#9799a4"
+muted     = "#787b89"
+sub       = "#575b6c"
+text      = "#33374c"
+accent    = "#3f83a6"
+secondary = "#7759b4"
+ok        = "#668e3d"
+info      = "#2d539e"
+error     = "#cc517a"
+warn      = "#be703a"
+p_high    = "#cc517a"
+p_med     = "#be703a"
+p_low     = "#2d539e"
+p_none    = "#9799a4"

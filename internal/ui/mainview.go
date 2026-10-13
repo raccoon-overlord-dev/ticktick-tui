@@ -175,13 +175,7 @@ func (a *App) listsLines(p pen, w int, focused bool) ([]string, int) {
 // groups are the current list's groups as shown, folded subtasks left out.
 func (a *App) groups() []store.Group {
 	ts := a.st.TasksFor(a.list, a.now)
-	if a.list == "completed" {
-		if len(ts) == 0 {
-			return nil
-		}
-		return []store.Group{{Label: "Completed", Role: "ok", Done: true, Items: ts, Depth: make([]int, len(ts)), Hidden: make([]int, len(ts))}}
-	}
-	gs := a.st.TaskGroups(ts, a.sortFor(a.list), a.cfg.Layout.ShowCompleted, a.now)
+	gs := a.st.TaskGroups(ts, a.sortFor(a.list), a.cfg.Layout.ShowCompleted || a.list == "completed", a.now)
 	for i := range gs {
 		gs[i] = gs[i].Fold(a.folded)
 	}
@@ -907,6 +901,10 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 	case "z":
 		if t := a.selTask(); t != nil && ef != "lists" {
 			a.toggleFold(t)
+		}
+	case "Z":
+		if ef != "lists" {
+			a.toggleFoldAll()
 		}
 	case ">", "<":
 		if t := a.selTask(); t != nil && ef != "lists" {

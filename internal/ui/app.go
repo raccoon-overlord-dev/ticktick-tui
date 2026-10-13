@@ -36,9 +36,9 @@ func run(version string, demo *store.Store) error {
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
-	th, err := theme.Load(cfg.Appearance.Theme)
+	th, err := theme.Load(cfg.Appearance.Theme, cfg.Appearance.Mode != "light")
 	if err != nil {
-		if th, err = theme.Load("terminal"); err != nil {
+		if th, err = theme.Load("terminal", true); err != nil {
 			return err
 		}
 	}
@@ -71,6 +71,8 @@ type App struct {
 	version string
 	cfg     *config.Config
 	th      *theme.Theme
+	lightBg bool // the terminal's own background is light (Settings → Mode system)
+	bgKnown bool // its background color came, or the wait ended: ttui may paint its own
 	w, h    int
 	now     time.Time
 	spin    int // spinner frame
@@ -92,10 +94,12 @@ type App struct {
 	sheet                         bool // 1-pane detail sheet open
 	settings                      bool
 	sIdx                          int
-	themes                        []string // Settings → Theme dropdown while open: the names, nil when closed
-	themeIdx                      int      // highlighted theme (previewed live)
-	help                          bool     // ? shortcuts panel
-	about                         bool     // Settings → About box
+	themes                        []string       // Settings → Theme dropdown while open: the names, nil when closed
+	themeLabels                   [][2]string    // and what it shows for each: name, variant
+	themeSecs                     map[int]string // section headers, above the theme at that index
+	themeIdx                      int            // highlighted theme (previewed live)
+	help                          bool           // ? shortcuts panel
+	about                         bool           // Settings → About box
 	offHelp                       int
 	offLists, offTasks, offDetail int
 	notesTop                      int     // detail line of the Notes header, for scrolling long notes
@@ -161,7 +165,32 @@ func (a *App) tick() tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
+// bgTimeoutMsg ends the wait for the terminal's background color (some don't answer).
+type bgTimeoutMsg struct{}
+
 func (a *App) Init() tea.Cmd {
+	return tea.Batch(tea.RequestBackgroundColor, tea.Tick(400*time.Millisecond, func(time.Time) tea.Msg { return bgTimeoutMsg{} }), a.start())
+}
+
+// isDark tells which variant of a palette theme to use: Settings → Mode, or with system the
+// terminal's background, read once at start.
+func (a *App) isDark() bool {
+	if m := a.cfg.Appearance.Mode; m == "dark" || m == "light" {
+		return m == "dark"
+	}
+	return !a.lightBg
+}
+
+// loadTheme shows the theme name in the current mode; it keeps the old one if name is missing.
+func (a *App) loadTheme(name string) error {
+	th, err := theme.Load(name, a.isDark())
+	if err == nil {
+		a.th = th
+	}
+	return err
+}
+
+func (a *App) start() tea.Cmd {
 	if a.demo {
 		a.screen = screenMain
 		return a.tick()
@@ -178,6 +207,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.w, a.h = msg.Width, msg.Height
+		return a, nil
+	case tea.BackgroundColorMsg: // asked once in Init, before ttui paints its own background
+		if !a.bgKnown {
+			a.bgKnown, a.lightBg = true, !msg.IsDark()
+			a.loadTheme(a.cfg.Appearance.Theme)
+		}
+		return a, nil
+	case bgTimeoutMsg:
+		a.bgKnown = true
 		return a, nil
 	case tickMsg:
 		a.now, a.spin = time.Time(msg), a.spin+1
@@ -429,7 +467,7 @@ func (a *App) style(role string) lipgloss.Style { return a.pen().s(role) }
 func (a *App) View() tea.View {
 	v := tea.NewView("")
 	v.AltScreen = true
-	if a.cfg.Appearance.Background == "solid" && a.th.Colors["base"] != "" {
+	if a.cfg.Appearance.Background == "solid" && a.th.Colors["base"] != "" && a.bgKnown {
 		v.BackgroundColor = a.th.C("base")
 	}
 	if a.w < 20 || a.h < 5 { // before the first WindowSizeMsg, or a uselessly tiny terminal

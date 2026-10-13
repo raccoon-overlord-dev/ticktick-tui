@@ -10,6 +10,10 @@ install:
 test:
 	go vet ./... && go test ./...
 
+# Regenerate the palette themes from terminalcolors.com.
+palettes:
+	python3 scripts/palettes.py internal/theme/palettes
+
 # Release archives + checksums.txt in dist/ for the current git tag (upload them to a GitHub release by hand).
 dist:
 	go run github.com/goreleaser/goreleaser/v2@latest release --clean --skip=publish
@@ -19,4 +23,4 @@ dist:
 release: test dist
 	gh release create $(VERSION) dist/ttui_*.tar.gz dist/checksums.txt --title $(VERSION) --notes-from-tag --verify-tag
 
-.PHONY: build install test dist release
+.PHONY: build install test dist release palettes

@@ -1,0 +1,28 @@
+# ticktick-tui theme: Lucario Default (dark)
+# Colors from terminalcolors.com/themes/lucario/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "lucario"
+family = "Lucario"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#2b3e50"
+surface   = "#334556"
+surface2  = "#4a5a68"
+line      = "#546370"
+dim       = "#879299"
+muted     = "#aab1b4"
+sub       = "#cfd3d2"
+text      = "#f8f8f2"
+accent    = "#f0cc04"
+secondary = "#ca94ff"
+ok        = "#199c4b"
+info      = "#5c98cd"
+error     = "#ea543e"
+warn      = "#f0cc04"
+p_high    = "#ea543e"
+p_med     = "#f0cc04"
+p_low     = "#5c98cd"
+p_none    = "#879299"

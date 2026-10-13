@@ -1,0 +1,28 @@
+# ticktick-tui theme: Dracula Default (dark)
+# Colors from terminalcolors.com/themes/dracula/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "dracula"
+family = "Dracula"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#282a36"
+surface   = "#30323e"
+surface2  = "#44475a"
+line      = "#52535c"
+dim       = "#86878b"
+muted     = "#a9aaab"
+sub       = "#cecfcc"
+text      = "#f8f8f2"
+accent    = "#ff79c6"
+secondary = "#ff79c6"
+ok        = "#50fa7b"
+info      = "#bd93f9"
+error     = "#ff5555"
+warn      = "#f1fa8c"
+p_high    = "#ff5555"
+p_med     = "#f1fa8c"
+p_low     = "#bd93f9"
+p_none    = "#86878b"

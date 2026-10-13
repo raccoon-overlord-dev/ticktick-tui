@@ -1,0 +1,28 @@
+# ticktick-tui theme: Posterpole Default (dark)
+# Colors from terminalcolors.com/themes/posterpole/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "posterpole"
+family = "Posterpole"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#25222a"
+surface   = "#2b2830"
+surface2  = "#4d4d4d"
+line      = "#454247"
+dim       = "#6d696a"
+muted     = "#898483"
+sub       = "#a6a09c"
+text      = "#c6c0b9"
+accent    = "#778c73"
+secondary = "#b894af"
+ok        = "#778c73"
+info      = "#6c7f93"
+error     = "#a97070"
+warn      = "#cc9166"
+p_high    = "#a97070"
+p_med     = "#cc9166"
+p_low     = "#6c7f93"
+p_none    = "#6d696a"

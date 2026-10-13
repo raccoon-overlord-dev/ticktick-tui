@@ -1,0 +1,28 @@
+# ticktick-tui theme: Seoul256 Dark (dark)
+# Colors from terminalcolors.com/themes/seoul256/dark/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "seoul256"
+family = "Seoul256"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#3a3a3a"
+surface   = "#404040"
+surface2  = "#005f5f"
+line      = "#585858"
+dim       = "#7e7e7e"
+muted     = "#979797"
+sub       = "#b2b2b2"
+text      = "#d0d0d0"
+accent    = "#d8af5f"
+secondary = "#d7afaf"
+ok        = "#6a8d6a"
+info      = "#85add4"
+error     = "#d68787"
+warn      = "#d8af5f"
+p_high    = "#d68787"
+p_med     = "#d8af5f"
+p_low     = "#85add4"
+p_none    = "#7e7e7e"

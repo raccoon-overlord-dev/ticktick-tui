@@ -1,0 +1,28 @@
+# ticktick-tui theme: Noctis Default (dark)
+# Colors from terminalcolors.com/themes/noctis/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "noctis"
+family = "Noctis"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#03191b"
+surface   = "#0a2022"
+surface2  = "#083d44"
+line      = "#263c3f"
+dim       = "#52696b"
+muted     = "#708789"
+sub       = "#8fa7a9"
+text      = "#b2cacd"
+accent    = "#40d4e7"
+secondary = "#df769b"
+ok        = "#49e9a6"
+info      = "#49ace9"
+error     = "#e66533"
+warn      = "#e4b781"
+p_high    = "#e66533"
+p_med     = "#e4b781"
+p_low     = "#49ace9"
+p_none    = "#52696b"

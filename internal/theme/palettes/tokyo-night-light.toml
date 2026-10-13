@@ -1,0 +1,28 @@
+# ticktick-tui theme: Tokyo Night Day (light)
+# Colors from terminalcolors.com/themes/tokyo-night/day/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "tokyo-night"
+family = "Tokyo Night"
+variant = "Day"
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#e1e2e7"
+surface   = "#dadde5"
+surface2  = "#b7c1e3"
+line      = "#bfc8df"
+dim       = "#7892ce"
+muted     = "#5878c6"
+sub       = "#3760bf"
+text      = "#3760bf"
+accent    = "#2e7de9"
+secondary = "#9854f1"
+ok        = "#587539"
+info      = "#2e7de9"
+error     = "#f52a65"
+warn      = "#8c6c3e"
+p_high    = "#f52a65"
+p_med     = "#8c6c3e"
+p_low     = "#2e7de9"
+p_none    = "#7892ce"

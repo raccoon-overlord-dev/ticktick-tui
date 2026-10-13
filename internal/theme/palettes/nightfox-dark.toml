@@ -1,0 +1,28 @@
+# ticktick-tui theme: Nightfox Default (dark)
+# Colors from terminalcolors.com/themes/nightfox/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "nightfox"
+family = "Nightfox"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#192330"
+surface   = "#202a36"
+surface2  = "#2b3b51"
+line      = "#3d4550"
+dim       = "#6a7078"
+muted     = "#898d93"
+sub       = "#a9acaf"
+text      = "#cdcecf"
+accent    = "#63cdcf"
+secondary = "#9d79d6"
+ok        = "#81b29a"
+info      = "#719cd6"
+error     = "#c94f6d"
+warn      = "#dbc074"
+p_high    = "#c94f6d"
+p_med     = "#dbc074"
+p_low     = "#719cd6"
+p_none    = "#6a7078"

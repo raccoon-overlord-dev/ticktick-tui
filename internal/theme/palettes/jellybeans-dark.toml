@@ -1,0 +1,28 @@
+# ticktick-tui theme: Jellybeans Default (dark)
+# Colors from terminalcolors.com/themes/jellybeans/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "jellybeans"
+family = "Jellybeans"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#121212"
+surface   = "#1a1a1a"
+surface2  = "#474e91"
+line      = "#3b3b3b"
+dim       = "#6e6e6e"
+muted     = "#909090"
+sub       = "#b5b5b5"
+text      = "#dedede"
+accent    = "#ffba7b"
+secondary = "#e1c0fa"
+ok        = "#94b979"
+info      = "#97bedc"
+error     = "#e27373"
+warn      = "#ffba7b"
+p_high    = "#e27373"
+p_med     = "#ffba7b"
+p_low     = "#97bedc"
+p_none    = "#6e6e6e"

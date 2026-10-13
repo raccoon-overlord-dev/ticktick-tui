@@ -75,6 +75,9 @@ func TestQuickAdd(t *testing.T) {
 	if a.Title != "email @nowhere" || a.Due.Day != 0 || a.Due.H != 17 {
 		t.Fatalf("unknown list stays in title, time means today: %+v", a)
 	}
+	if a := QuickAdd("eggs ^Groc", lists, "inbox", nil, now, true); a.Title != "eggs" || a.Parent != "groc" {
+		t.Errorf("^parent: %+v", a)
+	}
 }
 
 func TestFuzzy(t *testing.T) {

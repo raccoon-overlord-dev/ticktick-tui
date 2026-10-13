@@ -274,6 +274,7 @@ func TestSubtaskTree(t *testing.T) {
 		{ID: "d", ProjectID: "l", Title: "done parent", Status: 2},
 		{ID: "dk", ProjectID: "l", Title: "kid of done", ParentID: "d"},
 		{ID: "dd", ProjectID: "l", Title: "done kid", ParentID: "p", Status: 2},
+		{ID: "ddd", ProjectID: "l", Title: "done kid of done", ParentID: "d", Status: 2},
 		{ID: "l1", ProjectID: "l", Title: "loop 1", ParentID: "l2"},
 		{ID: "l2", ProjectID: "l", Title: "loop 2", ParentID: "l1"},
 	}
@@ -297,15 +298,18 @@ func TestSubtaskTree(t *testing.T) {
 		return out
 	}
 	gs := s.TaskGroups(all, config.Sort{GroupBy: "priority", SortBy: "title"}, true, now)
-	want := "Low: 0p 1k1 2g 1k2 | None: 0x 0dk 0l1 0l2 0o | Completed: 0d 0dd | "
+	want := "Low: 0p 1k1 2g 1k2 1dd | None: 0x 0dk 0l1 0l2 0o | Completed: 0d 1ddd | "
 	if got := str(gs); got != want {
 		t.Errorf("tree =\n %q, want\n %q", got, want)
 	}
+	if got := str(s.TaskGroups(all, config.Sort{GroupBy: "priority", SortBy: "title"}, false, now)); got != "Low: 0p 1k1 2g 1k2 | None: 0x 0dk 0l1 0l2 0o | " {
+		t.Errorf("without completed = %q", got)
+	}
 	folded := str([]Group{gs[0].Fold(func(id string) bool { return id == "k1" })})
-	if folded != "Low: 0p 1k1+1 1k2 | " {
+	if folded != "Low: 0p 1k1+1 1k2 1dd | " {
 		t.Errorf("fold k1 = %q", folded)
 	}
-	if folded := str([]Group{gs[0].Fold(func(id string) bool { return id == "p" })}); folded != "Low: 0p+3 | " {
+	if folded := str([]Group{gs[0].Fold(func(id string) bool { return id == "p" })}); folded != "Low: 0p+4 | " {
 		t.Errorf("fold p = %q", folded)
 	}
 

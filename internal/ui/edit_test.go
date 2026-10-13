@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"image/color"
 	"slices"
 	"strings"
 	"testing"
@@ -65,7 +66,7 @@ func TestCreateReplacesTempID(t *testing.T) {
 
 // After a line break the cursor must sit at column 0 of the new line.
 func TestNotesCursorAfterNewline(t *testing.T) {
-	th, err := theme.Load("terminal")
+	th, err := theme.Load("terminal", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +80,7 @@ func TestNotesCursorAfterNewline(t *testing.T) {
 
 // ↑↓ keep the column, the cursor row accounts for wrapping, and long notes scroll.
 func TestLongNotes(t *testing.T) {
-	th, _ := theme.Load("terminal")
+	th, _ := theme.Load("terminal", true)
 	in := newInput("abcdefghij\nxy\nklmnop")
 	in.cur = 4
 	in.vmove(true)
@@ -350,7 +351,7 @@ func TestInputSelectUndo(t *testing.T) {
 
 	a := testApp(t)
 	a.screen, a.w, a.h = screenMain, 120, 30
-	a.th, _ = theme.Load("terminal")
+	a.th, _ = theme.Load("terminal", true)
 	tk := a.st.Task("a")
 	tk.Items = []api.Item{{Title: "item"}}
 	a.taskID, a.focus, a.df = "a", "detail", slices.Index(a.detailKeys(tk), "c0")
@@ -369,7 +370,7 @@ func TestInputSelectUndo(t *testing.T) {
 // n → New task: fields are set on a draft, Create sends everything in one create.
 func TestNewTaskPanel(t *testing.T) {
 	a := testApp(t)
-	a.th, _ = theme.Load("terminal")
+	a.th, _ = theme.Load("terminal", true)
 	a.screen, a.w, a.h, a.now, a.list = screenMain, 120, 40, time.Now(), "today"
 	key := func(k tea.KeyPressMsg) { a.Update(k) }
 	press := func(s string) {
@@ -426,7 +427,7 @@ func TestNewTaskPanel(t *testing.T) {
 // The calendar sets a due date with a time; the repeat form writes the web app's rule.
 func TestCalendarAndRepeatForm(t *testing.T) {
 	a := testApp(t)
-	a.th, _ = theme.Load("terminal")
+	a.th, _ = theme.Load("terminal", true)
 	a.screen, a.w, a.h, a.now, a.focus = screenMain, 120, 40, time.Now(), "detail"
 	tk := a.st.Task("a")
 	a.pickDue(tk)
@@ -562,7 +563,7 @@ func TestConvert(t *testing.T) {
 
 func TestReminders(t *testing.T) {
 	a := testApp(t)
-	a.th, _ = theme.Load("terminal")
+	a.th, _ = theme.Load("terminal", true)
 	a.w, a.h = 120, 40
 	tk := a.st.Task("a")
 	due := time.Now().Add(10 * time.Minute).UTC()
@@ -617,14 +618,15 @@ func TestThemeDropdown(t *testing.T) {
 	a := testApp(t)
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	config.Path = t.TempDir() + "/config.toml"
-	a.th, _ = theme.Load("terminal")
+	a.th, _ = theme.Load("terminal", true)
 	a.settings, a.sIdx = true, slices.IndexFunc(setRows, func(r setRow) bool { return r.key == "theme" })
 	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if len(a.themes) < 3 || a.themes[0] != "terminal" || a.themeIdx != 0 {
+	if len(a.themes) < 30 || a.themes[0] != "apprentice" || a.themeSecs[0] != "DARK" || a.themes[a.themeIdx] != "terminal" || a.themeSecs[a.themeIdx] != "CUSTOM" {
 		t.Fatalf("dropdown: %v at %d", a.themes, a.themeIdx)
 	}
+	a.themeIdx = 0
 	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyDown})
-	if a.th.Name != a.themes[1] || a.cfg.Appearance.Theme != "terminal" {
+	if a.th.Name != a.themes[1] || a.th.Mode != "dark" || a.cfg.Appearance.Theme != "terminal" {
 		t.Fatalf("preview: %s, saved %s", a.th.Name, a.cfg.Appearance.Theme)
 	}
 	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyEscape})
@@ -632,10 +634,28 @@ func TestThemeDropdown(t *testing.T) {
 		t.Fatalf("esc: open=%v theme %s settings %v", a.themes != nil, a.th.Name, a.settings)
 	}
 	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyUp}) // wraps to the last one
-	last := a.themes[len(a.themes)-1]
+	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyUp}) // from terminal up to the last palette
+	last := a.themes[a.themeIdx]
 	a.settingsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if a.cfg.Appearance.Theme != last || a.th.Name != last {
 		t.Fatalf("pick: saved %s, shown %s", a.cfg.Appearance.Theme, a.th.Name)
+	}
+
+	a.setOption("theme", "catppuccin") // a palette follows Mode
+	if a.th.Variant != "Mocha" {
+		t.Fatalf("dark: %s", a.th.Label())
+	}
+	a.setOption("mode", "light")
+	if a.th.Variant != "Latte" || a.cfg.Appearance.Theme != "catppuccin" {
+		t.Fatalf("light: %s", a.th.Label())
+	}
+	a.setOption("theme", "dracula") // dark only: used in light mode too
+	if a.th.Name != "dracula" {
+		t.Fatalf("dark-only palette in light mode: %s", a.th.Label())
+	}
+	a.setOption("mode", "system")
+	a.Update(tea.BackgroundColorMsg{Color: color.White})
+	if a.isDark() || !a.bgKnown {
+		t.Fatal("system mode on a light terminal should be light")
 	}
 }

@@ -1,0 +1,28 @@
+# ticktick-tui theme: Rosé Pine Default (dark)
+# Colors from terminalcolors.com/themes/rose-pine/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "rose-pine"
+family = "Rosé Pine"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#1f1d2e"
+surface   = "#272536"
+surface2  = "#2f2c40"
+line      = "#464456"
+dim       = "#767487"
+muted     = "#9795a9"
+sub       = "#b9b7cc"
+text      = "#e0def4"
+accent    = "#e0def4"
+secondary = "#c4a7e7"
+ok        = "#31748f"
+info      = "#9ccfd8"
+error     = "#eb6f92"
+warn      = "#f6c177"
+p_high    = "#eb6f92"
+p_med     = "#f6c177"
+p_low     = "#9ccfd8"
+p_none    = "#767487"

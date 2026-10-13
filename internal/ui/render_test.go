@@ -78,7 +78,7 @@ func TestWcSafe(t *testing.T) {
 
 // Note and checklist URLs, and the About box's repo link, reach the screen as OSC 8 links.
 func TestLinksRendered(t *testing.T) {
-	th, _ := theme.Load("terminal")
+	th, _ := theme.Load("terminal", true)
 	task := api.Task{ID: "a", ProjectID: "inbox1", Title: "Task A", Content: "see [docs](https://docs.dev)",
 		Items: []api.Item{{ID: "i", Title: "buy https://shop.dev"}}}
 	a := &App{cfg: config.Default(), th: th, st: store.New(nil, nil, []api.Task{task}, "", time.Now()), signed: &auth.Auth{AccessToken: "fake"},

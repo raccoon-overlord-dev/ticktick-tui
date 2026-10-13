@@ -1,0 +1,28 @@
+# ticktick-tui theme: Night Owl Light (light)
+# Colors from terminalcolors.com/themes/night-owl/light/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "night-owl"
+family = "Night Owl"
+variant = ""
+mode = "light"
+separator = "·"
+
+[colors]
+base      = "#f6f6f6"
+surface   = "#efefef"
+surface2  = "#e0e0e0"
+line      = "#d2d1d5"
+dim       = "#9f9fa8"
+muted     = "#858591"
+sub       = "#646474"
+text      = "#403f53"
+accent    = "#2b9d95"
+secondary = "#d6438a"
+ok        = "#08916a"
+info      = "#288ed7"
+error     = "#de3d3b"
+warn      = "#a8881e"
+p_high    = "#de3d3b"
+p_med     = "#a8881e"
+p_low     = "#288ed7"
+p_none    = "#9f9fa8"

@@ -1,0 +1,28 @@
+# ticktick-tui theme: Sonokai Default (dark)
+# Colors from terminalcolors.com/themes/sonokai/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "sonokai"
+family = "Sonokai"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#2c2e34"
+surface   = "#33353b"
+surface2  = "#3b3e48"
+line      = "#505257"
+dim       = "#7e7f83"
+muted     = "#9d9ea0"
+sub       = "#bebec0"
+text      = "#e2e2e3"
+accent    = "#e7c664"
+secondary = "#b39df3"
+ok        = "#9ed072"
+info      = "#76cce0"
+error     = "#fc5d7c"
+warn      = "#e7c664"
+p_high    = "#fc5d7c"
+p_med     = "#e7c664"
+p_low     = "#76cce0"
+p_none    = "#7e7f83"

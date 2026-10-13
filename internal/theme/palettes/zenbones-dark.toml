@@ -1,0 +1,28 @@
+# ticktick-tui theme: Zenbones Zenwritten Dark (dark)
+# Colors from terminalcolors.com/themes/zenbones/zenwritten-dark/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "zenbones"
+family = "Zenbones"
+variant = "Zenwritten Dark"
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#191919"
+surface   = "#1f1f1f"
+surface2  = "#404040"
+line      = "#393939"
+dim       = "#626262"
+muted     = "#7d7d7d"
+sub       = "#9b9b9b"
+text      = "#bbbbbb"
+accent    = "#b77e64"
+secondary = "#b279a7"
+ok        = "#819b69"
+info      = "#6099c0"
+error     = "#de6e7c"
+warn      = "#b77e64"
+p_high    = "#de6e7c"
+p_med     = "#b77e64"
+p_low     = "#6099c0"
+p_none    = "#626262"

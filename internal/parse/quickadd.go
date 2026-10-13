@@ -110,17 +110,19 @@ func ParseDue(s string, now time.Time) (*Due, error) {
 type List struct{ ID, Name string }
 
 type Add struct {
-	Title   string
-	Prio    int // API value: 0 none, 1 low, 3 med, 5 high
-	PrioSet bool
-	Due     *Due
-	DueSet  bool
-	Tags    []string
-	List    string
-	ListSet bool
+	Title    string
+	Prio     int // API value: 0 none, 1 low, 3 med, 5 high
+	PrioSet  bool
+	Due      *Due
+	DueSet   bool
+	Tags     []string
+	List     string
+	ListSet  bool
+	Parent   string // "^parent": a prefix of the parent task's title, matched by the caller
+	ParentID string // the task Parent matched, set by the caller
 }
 
-// QuickAdd parses "call mom tomorrow 17:00 !high #errand @home".
+// QuickAdd parses "call mom tomorrow 17:00 !high #errand @home ^groceries".
 // defList / defDue are used when the text doesn't set them. With dates false, day and time
 // words stay in the title (Settings → Smart dates off).
 func QuickAdd(term string, lists []List, defList string, defDue *Due, now time.Time, dates bool) Add {
@@ -139,8 +141,10 @@ func QuickAdd(term string, lists []List, defList string, defDue *Due, now time.T
 			a.Prio, a.PrioSet = 1, true
 		case len(lw) > 1 && lw[0] == '#':
 			a.Tags = append(a.Tags, lw[1:])
+		case len(lw) > 1 && lw[0] == '^':
+			a.Parent = lw[1:]
 		case len(lw) > 1 && lw[0] == '@':
-			if id, ok := matchList(lw[1:], lists); ok {
+			if id, ok := MatchName(lw[1:], lists); ok {
 				a.List, a.ListSet = id, true
 			} else {
 				title = append(title, w)
@@ -173,8 +177,9 @@ func QuickAdd(term string, lists []List, defList string, defDue *Due, now time.T
 	return a
 }
 
-// matchList is a prefix match on the list name, ignoring case, spaces and leading emoji.
-func matchList(q string, lists []List) (string, bool) {
+// MatchName is a prefix match on the names (lists, or task titles for ^parent), ignoring
+// case, spaces and leading emoji.
+func MatchName(q string, lists []List) (string, bool) {
 	for _, l := range lists {
 		name := strings.ToLower(strings.ReplaceAll(l.Name, " ", ""))
 		name = strings.TrimLeftFunc(name, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) })

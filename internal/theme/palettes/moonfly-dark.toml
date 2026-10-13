@@ -1,0 +1,28 @@
+# ticktick-tui theme: Moonfly Default (dark)
+# Colors from terminalcolors.com/themes/moonfly/default/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "moonfly"
+family = "Moonfly"
+variant = ""
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#080808"
+surface   = "#0f0f0f"
+surface2  = "#232323"
+line      = "#2c2c2c"
+dim       = "#595959"
+muted     = "#787878"
+sub       = "#999999"
+text      = "#bdbdbd"
+accent    = "#80a0ff"
+secondary = "#cf87e8"
+ok        = "#8cc85f"
+info      = "#80a0ff"
+error     = "#ff5454"
+warn      = "#e3c78a"
+p_high    = "#ff5454"
+p_med     = "#e3c78a"
+p_low     = "#80a0ff"
+p_none    = "#595959"

@@ -1,0 +1,28 @@
+# ticktick-tui theme: Catppuccin Mocha (dark)
+# Colors from terminalcolors.com/themes/catppuccin/mocha/, mapped onto ttui's roles
+# by scripts/palettes.py (make palettes): don't edit, regenerate.
+name = "catppuccin"
+family = "Catppuccin"
+variant = "Mocha"
+mode = "dark"
+separator = "·"
+
+[colors]
+base      = "#1e1e2e"
+surface   = "#252536"
+surface2  = "#353748"
+line      = "#414356"
+dim       = "#6d7187"
+muted     = "#8a90a9"
+sub       = "#aab1cc"
+text      = "#cdd6f4"
+accent    = "#b4befe"
+secondary = "#f5c2e7"
+ok        = "#a6e3a1"
+info      = "#89b4fa"
+error     = "#f38ba8"
+warn      = "#f9e2af"
+p_high    = "#f38ba8"
+p_med     = "#f9e2af"
+p_low     = "#89b4fa"
+p_none    = "#6d7187"
