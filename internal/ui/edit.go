@@ -519,7 +519,14 @@ func (a *App) toggleCheck(t *api.Task, i int) tea.Cmd {
 // addItem appends a checklist item; the server assigns its id.
 func (a *App) addItem(t *api.Task, title string) tea.Cmd {
 	items := append(slices.Clone(t.Items), api.Item{Title: title})
-	return a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
+	if t.Kind == "CHECKLIST" {
+		return a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
+	}
+	// the server turns a note with items into a checklist but leaves the notes in content,
+	// where a checklist doesn't show them: move them to desc in the same update
+	notes := t.Content
+	return a.update(t, map[string]any{"kind": "CHECKLIST", "desc": notes, "content": "", "items": items},
+		func(t *api.Task) { t.Kind, t.Desc, t.Content, t.Items = "CHECKLIST", notes, "", items })
 }
 
 // convert switches t between a note and a checklist (C), like the web app: each line of
@@ -847,7 +854,10 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 			cmd = a.update(t, map[string]any{"title": v}, func(t *api.Task) { t.Title = v })
 		}
 	case "notes":
-		if key, notes := t.Notes(); v != *notes {
+		if key, notes := t.Notes(); t.Kind == "CHECKLIST" && (v != t.Desc || t.Content != "") {
+			// also moves notes left in content to desc, where the web app shows them
+			cmd = a.update(t, map[string]any{"desc": v, "content": ""}, func(t *api.Task) { t.Desc, t.Content = v, "" })
+		} else if t.Kind != "CHECKLIST" && v != *notes {
 			cmd = a.update(t, map[string]any{key: v}, func(t *api.Task) { _, n := t.Notes(); *n = v })
 		}
 	case "tags":

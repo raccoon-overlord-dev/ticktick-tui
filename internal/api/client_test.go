@@ -76,7 +76,10 @@ func TestClient(t *testing.T) {
 
 func TestNotes(t *testing.T) {
 	var tasks []Task
-	json.Unmarshal([]byte(`[{"kind":"CHECKLIST","content":"","desc":"d"},{"kind":"TEXT","content":"c"}]`), &tasks)
+	json.Unmarshal([]byte(`[{"kind":"CHECKLIST","content":"","desc":"d"},{"kind":"TEXT","content":"c"},{"kind":"CHECKLIST","content":"old"}]`), &tasks)
+	if k, n := tasks[2].Notes(); k != "desc" || *n != "old" { // notes left in content
+		t.Errorf("old checklist: got %s %q", k, *n)
+	}
 	if k, n := tasks[0].Notes(); k != "desc" || *n != "d" {
 		t.Errorf("checklist: got %s %q", k, *n)
 	}

@@ -2,6 +2,10 @@
 
 Ideas planned after v1. Not implemented yet.
 
+## Next release
+
+- **Attachments**: show an indicator on tasks that have attachments, and a way to upload attachments to a task and download them.
+
 ## Known bugs
 
 - **Rows spill into the next column in Ghostty**: some task rows (seen with titles containing `⚠️`) draw wider than the pane, push into the next column, and the rows below shift (list names appear twice while scrolling). Fixed in Terminal.app, still there in Ghostty (macOS and Omarchy) as of v0.2.0. Alacritty on Omarchy is fine with v0.2.0, so this looks Ghostty-specific; parked as a known issue.
@@ -38,6 +42,11 @@ Ideas planned after v1. Not implemented yet.
 ## Calendar
 
 - Calendar view like the TickTick app: month, week and day views of tasks by due date (timed tasks placed by hour in week / day), move between periods with the keyboard, open a task from it, and change a task's date from the calendar.
+
+## Themes
+
+- Follow a terminal switching between light and dark while ttui is open (today Mode → system reads the background once, at start). Needs the terminal's color-scheme notifications (mode 2031, Ghostty / kitty) or a re-query that ignores ttui's own background.
+- More palette variants from terminalcolors.com (Gruvbox hard/soft, GitHub high contrast, Zenbones…) if asked for; `scripts/palettes.py` takes only each theme's main variant.
 
 ## Editing and navigation
 

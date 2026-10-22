@@ -170,6 +170,7 @@ func TestMoveTask(t *testing.T) {
 func TestAddChecklistItems(t *testing.T) {
 	a := testApp(t)
 	a.w, a.taskID = 160, "a"
+	a.st.Task("a").Kind, a.st.Task("a").Content = "TEXT", "keep me"
 	a.startEdit("additem")
 	for _, s := range []string{"one", "two"} {
 		a.in = newInput(s)
@@ -182,6 +183,11 @@ func TestAddChecklistItems(t *testing.T) {
 	items := a.st.Task("a").Items
 	if a.edit != "" || len(items) != 2 || items[1].Title != "two" || items[1].ID != "" {
 		t.Fatalf("items: %+v edit=%q", items, a.edit)
+	}
+	// the first item turns the note into a checklist, its notes moved to desc
+	if task := a.st.Task("a"); task.Kind != "CHECKLIST" || task.Desc != "keep me" || task.Content != "" ||
+		a.queue[0].fields["desc"] != "keep me" || a.queue[1].fields["desc"] != nil {
+		t.Fatalf("notes not kept: %+v %v", task, a.queue[0].fields)
 	}
 }
 

@@ -154,9 +154,13 @@ type Task struct {
 }
 
 // Notes returns the JSON key and field holding the task's description:
-// checklist tasks keep it in `desc`, all others in `content`.
+// checklist tasks keep it in `desc`, all others in `content`. A checklist with only
+// `content` (a note given items before v0.14.1) shows that, and saves it to `desc`.
 func (t *Task) Notes() (string, *string) {
 	if t.Kind == "CHECKLIST" {
+		if t.Desc == "" && t.Content != "" {
+			return "desc", &t.Content
+		}
 		return "desc", &t.Desc
 	}
 	return "content", &t.Content

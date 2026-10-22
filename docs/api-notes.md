@@ -37,6 +37,7 @@ Reproduce with `ttui dev raw METHOD PATH [JSON]` (reads `TTUI_DEV_TOKEN` from `.
 - `POST /task/completed` takes `{projectIds?, startDate, endDate?}`; `POST /task/search` takes `{keywords, projectIds?, tags?, status?, dueFrom?, dueTo?}` (field is `keywords`, not `keyword`).
 - `content` round-trips markdown as-is. Task `desc` and `items` are omitted when empty.
 - **Checklist tasks** (`kind: "CHECKLIST"`) keep their description in `desc`, with `content` empty. Text tasks use `content`. ttui reads and writes whichever field matches `kind` (writing `desc` verified in v0.3.0).
+- **Adding items to a note** (tested 2026-10-22): `POST /task/{id}` with only `items` on a `TEXT` task turns it into a `CHECKLIST` but leaves the notes in `content`, with `desc` empty, so checklist views show no notes (the web app shows only the items; the text isn't lost, just hidden). Send `kind: "CHECKLIST"`, `desc` (the notes), `content: ""` and `items` together (what `c` does since v0.14.1). ttui shows a checklist's `content` when its `desc` is empty, and saving its notes clears `content`.
 - Extra task fields seen: `columnId`, `columnName`, `progress`, `isFloating`, `createdTime`, `modifiedTime`, `etimestamp`. ttui reads `createdTime` and `modifiedTime` for grouping and sorting (`s`).
 - There is no API for the web app's per-list sort settings (Group by / Sort by / Order), so ttui keeps its own in `config.toml` (`[tasks.list_sort]`); they don't sync with the web app.
 
