@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/update"
 )
 
@@ -26,7 +27,7 @@ type (
 func (a *App) checkUpdate(manual bool) tea.Cmd {
 	if a.demo || !update.Newer(a.version, "0") { // dev builds have no version number
 		if manual {
-			a.setFlash("no update check in dev builds · ttui " + a.version)
+			a.setFlash(i18n.Fmt("no update check in dev builds · ttui %s", a.version))
 		}
 		return nil
 	}
@@ -34,7 +35,7 @@ func (a *App) checkUpdate(manual bool) tea.Cmd {
 		return nil
 	}
 	if manual {
-		a.flash, a.flashRole, a.flashUntil = "checking for updates…", "info", time.Now().Add(time.Minute)
+		a.flash, a.flashRole, a.flashUntil = i18n.T("checking for updates…"), "info", time.Now().Add(time.Minute)
 	}
 	current := a.version
 	return func() tea.Msg {
@@ -49,7 +50,7 @@ func (a *App) checkUpdate(manual bool) tea.Cmd {
 		case err != nil:
 			return updateErrMsg{err}
 		}
-		return flashMsg("ttui " + current + " is up to date")
+		return flashMsg(i18n.Fmt("ttui %s is up to date", current))
 	}
 }
 
@@ -58,10 +59,10 @@ func (a *App) askUpdate() {
 	switch {
 	case a.updating:
 	case a.newVersion == "":
-		a.setFlash("no update available · ttui " + a.version)
+		a.setFlash(i18n.Fmt("no update available · ttui %s", a.version))
 	default:
 		a.confirmUpdate = true
-		a.flash, a.flashRole, a.flashUntil = "Update to "+a.newVersion+" and restart? y / n", "warn", time.Now().Add(time.Hour)
+		a.flash, a.flashRole, a.flashUntil = i18n.Fmt("Update to %s and restart? y / n", a.newVersion), "warn", time.Now().Add(time.Hour)
 	}
 }
 
@@ -92,11 +93,11 @@ func (a *App) onUpdated(m updateDoneMsg) tea.Cmd {
 	a.updating = false
 	switch {
 	case errors.Is(m.err, update.ErrNotWritable):
-		a.flashError("✗ no write access to the ttui binary · install command copied: quit and paste it")
+		a.flashError(i18n.T("✗ no write access to the ttui binary · install command copied: quit and paste it"))
 		a.flashUntil = time.Now().Add(15 * time.Second)
 		return tea.SetClipboard(update.Command)
 	case m.err != nil:
-		a.flashError("✗ update failed: " + m.err.Error())
+		a.flashError(i18n.Fmt("✗ update failed: %s", m.err.Error()))
 		a.flashUntil = time.Now().Add(15 * time.Second)
 		return nil
 	}
@@ -110,7 +111,7 @@ func (a *App) restartIfIdle() tea.Cmd {
 		return nil
 	}
 	if a.busy || len(a.queue) > 0 {
-		a.flash, a.flashRole, a.flashUntil = "updated · restarting once your changes are saved…", "info", time.Now().Add(time.Hour)
+		a.flash, a.flashRole, a.flashUntil = i18n.T("updated · restarting once your changes are saved…"), "info", time.Now().Add(time.Hour)
 		return nil
 	}
 	return tea.Quit

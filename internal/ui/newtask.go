@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
 
@@ -52,7 +53,7 @@ func (a *App) draftKey(k tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		a.draftAsk = true
-		a.flash, a.flashRole, a.flashUntil = "Discard the new task? y / N", "warn", time.Now().Add(time.Hour)
+		a.flash, a.flashRole, a.flashUntil = i18n.T("Discard the new task? y / N"), "warn", time.Now().Add(time.Hour)
 	case "ctrl+s":
 		return a.createDraft()
 	case "down", "tab":
@@ -109,7 +110,7 @@ func (a *App) createDraft() tea.Cmd {
 	t := *a.draft
 	if strings.TrimSpace(t.Title) == "" {
 		a.df = 0
-		a.setFlash("type a title first")
+		a.setFlash(i18n.T("type a title first"))
 		return nil
 	}
 	if len(t.Items) > 0 && t.Kind != "CHECKLIST" { // C already moved the notes to desc
@@ -124,19 +125,19 @@ func (a *App) viewDraft() (string, int, int) {
 	p := a.overlayPen()
 	w := min(64, a.w-4)
 	keys := a.draftKeys(a.draft)
-	lines, sel := a.detailLines(p, a.draft, w, true)
+	lines, sel := a.detailLines(p, a.draft, w, true, a.df, &a.offDraft)
 	cp := p
 	if keys[min(a.df, len(keys)-1)] == "create" {
 		cp, sel = p.on(a.selBg(true)), len(lines)+1
 	}
-	lines = append(lines, "", cp.line(w, cp.s("ok").Bold(true).Render("[ Create ]"), cp.s("dim").Render("ctrl+s")))
+	lines = append(lines, "", cp.line(w, cp.s("ok").Bold(true).Render("[ "+i18n.T("Create")+" ]"), cp.s("dim").Render("ctrl+s")))
 	footer := []string{p.s("line").Render(strings.Repeat("─", w-2)),
-		p.line(w, p.s("dim").Render("↑↓ field · ⏎ edit / pick · ctrl+s create · esc cancel"), "")}
+		p.line(w, p.s("dim").Render(i18n.T("↑↓ field · ⏎ edit / pick · ctrl+s create · esc cancel")), "")}
 	body := append(window(lines, sel, max(a.h-3-len(footer), 3), &a.offDraft), footer...)
 	h := len(body) + 2
-	title := "New task"
+	title := i18n.T("New task")
 	if a.draft.ParentID != "" {
-		title = "New subtask"
+		title = i18n.T("New subtask")
 	}
 	return a.frame(p, frameOpts{w: w, h: h, title: title, modal: true, body: body}), w, h
 }

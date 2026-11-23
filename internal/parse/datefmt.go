@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 )
 
 // Settings → Date & time, set by the UI from config.toml. Shared by every date ttui shows.
@@ -34,17 +36,17 @@ func FmtDate(t time.Time) string {
 // FmtDayMonth is "8 Oct" (day first) or "Oct 8".
 func FmtDayMonth(t time.Time) string {
 	if DateOrder == "dd/mm/yyyy" {
-		return t.Format("2 Jan")
+		return i18n.Date(t.Format("2 Jan"))
 	}
-	return t.Format("Jan 2")
+	return i18n.Date(t.Format("Jan 2"))
 }
 
 // FmtLongDate is "8 Oct 2026" (day first) or "Oct 8, 2026".
 func FmtLongDate(t time.Time) string {
 	if DateOrder == "dd/mm/yyyy" {
-		return t.Format("2 Jan 2006")
+		return i18n.Date(t.Format("2 Jan 2006"))
 	}
-	return t.Format("Jan 2, 2006")
+	return i18n.Date(t.Format("Jan 2, 2006"))
 }
 
 // parseNumDate reads a numeric date in the chosen order, with / . or - between the parts;

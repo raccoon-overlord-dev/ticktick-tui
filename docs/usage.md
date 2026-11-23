@@ -42,6 +42,12 @@ The token is stored in `~/.config/ttui/auth.toml` (mode `0600`). Sign out from S
 Three panes (lists, tasks, details) at 120 columns or more, two (tasks, details) from 80, one below that,
 where details open as a bottom sheet. Force a layout in Settings → Columns.
 
+Settings → Density (`compact` · `normal` · `roomy`) scales what ttui spends cells on: the space between task rows and
+blocks, the padding inside the panes, the gutters between them and the sidebar's width. Compact fits more on screen,
+roomy gives the layout air. The font size is the terminal's own setting, not something an app can change
+(in Ghostty: `font-size` in its config, or `ctrl+shift++` / `ctrl+shift+-`); make the font smaller and compact density
+to get the most tasks on screen.
+
 URLs in task titles, notes (bare `https://…` or markdown `[text](url)`) and checklist items are clickable in terminals
 that support OSC 8 hyperlinks (Ghostty, kitty, WezTerm, iTerm2, recent GNOME Terminal and Windows Terminal).
 Settings → About shows the version and a link to the project page.
@@ -125,6 +131,11 @@ Quick add understands `call mom tomorrow 17:00 !high #errand @home ^chores`:
 Without a list, tasks go to the current list or Inbox. Adding from Today or Tomorrow defaults the day.
 Settings → Smart dates off (`smart_dates = false`) keeps day and time words in the title; `!`, `#`, `@` and `^` still work.
 
+Italian words are read as well, in either language: `oggi`, `domani`, `ieri`, weekday names
+(`lun mar mer gio ven sab dom`, `venerdì` or `venerdi`), month names, and `!alta` `!media` `!bassa`.
+Two of them are ambiguous: `dom` is *domenica* (Sunday), not *domani*, and `mar` is *martedì*, so write
+`marzo` in full when you mean March.
+
 To make a task repeat, give it a due date, then press `⏎` on **Repeat** in the details pane and pick
 Daily, Weekdays (Mon–Fri), Weekly, Monthly, Yearly or Never. Weekly, Monthly and Yearly follow the due date
 (e.g. "Monthly · on the 23rd").
@@ -146,6 +157,9 @@ Skip weekends where the web app offers it. `↑↓` moves, `←→` changes a va
 | `first workday`, `last workday` | on the first / last working day of the month |
 | `curve` | Ebbinghaus forgetting curve |
 | `dates fri 2026-10-22` | on these dates only |
+
+Rules can be written in Italian: `ogni 2 settimane`, `ogni lun,mer`, `giorni feriali`, `ultimo giorno lavorativo`,
+`primo lun`, `3° mer`, `ultimo giorno`, `fino al 2026-12-31`, `salta weekend`, `dal completamento`.
 
 Add any of: `until 2026-12-31` or `x5` (`5 times`) to end it, `skip weekends` / `skip holidays`,
 `from completion` to count from when you complete it instead of the due date. Leave it empty for no repeat.
@@ -190,6 +204,8 @@ with commented defaults on first run. Every option is also in Settings (`,`), wh
 | `appearance` | `theme` | a palette (`catppuccin`, `gruvbox`, `tokyo-night`… see Themes) · `terminal` · `colorful` · `lotr` · `harvest` · `hallows` · a custom theme name (Settings → Theme: `⏎` opens the list, moving previews a theme, `⏎` keeps it, `esc` goes back) |
 | | `mode` | `system` · `dark` · `light`: which variant of a palette theme to use; `system` reads your terminal's background color when ttui starts (Settings → Mode) |
 | | `background` | `solid` · `transparent` · `blur` (the last two let your terminal's opacity and blur show through) |
+| | `language` | `en` · `it` (Settings → Language): the language ttui shows. Input is read in both whatever it says, so `tomorrow` and `domani` always work |
+| | `density` | `compact` · `normal` · `roomy` (Settings → Density): how much room the UI gives itself — spacing between task rows and blocks, padding inside the panes, the gutters between them and the sidebar's width. It's ttui's zoom; the font size itself is your terminal's setting (in Ghostty, `font-size` in `~/.config/ghostty/config` or `ctrl+shift++` / `ctrl+shift+-`) |
 | | `priority_headers` | `rule` · `label` · `tab` |
 | | `focused_panel` | `border` · `title` |
 | | `nerd_font_icons` | `true` · `false` (needs a [Nerd Font](https://www.nerdfonts.com); `false` uses ASCII) |
@@ -234,7 +250,7 @@ and set `theme = "<name>"`.
 These come from TickTick's public API (details in [`docs/api-notes.md`](api-notes.md)):
 
 - The API has no Trash and can't undelete, so ttui keeps its own Trash (`:` Trash): copies of the tasks you deleted *from ttui* in the last 30 days, stored in `trash.json` in the cache folder. Tasks deleted in the web or phone app don't show up there. Restoring creates the task again with a new id and its title, notes, checklist, tags, due date, repeat and priority (not its created time or completion), and the original stays in the web app's Trash.
-- No attachments: the API doesn't expose them.
+- Attachments: a task that has files gets a paperclip in its row, counted from the `![file](<id>/<name>)` markdown links TickTick leaves in the task body (so the file names are readable in the notes). The API exposes nothing more, so ttui can't upload or download them — use the TickTick app for that.
 - The API doesn't apply a parent's completion or deletion to its subtasks, so ttui sends one request per subtask; a large tree takes a moment, and if some fail the rest stay done.
 - A task's last reminder can't be removed through the API (an empty list is ignored), so ttui says so; remove it in the TickTick app. Removing one of several works. A paid plan allows more reminders per task than the free one (the free plan kept 2); extra ones are dropped by the server.
 - Notifications only fire while ttui is open; TickTick's own apps may notify you of the same reminder.

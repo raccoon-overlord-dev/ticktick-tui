@@ -11,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
@@ -49,7 +50,7 @@ func (a *App) openCmd(q string) {
 }
 
 func (a *App) openPick(label string, items []cmdItem) {
-	a.cmd, a.settings = &cmdBar{in: newInput(""), pick: &picker{label, items}}, false
+	a.cmd, a.settings = &cmdBar{in: newInput(""), pick: &picker{i18n.T(label), items}}, false
 }
 
 // cmdMode returns the mode ("search", "cmd", "add", "list", "tag") and the query without its prefix.
@@ -76,7 +77,7 @@ var modeLabel = map[string][2]string{
 }
 
 func (a *App) taskItem(t *api.Task, pos []int) cmdItem {
-	list := "Inbox"
+	list := i18n.T("Inbox")
 	if p := a.st.Project(t.ProjectID); p != nil {
 		list = p.Name
 	}
@@ -112,47 +113,47 @@ func (a *App) commands() []cmdItem {
 	c := a.cfg
 	cur := func(v, want string) string {
 		if v == want {
-			return "current"
+			return i18n.T("current")
 		}
 		return ""
 	}
 	items := []cmdItem{
-		{icon: "+", label: "New task", hint: "n", run: func() tea.Cmd { a.openDraft(); return nil }},
-		{icon: "+", label: "New subtask", hint: "A · under the selected task", run: func() tea.Cmd { a.openSubDraft(); return nil }},
-		{icon: "▸", label: "Fold / unfold all subtasks", hint: "Z", run: func() tea.Cmd { a.toggleFoldAll(); return nil }},
-		{icon: "+", label: "Quick add", hint: "a", run: func() tea.Cmd { a.openCmd("+ "); return nil }},
-		{icon: a.icon("\uf014", "x"), label: fmt.Sprintf("Trash (%d)", len(a.trash)), hint: "deleted in the last 30 days", run: func() tea.Cmd { a.trashPicker(); return nil }},
-		{icon: a.icon("", ","), label: "Open settings", hint: ",", run: func() tea.Cmd { a.settings, a.sIdx = true, 1; return nil }},
-		{icon: a.icon("", "t"), label: "Toggle due-date labels (" + onOff(c.Tasks.DueLabel) + ")", hint: "t", run: func() tea.Cmd { a.toggleDueLabels(); return nil }},
+		{icon: "+", label: i18n.T("New task"), hint: "n", run: func() tea.Cmd { a.openDraft(); return nil }},
+		{icon: "+", label: i18n.T("New subtask"), hint: i18n.T("A · under the selected task"), run: func() tea.Cmd { a.openSubDraft(); return nil }},
+		{icon: "▸", label: i18n.T("Fold / unfold all subtasks"), hint: "Z", run: func() tea.Cmd { a.toggleFoldAll(); return nil }},
+		{icon: "+", label: i18n.T("Quick add"), hint: "a", run: func() tea.Cmd { a.openCmd("+ "); return nil }},
+		{icon: a.icon("\uf014", "x"), label: i18n.Fmt("Trash (%d)", len(a.trash)), hint: i18n.T("deleted in the last 30 days"), run: func() tea.Cmd { a.trashPicker(); return nil }},
+		{icon: a.icon("", ","), label: i18n.T("Open settings"), hint: ",", run: func() tea.Cmd { a.settings, a.sIdx = true, 1; return nil }},
+		{icon: a.icon("", "t"), label: i18n.Fmt("Toggle due-date labels (%s)", i18n.T(onOff(c.Tasks.DueLabel))), hint: "t", run: func() tea.Cmd { a.toggleDueLabels(); return nil }},
 	}
 	for _, t := range theme.Palettes(a.isDark()) {
-		items = append(items, cmdItem{icon: a.icon("", "~"), label: "Theme: " + t.Label(), hint: cur(c.Appearance.Theme, t.Name),
+		items = append(items, cmdItem{icon: a.icon("", "~"), label: i18n.T("Theme") + ": " + t.Label(), hint: cur(c.Appearance.Theme, t.Name),
 			run: func() tea.Cmd { return a.setOption("theme", t.Name) }})
 	}
 	for _, th := range theme.Names() {
-		items = append(items, cmdItem{icon: a.icon("", "~"), label: "Theme: " + th, hint: cur(c.Appearance.Theme, th),
+		items = append(items, cmdItem{icon: a.icon("", "~"), label: i18n.T("Theme") + ": " + th, hint: cur(c.Appearance.Theme, th),
 			run: func() tea.Cmd { return a.setOption("theme", th) }})
 	}
 	for _, m := range []string{"system", "dark", "light"} {
-		items = append(items, cmdItem{icon: a.icon("", "~"), label: "Mode: " + m, hint: cur(c.Appearance.Mode, m),
+		items = append(items, cmdItem{icon: a.icon("", "~"), label: i18n.T("Mode") + ": " + i18n.T(m), hint: cur(c.Appearance.Mode, m),
 			run: func() tea.Cmd { return a.setOption("mode", m) }})
 	}
 	for _, l := range [][2]string{{"auto", "Layout: auto (by width)"}, {"3", "Layout: 3 columns"}, {"2", "Layout: 2 columns"}, {"1", "Layout: 1 column"}} {
-		items = append(items, cmdItem{icon: a.icon("", "|"), label: l[1], hint: cur(c.Layout.Columns, l[0]),
+		items = append(items, cmdItem{icon: a.icon("", "|"), label: i18n.T(l[1]), hint: cur(c.Layout.Columns, l[0]),
 			run: func() tea.Cmd { return a.setOption("columns", l[0]) }})
 	}
 	for _, b := range []string{"solid", "transparent", "blur"} {
-		items = append(items, cmdItem{icon: a.icon("", "~"), label: "Background: " + b, hint: cur(c.Appearance.Background, b),
+		items = append(items, cmdItem{icon: a.icon("", "~"), label: i18n.T("Background") + ": " + i18n.T(b), hint: cur(c.Appearance.Background, b),
 			run: func() tea.Cmd { return a.setOption("bg", b) }})
 	}
-	shown := map[bool]string{true: "shown", false: "hidden"}[c.Layout.ShowCompleted]
+	shown := i18n.T(map[bool]string{true: "shown", false: "hidden"}[c.Layout.ShowCompleted])
 	items = append(items,
-		cmdItem{icon: a.icon("", "✓"), label: "Toggle completed tasks (" + shown + ")", run: func() tea.Cmd {
+		cmdItem{icon: a.icon("", "✓"), label: i18n.Fmt("Toggle completed tasks (%s)", shown), run: func() tea.Cmd {
 			return a.setOption("completed", onOff(!c.Layout.ShowCompleted))
 		}},
-		cmdItem{icon: a.icon("", "⟳"), label: "Sync now", hint: "ctrl+r", run: a.syncNow},
-		cmdItem{icon: a.icon("", "<"), label: "Sign out", run: a.signOut},
-		cmdItem{icon: a.icon("", "q"), label: "Quit ttui", hint: "q", run: func() tea.Cmd { return tea.Quit }},
+		cmdItem{icon: a.icon("", "⟳"), label: i18n.T("Sync now"), hint: "ctrl+r", run: a.syncNow},
+		cmdItem{icon: a.icon("", "<"), label: i18n.T("Sign out"), run: a.signOut},
+		cmdItem{icon: a.icon("", "q"), label: i18n.T("Quit ttui"), hint: "q", run: func() tea.Cmd { return tea.Quit }},
 	)
 	for i := range items {
 		items[i].iconRole = "secondary"
@@ -234,7 +235,7 @@ func (a *App) cmdData() (string, []cmdGroup) {
 		}
 		var gs []cmdGroup
 		for _, it := range items {
-			label := strings.ToUpper(cmp.Or(it.group, pk.label))
+			label := strings.ToUpper(i18n.T(cmp.Or(it.group, pk.label)))
 			if len(gs) == 0 || gs[len(gs)-1].label != label {
 				gs = append(gs, cmdGroup{label: label})
 			}
@@ -272,10 +273,10 @@ func (a *App) cmdData() (string, []cmdGroup) {
 				}
 			}
 			gs = append(gs, cmdGroup{"RECENT", recent}, cmdGroup{"TRY", []cmdItem{
-				{icon: "+", iconRole: "ok", label: "Quick add a task", hint: "+", run: func() tea.Cmd { a.openCmd("+ "); return nil }},
-				{icon: "@", iconRole: "accent", label: "Jump to a list", hint: "@", run: func() tea.Cmd { a.openCmd("@"); return nil }},
-				{icon: "#", iconRole: "secondary", label: "Filter by tag", hint: "#", run: func() tea.Cmd { a.openCmd("#"); return nil }},
-				{icon: ">", iconRole: "secondary", label: "Run a command", hint: ">", run: func() tea.Cmd { a.openCmd(">"); return nil }},
+				{icon: "+", iconRole: "ok", label: i18n.T("Quick add a task"), hint: "+", run: func() tea.Cmd { a.openCmd("+ "); return nil }},
+				{icon: "@", iconRole: "accent", label: i18n.T("Jump to a list"), hint: "@", run: func() tea.Cmd { a.openCmd("@"); return nil }},
+				{icon: "#", iconRole: "secondary", label: i18n.T("Filter by tag"), hint: "#", run: func() tea.Cmd { a.openCmd("#"); return nil }},
+				{icon: ">", iconRole: "secondary", label: i18n.T("Run a command"), hint: ">", run: func() tea.Cmd { a.openCmd(">"); return nil }},
 			}})
 			break
 		}
@@ -286,7 +287,7 @@ func (a *App) cmdData() (string, []cmdGroup) {
 				func(c cmdItem, pos []int) cmdItem { c.pos = pos; return c }), 3)})
 		if len(gs[0].items)+len(gs[1].items)+len(gs[2].items) == 0 {
 			add := a.quickAdd(term)
-			gs = append(gs, cmdGroup{"NO MATCHES", []cmdItem{{icon: "+", iconRole: "ok", label: "Add “" + term + "” as a task",
+			gs = append(gs, cmdGroup{"NO MATCHES", []cmdItem{{icon: "+", iconRole: "ok", label: i18n.Fmt("Add “%s” as a task", term),
 				run: func() tea.Cmd { return a.createTask(add) }}}})
 		}
 	case "cmd":
@@ -369,17 +370,18 @@ func (a *App) viewCmd() (string, int, int) {
 	w := min(78, a.w-4)
 	mode, gs := a.cmdData()
 	ml := modeLabel[mode]
+	ml[0] = i18n.T(ml[0])
 	if a.cmd.pick != nil {
 		ml = [2]string{a.cmd.pick.label, "accent"}
 	}
 
 	// input row
 	q := a.cmd.in.value()
-	input := a.cmd.in.view(p, "text", w-4-2-len(ml[0])-2)
+	input := a.cmd.in.view(p, "text", p.inner(w)-2-len(ml[0])-2)
 	if q == "" {
-		ph := "search tasks · > command · + add · @ list · # tag"
+		ph := i18n.T("search tasks · > command · + add · @ list · # tag")
 		if a.cmd.pick != nil {
-			ph = "type to filter"
+			ph = i18n.T("type to filter")
 		}
 		input = p.s("text").Reverse(true).Render(" ") + p.s("dim").Render(ph)
 	}
@@ -392,7 +394,7 @@ func (a *App) viewCmd() (string, int, int) {
 		if gi > 0 {
 			body = append(body, "")
 		}
-		body = append(body, p.line(w, p.s("dim").Render(g.label), ""))
+		body = append(body, p.line(w, p.s("dim").Render(i18n.T(g.label)), ""))
 		for _, it := range g.items {
 			on := n == a.cmd.idx
 			n++
@@ -412,17 +414,17 @@ func (a *App) viewCmd() (string, int, int) {
 			if it.hint != "" {
 				hint = rp.s("muted").Render(it.hint)
 			}
-			room := w - 4 - 2 - lipgloss.Width(hint) - 1
+			room := p.inner(w) - 2 - lipgloss.Width(hint) - 1
 			body = append(body, rp.line(w, rp.s(it.iconRole).Render(it.icon)+rp.sp(1)+a.highlight(rp, trunc(it.label, room), it.pos, labelRole), hint))
 		}
 	}
 	if len(gs) == 0 {
-		body = append(body, p.line(w, p.s("dim").Render("NO MATCHES"), ""))
+		body = append(body, p.line(w, p.s("dim").Render(i18n.T("NO MATCHES")), ""))
 	}
 
 	footer := []string{p.s("line").Render(strings.Repeat("─", w-2))}
 	var legend []string
-	prefixes := [][2]string{{">", "command"}, {"+", "add"}, {"@", "list"}, {"#", "tag"}}
+	prefixes := [][2]string{{">", i18n.T("command")}, {"+", i18n.T("add")}, {"@", i18n.T("list")}, {"#", i18n.T("tag")}}
 	if a.cmd.pick != nil {
 		prefixes = nil
 	}
@@ -433,7 +435,7 @@ func (a *App) viewCmd() (string, int, int) {
 		}
 		legend = append(legend, p.s(role).Render(pf[0]+" "+pf[1]))
 	}
-	footer = append(footer, p.line(w, p.s("dim").Render("↑↓ select · ⏎ run · esc close"), strings.Join(legend, p.sp(2))))
+	footer = append(footer, p.line(w, p.s("dim").Render(i18n.T("↑↓ select · ⏎ run · esc close")), strings.Join(legend, p.sp(2))))
 
 	maxBody := max(a.h*76/100-2-len(lines)-len(footer), 3)
 	body = window(body, sel, maxBody, &a.cmd.off)
@@ -451,7 +453,7 @@ func (a *App) addRows(rp, p pen, it cmdItem, w int) []string {
 		}
 		return rp.s(role).Render(s)
 	}
-	due := "no date"
+	due := i18n.T("no date")
 	if add.Due != nil {
 		t := api.Task{DueDate: add.Due.At(time.Now()).Format(api.DateLayout), IsAllDay: !add.Due.HasTime}
 		if d := store.DueLabel(&t, time.Now()); d != nil {
@@ -478,7 +480,7 @@ func (a *App) addRows(rp, p pen, it cmdItem, w int) []string {
 		rp.line(w, rp.s("ok").Render("+")+rp.sp(1)+rp.s("text").Bold(true).Render(trunc(it.label, w-6)), ""),
 		rp.line(w, rp.sp(2)+strings.Join(chips, rp.sp(2)), ""),
 		"",
-		p.line(w, p.s("dim").Render("!high !med !low · #tag · @list · ^parent · today tomorrow fri · 17:00"), ""),
+		p.line(w, p.s("dim").Render(i18n.T("!high !med !low · #tag · @list · ^parent · today tomorrow fri · 17:00")), ""),
 	}
 }
 

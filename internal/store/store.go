@@ -12,6 +12,7 @@ import (
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 )
 
 type Store struct {
@@ -267,7 +268,7 @@ func (s *Store) Group(id string) *api.Group {
 // ListPath is "Folder › List" for a task's list.
 func (s *Store) ListPath(projectID string) string {
 	if IsInbox(projectID) {
-		return "Inbox"
+		return i18n.T("Inbox")
 	}
 	p := s.Project(projectID)
 	if p == nil {
@@ -291,13 +292,13 @@ const (
 func PrioName(p int) string {
 	switch p {
 	case PrioHigh:
-		return "High"
+		return i18n.T("High")
 	case PrioMed:
-		return "Medium"
+		return i18n.T("Medium")
 	case PrioLow:
-		return "Low"
+		return i18n.T("Low")
 	}
-	return "None"
+	return i18n.T("None")
 }
 
 func PrioRole(p int) string {
@@ -394,7 +395,7 @@ func (s *Store) TaskGroups(tasks []*api.Task, so config.Sort, showCompleted bool
 	kids := map[string][]*api.Task{}
 	var out []Group
 	byKey := map[string]int{}
-	done := Group{Label: "Completed", Role: "ok", Done: true}
+	done := Group{Label: i18n.T("Completed"), Role: "ok", Done: true}
 	for _, t := range tasks {
 		switch {
 		case byID[t.ID] == nil:
@@ -470,7 +471,7 @@ func (s *Store) groupOf(t *api.Task, by string, now time.Time) (string, string, 
 	switch by {
 	case "list":
 		if IsInbox(t.ProjectID) {
-			return "Inbox", "accent", -1
+			return i18n.T("Inbox"), "accent", -1
 		}
 		rank := slices.IndexFunc(s.Projects, func(p api.Project) bool { return p.ID == t.ProjectID })
 		if rank < 0 {
@@ -481,34 +482,34 @@ func (s *Store) groupOf(t *api.Task, by string, now time.Time) (string, string, 
 		d, ok := DayDiff(t, now)
 		switch {
 		case !ok:
-			return "No date", "dim", 5
+			return i18n.T("No date"), "dim", 5
 		case d < 0:
-			return "Overdue", "error", 0
+			return i18n.T("Overdue"), "error", 0
 		case d == 0:
-			return "Today", "accent", 1
+			return i18n.T("Today"), "accent", 1
 		case d == 1:
-			return "Tomorrow", "accent", 2
+			return i18n.T("Tomorrow"), "accent", 2
 		case d <= 7:
-			return "Next 7 days", "accent", 3
+			return i18n.T("Next 7 days"), "accent", 3
 		}
-		return "Later", "accent", 4
+		return i18n.T("Later"), "accent", 4
 	case "created":
 		c, err := time.Parse(api.DateLayout, t.CreatedTime)
 		switch d := days(c.In(now.Location()), now); {
 		case err != nil:
-			return "Unknown", "dim", 4
+			return i18n.T("Unknown"), "dim", 4
 		case d <= 0:
-			return "Today", "accent", 0
+			return i18n.T("Today"), "accent", 0
 		case d == 1:
-			return "Yesterday", "accent", 1
+			return i18n.T("Yesterday"), "accent", 1
 		case d <= 7:
-			return "Last 7 days", "accent", 2
+			return i18n.T("Last 7 days"), "accent", 2
 		}
-		return "Earlier", "accent", 3
+		return i18n.T("Earlier"), "accent", 3
 	case "tag":
 		// first tag only, so each task shows once
 		if len(t.Tags) == 0 {
-			return "No tag", "dim", 1
+			return i18n.T("No tag"), "dim", 1
 		}
 		return "#" + strings.ToLower(t.Tags[0]), "secondary", 0
 	case "none":

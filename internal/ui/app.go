@@ -20,6 +20,7 @@ import (
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
@@ -48,7 +49,7 @@ func run(version string, demo *store.Store) error {
 	}
 	a := &App{version: version, cfg: cfg, th: th, signed: signed, now: time.Now(),
 		focus: "tasks", list: "today", sideKey: "l:today", idMap: map[string]string{}, trash: store.LoadTrash()}
-	a.applyDateTime()
+	a.applyLocale()
 	if demo != nil {
 		a.signed, a.demo, a.trash = &auth.Auth{}, true, nil
 		a.setStore(demo)
@@ -236,12 +237,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.onOpDone(msg)
 	case updateMsg:
 		a.newVersion = string(msg)
-		if strings.HasPrefix(a.flash, "checking for updates") {
-			a.setFlash(a.newVersion + " available · U to update")
+		if a.flash == i18n.T("checking for updates…") {
+			a.setFlash(i18n.Fmt("%s available · U to update", a.newVersion))
 		}
 		return a, nil
 	case updateErrMsg:
-		a.flashError("✗ update check failed: " + msg.err.Error())
+		a.flashError(i18n.Fmt("✗ update check failed: %s", msg.err.Error()))
 		return a, nil
 	case updateDoneMsg:
 		return a, a.onUpdated(msg)
@@ -320,7 +321,7 @@ func (a *App) editKey(k tea.KeyPressMsg) tea.Cmd {
 			a.in.save("")
 			a.in.cutSel()
 		}
-		a.setFlash("copied")
+		a.setFlash(i18n.T("copied"))
 		return tea.SetClipboard(s)
 	case key == "enter" && a.edit == "additem" && strings.TrimSpace(a.in.value()) != "":
 		cmd, _ := a.commitEdit()
@@ -374,7 +375,7 @@ func (a *App) onStore(msg storeMsg) tea.Cmd {
 		case msg.err != nil && a.st == nil:
 			a.err = msg.err.Error()
 		case msg.err != nil:
-			a.flashError("⟳ sync failed: " + shortErr(msg.err))
+			a.flashError(i18n.Fmt("⟳ sync failed: %s", shortErr(msg.err)))
 		case a.busy || len(a.queue) > 0:
 			// local edits in flight; the next sync picks up the server state
 		default:
@@ -390,7 +391,7 @@ func (a *App) onStore(msg storeMsg) tea.Cmd {
 	if msg.err != nil {
 		if msg.pending.Method == "token" {
 			if unauthorized {
-				a.auth.tokenErr = "✗ Token rejected (401). Check it and try again."
+				a.auth.tokenErr = i18n.T("✗ Token rejected (401). Check it and try again.")
 			} else {
 				a.auth.tokenErr = "✗ " + msg.err.Error()
 			}
@@ -411,16 +412,16 @@ func (a *App) onStore(msg storeMsg) tea.Cmd {
 
 func (a *App) signOut() tea.Cmd {
 	if a.demo {
-		a.setFlash("demo mode: not signed in")
+		a.setFlash(i18n.T("demo mode: not signed in"))
 		return nil
 	}
 	if err := auth.SignOut(); err != nil {
-		a.setFlash("sign out failed: " + err.Error())
+		a.setFlash(i18n.Fmt("sign out failed: %s", err.Error()))
 		return nil
 	}
 	a.signed, a.st, a.screen, a.auth, a.settings, a.cmd, a.edit = nil, nil, screenAuth, authScreen{}, false, nil, ""
 	a.queue, a.busy, a.syncGen, a.trash = nil, false, a.syncGen+1, nil
-	a.setFlash("signed out")
+	a.setFlash(i18n.T("signed out"))
 	return a.auth.start()
 }
 
@@ -445,13 +446,22 @@ func openBrowser(url string) tea.Cmd {
 			name = "open"
 		}
 		if err := exec.Command(name, url).Run(); err != nil {
-			return flashMsg("couldn't open a browser · press c to copy the URL")
+			return flashMsg(i18n.T("couldn't open a browser · press c to copy the URL"))
 		}
 		return nil
 	}
 }
 
-func (a *App) pen() pen { return pen{th: a.th} }
+func (a *App) pen() pen { return pen{th: a.th, pad: dens(a.cfg.Appearance.Density).pad} }
+
+// mainDetail is the details pane's own field and scroll: the New task panel borrows df/offDetail
+// while it's open, so the pane drawn behind it must render from the values openDraft saved.
+func (a *App) mainDetail() (int, *int) {
+	if a.draft != nil {
+		return a.mainDF, &a.mainOff
+	}
+	return a.df, &a.offDetail
+}
 
 // overlayPen paints base under everything, as overlays must even in transparent mode.
 func (a *App) overlayPen() pen {
@@ -507,9 +517,9 @@ func (a *App) View() tea.View {
 
 func (a *App) viewLoading() string {
 	if a.err != "" {
-		return a.style("error").Render("✗ "+a.err) + "\n" + a.style("dim").Render("q quit")
+		return a.style("error").Render("✗ "+a.err) + "\n" + a.style("dim").Render(i18n.T("q quit"))
 	}
-	return a.style("muted").Render(spinnerFrames[a.spin%len(spinnerFrames)] + " Syncing…")
+	return a.style("muted").Render(spinnerFrames[a.spin%len(spinnerFrames)] + " " + i18n.T("Syncing…"))
 }
 
 func (a *App) statusBar(mode, modeRole string, hints [][2]string) string {
@@ -521,13 +531,13 @@ func (a *App) statusBar(mode, modeRole string, hints [][2]string) string {
 
 	var parts []string
 	if a.newVersion != "" && !a.updating {
-		parts = append(parts, st("info").Render("↑ "+a.newVersion+" · U update"))
+		parts = append(parts, st("info").Render(i18n.Fmt("↑ %s · U update", a.newVersion)))
 	}
 	switch {
 	case a.signed == nil:
-		parts = append(parts, st("dim").Render("not signed in"))
+		parts = append(parts, st("dim").Render(i18n.T("not signed in")))
 	case a.st != nil && a.w >= 100:
-		parts = append(parts, st("ok").Render(a.icon("", "⟳")+" synced "+ago(a.now.Sub(a.st.SyncedAt))))
+		parts = append(parts, st("ok").Render(a.icon("", "⟳")+" "+i18n.T("synced")+" "+ago(a.now.Sub(a.st.SyncedAt))))
 		if user, _, _ := strings.Cut(a.st.Email, "@"); user != "" {
 			parts = append(parts, st("muted").Render(a.icon(" ", "")+user))
 		}
@@ -547,7 +557,7 @@ func (a *App) statusBar(mode, modeRole string, hints [][2]string) string {
 			n = 4
 		}
 		for _, hk := range hints[:min(n, len(hints))] {
-			h := "  " + st("sub").Render(hk[0]) + " " + st("dim").Render(hk[1])
+			h := "  " + st("sub").Render(hk[0]) + " " + st("dim").Render(i18n.T(hk[1]))
 			if lipgloss.Width(left+h)+lipgloss.Width(right) >= a.w-1 { // keep the right side (e.g. the update notice) visible
 				break
 			}
@@ -565,11 +575,11 @@ func (a *App) statusBar(mode, modeRole string, hints [][2]string) string {
 func ago(d time.Duration) string {
 	switch {
 	case d < time.Minute:
-		return "just now"
+		return i18n.T("just now")
 	case d < time.Hour:
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+		return i18n.Fmt("%dm ago", int(d.Minutes()))
 	}
-	return fmt.Sprintf("%dh ago", int(d.Hours()))
+	return i18n.Fmt("%dh ago", int(d.Hours()))
 }
 
 func (a *App) icon(nerd, ascii string) string {

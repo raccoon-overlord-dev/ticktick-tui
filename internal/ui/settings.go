@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/theme"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/update"
@@ -24,11 +25,13 @@ type setRow struct {
 
 var setRows = []setRow{
 	{sec: "APPEARANCE"},
+	{key: "lang", label: "Language", opts: []string{"en", "it"}, desc: "The language ttui shows · quick add and the Due field read both (tomorrow and domani)"},
 	{key: "mode", label: "Mode", opts: []string{"system", "dark", "light"}, desc: "Dark or light variant of the palette themes · system: from your terminal’s background, read at start"},
 	{key: "theme", label: "Theme", desc: "⏎ opens the list · palettes from terminalcolors.com · terminal inherits your emulator’s 16 ANSI colors · custom ones: ~/.config/ttui/themes"},
 	{key: "prio", label: "Group headers", opts: []string{"rule", "label", "tab"}, desc: "How task groups are separated in the task list"},
 	{key: "focus", label: "Focused panel", opts: []string{"border", "title"}, desc: "Accent border, or an inverted title chip"},
 	{key: "bg", label: "Background", opts: []string{"solid", "transparent", "blur"}, desc: "transparent/blur: ttui paints no background, so your terminal’s opacity + blur show through"},
+	{key: "density", label: "Density", opts: []string{"compact", "normal", "roomy"}, desc: "Room the UI gives itself: spacing between rows and blocks, padding, pane widths · the font size is your terminal’s own setting"},
 	{key: "icons", label: "Nerd Font icons", opts: []string{"on", "off"}, desc: "Off falls back to plain ASCII glyphs"},
 	{sec: "LAYOUT"},
 	{key: "columns", label: "Columns", opts: []string{"auto", "3", "2", "1"}, desc: "auto: 3 panes ≥ 120 cols · 2 panes ≥ 80 · 1 pane below"},
@@ -62,8 +65,8 @@ var setRows = []setRow{
 func (a *App) field(key string) *string {
 	c := a.cfg
 	return map[string]*string{
-		"theme": &c.Appearance.Theme, "mode": &c.Appearance.Mode, "prio": &c.Appearance.PriorityHeaders, "focus": &c.Appearance.FocusedPanel,
-		"bg": &c.Appearance.Background, "columns": &c.Layout.Columns, "group": &c.Tasks.GroupBy,
+		"lang": &c.Appearance.Language, "theme": &c.Appearance.Theme, "mode": &c.Appearance.Mode, "prio": &c.Appearance.PriorityHeaders, "focus": &c.Appearance.FocusedPanel,
+		"bg": &c.Appearance.Background, "density": &c.Appearance.Density, "columns": &c.Layout.Columns, "group": &c.Tasks.GroupBy,
 		"sort": &c.Tasks.SortBy, "order": &c.Tasks.Order,
 		"week": &c.Tasks.WeekStart, "timefmt": &c.DateTime.TimeFormat, "datefmt": &c.DateTime.DateFormat,
 		"remtime": &c.Reminders.DefaultTime, "notify": &c.Reminders.Notify, "history": &c.Tasks.CompletedDays, "keymap": &c.Keys.Keymap, "sync": &c.Account.SyncEvery,
@@ -139,12 +142,12 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 		}
 	}
 	a.save()
-	a.applyDateTime()
+	a.applyLocale()
 	switch r.key {
 	case "sync":
 		return a.scheduleSync()
 	case "history":
-		a.setFlash("⟳ syncing " + opt + " days of completed tasks…")
+		a.setFlash(i18n.Fmt("⟳ syncing %s days of completed tasks…", opt))
 		return a.syncNow()
 	case "updates":
 		a.newVersion = ""
@@ -157,11 +160,11 @@ func (a *App) setOption(key, opt string) tea.Cmd {
 // themes (built-in and the user's own files).
 func (a *App) openThemes() {
 	a.themes, a.themeLabels, a.themeSecs = nil, nil, map[int]string{}
-	a.themeSecs[0] = map[bool]string{true: "DARK", false: "LIGHT"}[a.isDark()]
+	a.themeSecs[0] = map[bool]string{true: i18n.T("DARK"), false: i18n.T("LIGHT")}[a.isDark()]
 	for _, t := range theme.Palettes(a.isDark()) {
 		a.themes, a.themeLabels = append(a.themes, t.Name), append(a.themeLabels, [2]string{t.Family, t.Variant})
 	}
-	a.themeSecs[len(a.themes)] = "CUSTOM"
+	a.themeSecs[len(a.themes)] = i18n.T("CUSTOM")
 	for _, n := range theme.Names() {
 		if !slices.Contains(a.themes, n) {
 			a.themes, a.themeLabels = append(a.themes, n), append(a.themeLabels, [2]string{n})
@@ -242,7 +245,7 @@ func (a *App) viewSettings() (string, int, int) {
 			if i > 0 {
 				lines = append(lines, "")
 			}
-			lines = append(lines, p.line(w, p.s("dim").Render(r.sec), ""))
+			lines = append(lines, p.line(w, p.s("dim").Render(i18n.T(r.sec)), ""))
 			continue
 		}
 		rp := p
@@ -250,22 +253,22 @@ func (a *App) viewSettings() (string, int, int) {
 			sel = len(lines)
 			rp = p.on(a.selBg(true))
 		}
-		label := rp.s("text").Render(padRight(r.label, 22))
+		label := rp.s("text").Render(padRight(i18n.T(r.label), 22))
 		var val string
 		if r.key == "account" {
-			email := "signed in"
+			email := i18n.T("signed in")
 			if a.st != nil && a.st.Email != "" {
 				email = a.st.Email
 			}
-			val = rp.s("text").Render(email) + rp.sp(2) + rp.s("error").Render("⏎ sign out")
+			val = rp.s("text").Render(email) + rp.sp(2) + rp.s("error").Render(i18n.T("⏎ sign out"))
 		} else if r.key == "about" {
-			val = rp.s("dim").Render("⏎ open")
+			val = rp.s("dim").Render(i18n.T("⏎ open"))
 		} else if r.key == "theme" {
 			val = rp.s("accent").Bold(true).Render(a.th.Label()) + rp.sp(1) + rp.s("dim").Render("▾")
 		} else if r.key == "checknow" && a.newVersion != "" {
-			val = rp.s("info").Render("⏎ update to " + a.newVersion)
+			val = rp.s("info").Render(i18n.Fmt("⏎ update to %s", a.newVersion))
 		} else if r.key == "checknow" {
-			val = rp.s("dim").Render("⏎ check · ttui " + a.version)
+			val = rp.s("dim").Render(i18n.T("⏎ check") + " · ttui " + a.version)
 		} else {
 			cur := a.settingValue(r)
 			for j, o := range r.opts {
@@ -273,9 +276,9 @@ func (a *App) viewSettings() (string, int, int) {
 					val += rp.sp(2)
 				}
 				if o == cur {
-					val += rp.s("accent").Bold(true).Underline(true).Render(o)
+					val += rp.s("accent").Bold(true).Underline(true).Render(i18n.T(o))
 				} else {
-					val += rp.s("dim").Render(o)
+					val += rp.s("dim").Render(i18n.T(o))
 				}
 			}
 		}
@@ -283,7 +286,7 @@ func (a *App) viewSettings() (string, int, int) {
 		if r.key == "theme" && a.themes != nil { // the dropdown, under the row
 			for j, n := range a.themes {
 				if sec, ok := a.themeSecs[j]; ok {
-					lines = append(lines, p.line(w, p.sp(22)+p.s("dim").Render(sec), ""))
+					lines = append(lines, p.line(w, p.sp(22)+p.s("dim").Render(i18n.T(sec)), ""))
 				}
 				op := p
 				if j == a.themeIdx {
@@ -298,14 +301,14 @@ func (a *App) viewSettings() (string, int, int) {
 			}
 		}
 	}
-	desc := setRows[a.sIdx].desc
-	hint := "j/k move · h/l change · esc close"
+	desc := i18n.T(setRows[a.sIdx].desc)
+	hint := i18n.T("j/k move · h/l change · esc close")
 	if a.themes != nil {
-		desc, hint = "Previewed as you move", "j/k pick · ⏎ choose · esc cancel"
+		desc, hint = i18n.T("Previewed as you move"), i18n.T("j/k pick · ⏎ choose · esc cancel")
 	}
 	footer := []string{
 		p.s("line").Render(strings.Repeat("─", w-2)),
-		p.line(w, p.s("muted").Render(trunc(desc, w-4)), ""),
+		p.line(w, p.s("muted").Render(trunc(desc, p.inner(w))), ""),
 		p.line(w, p.s("dim").Render(hint), ""),
 	}
 	maxBody := max(a.h-1-2-len(footer), 1)
@@ -316,7 +319,7 @@ func (a *App) viewSettings() (string, int, int) {
 	if home, err := os.UserHomeDir(); err == nil {
 		path = strings.Replace(path, home, "~", 1)
 	}
-	return a.frame(p, frameOpts{w: w, h: h, title: "Settings", modal: true, topRight: path, body: body}), w, h
+	return a.frame(p, frameOpts{w: w, h: h, title: i18n.T("Settings"), modal: true, topRight: path, body: body}), w, h
 }
 
 func padRight(s string, n int) string {
@@ -402,14 +405,14 @@ func (a *App) viewHelp() (string, int, int) {
 			if i > 0 {
 				lines = append(lines, "")
 			}
-			lines = append(lines, p.line(w, p.s("dim").Render(r.sec), ""))
+			lines = append(lines, p.line(w, p.s("dim").Render(i18n.T(r.sec)), ""))
 			continue
 		}
-		lines = append(lines, p.line(w, p.s("accent").Render(padRight(r.key, 12))+p.s("text").Render(trunc(r.desc, w-4-12)), ""))
+		lines = append(lines, p.line(w, p.s("accent").Render(padRight(r.key, 12))+p.s("text").Render(trunc(i18n.T(r.desc), p.inner(w)-12)), ""))
 	}
 	body := window(lines, -1, max(a.h-1-2, 1), &a.offHelp)
 	h := len(body) + 2
-	return a.frame(p, frameOpts{w: w, h: h, title: "Keys", modal: true, topRight: "esc close", body: body}), w, h
+	return a.frame(p, frameOpts{w: w, h: h, title: i18n.T("Keys"), modal: true, topRight: i18n.T("esc close"), body: body}), w, h
 }
 
 // viewAbout renders the About box (Settings → About): version and project link.
@@ -421,16 +424,17 @@ func (a *App) viewAbout() (string, int, int) {
 	}
 	body := []string{
 		"",
-		row("Version", p.s("text").Render(a.version)),
-		row("GitHub", linkify(p.s("text"), p.s("info"), update.Repo, w-4-10)),
+		row(i18n.T("Version"), p.s("text").Render(a.version)),
+		row("GitHub", linkify(p.s("text"), p.s("info"), update.Repo, p.inner(w)-10)),
 		"",
 	}
 	h := len(body) + 2
-	return a.frame(p, frameOpts{w: w, h: h, title: "About ttui", modal: true, topRight: "esc close", body: body}), w, h
+	return a.frame(p, frameOpts{w: w, h: h, title: i18n.T("About ttui"), modal: true, topRight: i18n.T("esc close"), body: body}), w, h
 }
 
-// applyDateTime passes Settings → Date & time to the date formatting in parse.
-func (a *App) applyDateTime() {
+// applyLocale passes Settings → Language and Date & time to the packages that format text.
+func (a *App) applyLocale() {
+	i18n.Lang = cmp.Or(a.cfg.Appearance.Language, "en")
 	parse.Clock12 = a.cfg.DateTime.TimeFormat == "12h"
 	parse.DateOrder = cmp.Or(a.cfg.DateTime.DateFormat, "dd/mm/yyyy")
 }

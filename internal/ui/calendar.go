@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
@@ -47,7 +48,7 @@ func daysFrom(now, d time.Time) int {
 // pickDue opens the calendar for t's due date, with its time.
 func (a *App) pickDue(t *api.Task) {
 	now := time.Now()
-	c := &calendar{title: "due date", cur: midnight(now), clock: true}
+	c := &calendar{title: i18n.T("due date"), cur: midnight(now), clock: true}
 	if d, ok := store.DueTime(t); ok {
 		d = d.In(now.Location())
 		c.cur = midnight(d)
@@ -57,12 +58,12 @@ func (a *App) pickDue(t *api.Task) {
 	}
 	c.done = func(c *calendar) tea.Cmd {
 		d := &parse.Due{Day: daysFrom(time.Now(), c.cur)}
-		label := c.cur.Format("Mon ") + parse.FmtDayMonth(c.cur)
+		label := i18n.Date(c.cur.Format("Mon ")) + parse.FmtDayMonth(c.cur)
 		if c.at != "" {
 			d.H, d.M, d.HasTime = parseClock(c.at)
 			label += " " + c.at
 		}
-		a.setFlash("due → " + label)
+		a.setFlash(i18n.T("due") + " → " + label)
 		return a.setDue(t, d)
 	}
 	a.cal = c
@@ -78,7 +79,7 @@ func (a *App) calKey(k tea.KeyPressMsg) tea.Cmd {
 		case "enter":
 			v := strings.TrimSpace(c.in.value())
 			if _, _, ok := parseClock(v); v != "" && !ok {
-				a.setFlash("time: try 17:00 or 5pm · empty = all day")
+				a.setFlash(i18n.T("time: try 17:00 or 5pm · empty = all day"))
 				return nil
 			}
 			c.at, c.editing = v, false
@@ -140,10 +141,10 @@ func (a *App) viewCal() (string, int, int) {
 	}
 	start := first.AddDate(0, 0, -((int(first.Weekday()) - int(ws) + 7) % 7))
 
-	lines := []string{p.line(w, p.s("accent").Bold(true).Render(c.cur.Format("January 2006")), p.s("dim").Render("‹ pgup  pgdn ›")), ""}
+	lines := []string{p.line(w, p.s("accent").Bold(true).Render(i18n.Date(c.cur.Format("January 2006"))), p.s("dim").Render("‹ pgup  pgdn ›")), ""}
 	var head []string
 	for i := range 7 {
-		head = append(head, p.s("muted").Render(fmt.Sprintf(" %s ", time.Weekday((int(ws) + i) % 7).String()[:2])))
+		head = append(head, p.s("muted").Render(fmt.Sprintf(" %s ", dayAbbr(time.Weekday((int(ws)+i)%7)))))
 	}
 	lines = append(lines, p.line(w, strings.Join(head, ""), ""))
 	for row := range 6 {
@@ -171,21 +172,27 @@ func (a *App) viewCal() (string, int, int) {
 	if c.clock {
 		v := p.s("text").Render(c.at)
 		if c.at == "" {
-			v = p.s("dim").Render("all day")
+			v = p.s("dim").Render(i18n.T("all day"))
 		}
 		if c.editing {
 			v = c.in.view(p, "text", 12)
 		}
-		lines = append(lines, p.line(w, p.s("muted").Render("Time  ")+v, p.s("dim").Render("t change")))
+		lines = append(lines, p.line(w, p.s("muted").Render(padRight(i18n.T("Time"), 6))+v, p.s("dim").Render(i18n.T("t change"))))
 	}
 	if c.multi {
-		lines = append(lines, p.line(w, p.s("muted").Render(fmt.Sprintf("%d picked", len(c.picked))), p.s("dim").Render("␣ toggle")))
+		lines = append(lines, p.line(w, p.s("muted").Render(i18n.Fmt("%d picked", len(c.picked))), p.s("dim").Render(i18n.T("␣ toggle"))))
 	}
-	keys := "←→↑↓ day · ⏎ pick · esc"
+	keys := i18n.T("←→↑↓ day · ⏎ pick · esc")
 	if c.editing {
-		keys = "⏎ set time · esc back"
+		keys = i18n.T("⏎ set time · esc back")
 	}
 	lines = append(lines, p.s("line").Render(strings.Repeat("─", w-2)), p.line(w, p.s("dim").Render(keys), ""))
 	h := len(lines) + 2
-	return a.frame(p, frameOpts{w: w, h: h, title: c.title, modal: true, topRight: "home today", body: lines}), w, h
+	return a.frame(p, frameOpts{w: w, h: h, title: c.title, modal: true, topRight: i18n.T("home today"), body: lines}), w, h
+}
+
+// dayAbbr is the two-letter weekday head of the calendar grid, in the chosen language.
+func dayAbbr(d time.Weekday) string {
+	r := []rune(i18n.Date(d.String()))
+	return strings.ToUpper(string(r[0])) + string(r[1])
 }

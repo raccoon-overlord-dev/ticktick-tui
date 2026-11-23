@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 )
 
 // Reminders are iCal triggers relative to the due date (see docs/api-notes.md): all-day
@@ -66,11 +68,18 @@ func FireTime(due time.Time, allDay bool, d time.Duration) time.Time {
 	return due.Add(d)
 }
 
+// plural is "1 day" / "3 days" in the chosen language. The units are spelled out so the
+// i18n completeness test can see them.
 func plural(n int, unit string) string {
-	if n == 1 {
-		return "1 " + unit
+	switch unit {
+	case "week":
+		return i18n.Plural(n, "1 week", "%d weeks")
+	case "day":
+		return i18n.Plural(n, "1 day", "%d days")
+	case "hour":
+		return i18n.Plural(n, "1 hour", "%d hours")
 	}
-	return fmt.Sprintf("%d %ss", n, unit)
+	return i18n.Plural(n, "1 minute", "%d minutes")
 }
 
 // ReminderText describes a trigger: "On the day, 09:00", "1 week early, 09:00",
@@ -85,29 +94,34 @@ func ReminderText(trigger string, allDay bool) string {
 		clock := FmtTime(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC).Add(at))
 		switch {
 		case n == 0:
-			return "On the day, " + clock
+			return i18n.Fmt("On the day, %s", clock)
 		case n > 0 && n%7 == 0:
-			return plural(n/7, "week") + " early, " + clock
+			return i18n.Fmt("%s early, %s", plural(n/7, "week"), clock)
 		case n > 0:
-			return plural(n, "day") + " early, " + clock
+			return i18n.Fmt("%s early, %s", plural(n, "day"), clock)
 		}
-		return plural(-n, "day") + " after, " + clock
+		return i18n.Fmt("%s after, %s", plural(-n, "day"), clock)
 	}
 	if d == 0 {
-		return "On time"
+		return i18n.T("On time")
 	}
-	when := " early"
-	if d > 0 {
-		when, d = " after", -d
+	early := d < 0
+	if !early {
+		d = -d
 	}
+	var p string
 	switch m := int(-d / time.Minute); {
 	case m%(60*24*7) == 0:
-		return plural(m/(60*24*7), "week") + when
+		p = plural(m/(60*24*7), "week")
 	case m%(60*24) == 0:
-		return plural(m/(60*24), "day") + when
+		p = plural(m/(60*24), "day")
 	case m%60 == 0:
-		return plural(m/60, "hour") + when
+		p = plural(m/60, "hour")
 	default:
-		return plural(m, "minute") + when
+		p = plural(m, "minute")
 	}
+	if early {
+		return i18n.Fmt("%s early", p)
+	}
+	return i18n.Fmt("%s after", p)
 }

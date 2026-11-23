@@ -14,6 +14,7 @@ import (
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
@@ -125,7 +126,7 @@ func skipOccurrence(ctx context.Context, c *api.Client, pid, id string, before *
 			return t, c.DeleteTask(ctx, pid, d.ID)
 		}
 	}
-	return t, errors.New("skipped, but its completed copy wasn't found")
+	return t, errors.New(i18n.T("skipped, but its completed copy wasn't found"))
 }
 
 // sameTime compares API dates, which come back with milliseconds.
@@ -157,7 +158,7 @@ func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
 			}
 			a.st.Upsert(b)
 		}
-		a.flashError("✗ couldn't save: " + shortErr(m.err))
+		a.flashError(i18n.Fmt("✗ couldn't save: %s", shortErr(m.err)))
 		if unauthorized(m.err) {
 			return a.expired()
 		}
@@ -214,7 +215,7 @@ func shortErr(err error) string {
 // expired returns to the auth screen after a 401.
 func (a *App) expired() tea.Cmd {
 	a.signed, a.screen, a.queue, a.busy = nil, screenAuth, nil, false
-	a.auth = authScreen{notice: "Session expired · sign in again"}
+	a.auth = authScreen{notice: i18n.T("Session expired · sign in again")}
 	return a.auth.start()
 }
 
@@ -241,7 +242,7 @@ func (a *App) scheduleSync() tea.Cmd {
 
 func (a *App) syncNow() tea.Cmd {
 	if a.demo {
-		a.setFlash("⟳ synced · demo data")
+		a.setFlash(i18n.T("⟳ synced · demo data"))
 		return nil
 	}
 	if a.signed == nil || a.syncing {
@@ -289,9 +290,9 @@ func (a *App) toggleDone(t *api.Task) tea.Cmd {
 		a.lastDone = append(a.lastDone, x.ID)
 		cmds = append(cmds, a.enqueue(op{kind: "complete", taskID: x.ID, before: &before}))
 	}
-	msg := fmt.Sprintf("✓ completed “%s” · x to undo", t.Title)
+	msg := i18n.Fmt("✓ completed “%s” · x to undo", t.Title)
 	if n := len(done) - 1; n > 0 {
-		msg = fmt.Sprintf("✓ completed “%s” and %d subtask%s · x to undo", t.Title, n, map[bool]string{true: "s"}[n > 1])
+		msg = i18n.Fmt("✓ completed “%s” and %s · x to undo", t.Title, i18n.Plural(n, "1 subtask", "%d subtasks"))
 	}
 	a.setFlash(msg)
 	return tea.Batch(cmds...)
@@ -330,11 +331,11 @@ func (a *App) askDelete(t *api.Task) {
 	a.delID = t.ID
 	name := "“" + t.Title + "”"
 	if n := len(a.st.Descendants(t.ID)); n > 0 {
-		name += fmt.Sprintf(" and %d subtask%s", n, map[bool]string{true: "s"}[n > 1])
+		name += " " + i18n.Fmt("and %s", i18n.Plural(n, "1 subtask", "%d subtasks"))
 	}
-	q := fmt.Sprintf("Delete %s? y / N", name)
+	q := i18n.Fmt("Delete %s? y / N", name)
 	if t.RepeatFlag != "" && !store.Done(t) {
-		q = fmt.Sprintf("Delete %s? o this occurrence · a all occurrences · N cancel", name)
+		q = i18n.Fmt("Delete %s? o this occurrence · a all occurrences · N cancel", name)
 	}
 	a.flash, a.flashRole, a.flashUntil = q, "warn", time.Now().Add(time.Hour)
 }
@@ -360,12 +361,12 @@ func (a *App) deleteKey(k tea.KeyPressMsg) tea.Cmd {
 			a.toTrash(before)
 			cmds = append(cmds, a.enqueue(op{kind: "delete", taskID: before.ID, before: &before}))
 		}
-		a.setFlash(fmt.Sprintf("deleted “%s” · : Trash to restore", gone[len(gone)-1].Title))
+		a.setFlash(i18n.Fmt("deleted “%s” · : Trash to restore", gone[len(gone)-1].Title))
 		return tea.Batch(cmds...)
 	case repeat && key == "o":
 		before := store.Clone(*t)
 		t.Status = 2 // hidden until the server returns the next occurrence
-		a.setFlash(fmt.Sprintf("deleted this occurrence of “%s”", t.Title))
+		a.setFlash(i18n.Fmt("deleted this occurrence of “%s”", t.Title))
 		return a.enqueue(op{kind: "skip", taskID: t.ID, before: &before})
 	}
 	return nil
@@ -391,7 +392,7 @@ func (a *App) trashPicker() {
 		a.saveTrash()
 	}
 	if len(a.trash) == 0 {
-		a.setFlash("trash is empty · tasks deleted with D show up here")
+		a.setFlash(i18n.T("trash is empty · tasks deleted with D show up here"))
 		return
 	}
 	var items []cmdItem
@@ -402,11 +403,11 @@ func (a *App) trashPicker() {
 		}
 		name, _, _ := a.listMeta(listID(tr.Task.ProjectID))
 		items = append(items, cmdItem{icon: a.icon("\uf014", "x"), iconRole: "dim", label: tr.Task.Title,
-			hint: name + " · deleted " + when, run: func() tea.Cmd { return a.restore(tr) }})
+			hint: name + " · " + i18n.Fmt("deleted %s", when), run: func() tea.Cmd { return a.restore(tr) }})
 	}
-	items = append(items, cmdItem{icon: a.icon("\uf1f8", "!"), iconRole: "error", label: "Empty trash",
-		hint: fmt.Sprintf("forget %d · the web app's Trash keeps them", len(a.trash)),
-		run:  func() tea.Cmd { a.trash = nil; a.saveTrash(); a.setFlash("trash emptied"); return nil }})
+	items = append(items, cmdItem{icon: a.icon("\uf1f8", "!"), iconRole: "error", label: i18n.T("Empty trash"),
+		hint: i18n.Fmt("forget %d · the web app's Trash keeps them", len(a.trash)),
+		run:  func() tea.Cmd { a.trash = nil; a.saveTrash(); a.setFlash(i18n.T("trash emptied")); return nil }})
 	a.openPick("trash", items)
 }
 
@@ -492,7 +493,7 @@ func (a *App) cyclePrio(t *api.Task) tea.Cmd {
 	if t != a.draft {
 		a.taskID = t.ID
 	}
-	a.setFlash("priority → " + strings.ToLower(store.PrioName(p)))
+	a.setFlash(i18n.T("priority") + " → " + strings.ToLower(store.PrioName(p)))
 	return a.update(t, map[string]any{"priority": p}, func(t *api.Task) { t.Priority = p })
 }
 
@@ -543,7 +544,7 @@ func (a *App) convert(t *api.Task) tea.Cmd {
 			lines = append(lines, it.Title)
 		}
 		text := strings.Join(lines, "\n")
-		a.setFlash("converted to a note")
+		a.setFlash(i18n.T("converted to a note"))
 		return a.update(t, map[string]any{"kind": "TEXT", "content": text, "desc": "", "items": []api.Item{}},
 			func(t *api.Task) { t.Kind, t.Content, t.Desc, t.Items = "TEXT", text, "", nil })
 	}
@@ -554,7 +555,7 @@ func (a *App) convert(t *api.Task) tea.Cmd {
 			items = append(items, it)
 		}
 	}
-	a.setFlash("converted to a checklist")
+	a.setFlash(i18n.T("converted to a checklist"))
 	return a.update(t, map[string]any{"kind": "CHECKLIST", "content": "", "desc": "", "items": items},
 		func(t *api.Task) { t.Kind, t.Content, t.Desc, t.Items = "CHECKLIST", "", "", items })
 }
@@ -603,7 +604,7 @@ func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
 	}
 	if list == "inbox" {
 		if to = a.st.InboxID(); to == "" {
-			a.flashError("✗ Inbox id unknown until a task in the Inbox has synced")
+			a.flashError(i18n.T("✗ Inbox id unknown until a task in the Inbox has synced"))
 			return nil
 		}
 	}
@@ -611,7 +612,7 @@ func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
 		return nil
 	}
 	if _, ok := a.idMap[t.ID]; strings.HasPrefix(t.ID, "tmp-") && !ok {
-		a.setFlash("still saving this task · try again in a moment")
+		a.setFlash(i18n.T("still saving this task · try again in a moment"))
 		return nil
 	}
 	defer a.keepPlace(t)()
@@ -622,7 +623,7 @@ func (a *App) moveTask(t *api.Task, list string) tea.Cmd {
 	}
 	t.ProjectID = to
 	name, _, _ := a.listMeta(list)
-	a.setFlash("moved to " + name)
+	a.setFlash(i18n.Fmt("moved to %s", name))
 	cmd := a.enqueue(op{kind: "move", taskID: t.ID, before: &before, fields: map[string]any{"from": from, "to": to}})
 	if t.ParentID == "" {
 		return cmd
@@ -644,7 +645,7 @@ var (
 // option saves it as the list's own sort and reopens the menu at idx, so several can be set.
 func (a *App) sortPicker(idx int) {
 	if a.list == "completed" {
-		a.setFlash("completed tasks are sorted by completion time")
+		a.setFlash(i18n.T("completed tasks are sorted by completion time"))
 		return
 	}
 	cur := a.sortFor(a.list)
@@ -652,9 +653,9 @@ func (a *App) sortPicker(idx int) {
 	var items []cmdItem
 	add := func(group string, opts []string, field *string) {
 		for _, v := range opts {
-			it := cmdItem{icon: "·", iconRole: "dim", label: sortLabel[v], group: group}
+			it := cmdItem{icon: "·", iconRole: "dim", label: i18n.T(sortLabel[v]), group: group}
 			if *field == v {
-				it.icon, it.iconRole, it.hint = "●", "accent", "current"
+				it.icon, it.iconRole, it.hint = "●", "accent", i18n.T("current")
 			}
 			i := len(items)
 			it.run = func() tea.Cmd {
@@ -675,11 +676,11 @@ func (a *App) sortPicker(idx int) {
 	add("sort by", sortOpts, &cur.SortBy)
 	add("order", orderOpts, &cur.Order)
 	if own {
-		items = append(items, cmdItem{icon: "×", iconRole: "dim", label: "Use default", group: "this list", hint: "from Settings",
+		items = append(items, cmdItem{icon: "×", iconRole: "dim", label: i18n.T("Use default"), group: "this list", hint: i18n.T("from Settings"),
 			run: func() tea.Cmd {
 				delete(a.cfg.Tasks.ListSort, a.list)
 				a.save()
-				a.setFlash("sort → default")
+				a.setFlash(i18n.T("sort → default"))
 				return nil
 			}})
 	}
@@ -697,7 +698,7 @@ func (a *App) duePicker(t *api.Task) {
 		if err != nil || d == nil {
 			continue
 		}
-		hint := d.At(now).Format("Mon ") + parse.FmtDayMonth(d.At(now))
+		hint := i18n.Date(d.At(now).Format("Mon")) + " " + parse.FmtDayMonth(d.At(now))
 		if d.HasTime {
 			hint += " " + parse.FmtTime(d.At(now))
 		}
@@ -708,14 +709,14 @@ func (a *App) duePicker(t *api.Task) {
 					at = at.In(now.Location())
 					d.H, d.M, d.HasTime = at.Hour(), at.Minute(), true
 				}
-				a.setFlash("due → " + s)
+				a.setFlash(i18n.T("due") + " → " + s)
 				return a.setDue(t, d)
 			}})
 	}
 	items = append(items,
-		cmdItem{icon: "×", iconRole: "dim", label: "No date", run: func() tea.Cmd { a.setFlash("due date cleared"); return a.setDue(t, nil) }},
-		cmdItem{icon: a.icon("\uf073", "#"), iconRole: "accent", label: "Pick a date", hint: "calendar", run: func() tea.Cmd { a.pickDue(t); return nil }},
-		cmdItem{icon: "…", iconRole: "dim", label: "Type a date", hint: "tomorrow 17:00, fri, +3d", run: func() tea.Cmd { a.startEdit("due"); return nil }})
+		cmdItem{icon: "×", iconRole: "dim", label: i18n.T("No date"), run: func() tea.Cmd { a.setFlash(i18n.T("due date cleared")); return a.setDue(t, nil) }},
+		cmdItem{icon: a.icon("\uf073", "#"), iconRole: "accent", label: i18n.T("Pick a date"), hint: i18n.T("calendar"), run: func() tea.Cmd { a.pickDue(t); return nil }},
+		cmdItem{icon: "…", iconRole: "dim", label: i18n.T("Type a date"), hint: i18n.T("tomorrow 17:00, fri, +3d"), run: func() tea.Cmd { a.startEdit("due"); return nil }})
 	a.openPick("due", items)
 }
 
@@ -765,40 +766,40 @@ func (a *App) setDue(t *api.Task, d *parse.Due) tea.Cmd {
 func (a *App) repeatPicker(t *api.Task) {
 	due, ok := store.DueTime(t)
 	if !ok { // the API drops a repeat rule on a task without a due date
-		a.setFlash("set a due date first · repeat needs one")
+		a.setFlash(i18n.T("set a due date first · repeat needs one"))
 		return
 	}
 	due = due.In(time.Now().Location())
 	opts := []struct{ label, hint, rule string }{
 		{"Daily", "", "RRULE:FREQ=DAILY;INTERVAL=1"},
-		{"Weekdays", "Mon–Fri", "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR"},
-		{"Weekly", due.Format("on Mon"), "RRULE:FREQ=WEEKLY;INTERVAL=1"},
-		{"Monthly", "on the " + parse.Ordinal(due.Day()), "RRULE:FREQ=MONTHLY;INTERVAL=1"},
-		{"Yearly", "on " + parse.FmtDayMonth(due), "RRULE:FREQ=YEARLY;INTERVAL=1"},
+		{"Weekdays", i18n.Date("Mon") + "–" + i18n.Date("Fri"), "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR"},
+		{"Weekly", i18n.Fmt("on %s", i18n.Date(due.Format("Mon"))), "RRULE:FREQ=WEEKLY;INTERVAL=1"},
+		{"Monthly", i18n.Fmt("on the %s", parse.Ordinal(due.Day())), "RRULE:FREQ=MONTHLY;INTERVAL=1"},
+		{"Yearly", i18n.Fmt("on %s", parse.FmtDayMonth(due)), "RRULE:FREQ=YEARLY;INTERVAL=1"},
 		{"Never", "", ""},
 	}
 	cur := cmp.Or(store.RepeatLabel(t.RepeatFlag), "Never")
 	var items []cmdItem
 	for _, o := range opts {
-		it := cmdItem{icon: a.icon("\uf01e", "~"), iconRole: "secondary", label: o.label, hint: o.hint,
+		it := cmdItem{icon: a.icon("\uf01e", "~"), iconRole: "secondary", label: i18n.T(o.label), hint: o.hint,
 			run: func() tea.Cmd {
-				a.setFlash("repeat → " + strings.ToLower(o.label))
+				a.setFlash(i18n.T("repeat") + " → " + strings.ToLower(i18n.T(o.label)))
 				return a.setRepeat(t, o.rule, false)
 			}}
 		if o.rule == "" {
 			it.icon, it.iconRole = "×", "dim"
 		}
 		if o.label == cur {
-			it.hint = strings.TrimSpace(o.hint + " · current")
+			it.hint = strings.TrimSpace(o.hint + " · " + i18n.T("current"))
 		}
 		items = append(items, it)
 	}
-	custom := cmdItem{icon: a.icon("\uf01e", "~"), iconRole: "accent", label: "Custom", hint: "like the web app",
+	custom := cmdItem{icon: a.icon("\uf01e", "~"), iconRole: "accent", label: i18n.T("Custom"), hint: i18n.T("like the web app"),
 		run: func() tea.Cmd { a.openRepeatForm(t); return nil }}
 	if cur == "Custom" {
-		custom.hint = parse.RepeatText(t.RepeatFlag, t.RepeatFrom == "1") + " · current"
+		custom.hint = parse.RepeatText(t.RepeatFlag, t.RepeatFrom == "1") + " · " + i18n.T("current")
 	}
-	typed := cmdItem{icon: "…", iconRole: "dim", label: "Type a rule", hint: "3rd wed, x5, until 2026-12-31",
+	typed := cmdItem{icon: "…", iconRole: "dim", label: i18n.T("Type a rule"), hint: i18n.T("3rd wed, x5, until 2026-12-31"),
 		run: func() tea.Cmd { a.startEdit("repeat"); return nil }}
 	a.openPick("repeat", append(items, custom, typed))
 }
@@ -847,7 +848,7 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 			return nil, true
 		}
 		if v == "" {
-			a.setFlash("title can't be empty")
+			a.setFlash(i18n.T("title can't be empty"))
 			return nil, false
 		}
 		if v != t.Title {
@@ -895,7 +896,7 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 		var i int
 		fmt.Sscanf(field, "c%d", &i)
 		if v = strings.TrimSpace(v); v == "" {
-			a.setFlash("item can't be empty")
+			a.setFlash(i18n.T("item can't be empty"))
 			return nil, false
 		}
 		if i < len(t.Items) && v != t.Items[i].Title {
@@ -905,7 +906,7 @@ func (a *App) commitEdit() (tea.Cmd, bool) {
 		}
 	}
 	a.edit = ""
-	a.setFlash("saved")
+	a.setFlash(i18n.T("saved"))
 	return cmd, true
 }
 
@@ -919,13 +920,13 @@ func dueText(t *api.Task, now time.Time) string {
 	var s string
 	switch {
 	case day == 0:
-		s = "today"
+		s = i18n.T("today")
 	case day == 1:
-		s = "tomorrow"
+		s = i18n.T("tomorrow")
 	case day == -1:
-		s = "yesterday"
+		s = i18n.T("yesterday")
 	case day > 1 && day < 7:
-		s = strings.ToLower(d.Format("Mon"))
+		s = strings.ToLower(i18n.Date(d.Format("Mon")))
 	default:
 		s = parse.FmtDate(d)
 	}
@@ -940,7 +941,7 @@ func (a *App) startEdit(field string) {
 	if t == nil {
 		return
 	}
-	n, _, _, _ := layout(a.w, a.cfg.Layout.Columns)
+	n, _, _, _ := layout(a.w, a.cfg.Layout.Columns, dens(a.cfg.Appearance.Density))
 	var v string
 	switch field {
 	case "title":
@@ -949,7 +950,7 @@ func (a *App) startEdit(field string) {
 		v = dueText(t, a.now)
 	case "repeat":
 		if t.DueDate == "" {
-			a.setFlash("set a due date first · repeat needs one")
+			a.setFlash(i18n.T("set a due date first · repeat needs one"))
 			return
 		}
 		if t.RepeatFlag != "" {
@@ -1076,11 +1077,11 @@ func (a *App) activate() tea.Cmd {
 // createTask adds the quick-add result optimistically.
 func (a *App) createTask(add parse.Add) tea.Cmd {
 	if add.Title == "" {
-		a.setFlash("type a title first")
+		a.setFlash(i18n.T("type a title first"))
 		return nil
 	}
 	if add.Parent != "" && add.ParentID == "" {
-		a.setFlash("no open task matches ^" + add.Parent)
+		a.setFlash(i18n.Fmt("no open task matches ^%s", add.Parent))
 		return nil
 	}
 	t := api.Task{Title: add.Title, Priority: add.Prio, Tags: add.Tags, ProjectID: strings.TrimPrefix(add.List, "p:"), ParentID: add.ParentID}
@@ -1136,7 +1137,7 @@ func (a *App) addTask(t api.Task) tea.Cmd {
 	a.st.Upsert(t)
 	a.taskID, a.focus = t.ID, "tasks"
 	name, _, _ := a.listMeta(listID(t.ProjectID))
-	a.setFlash("+ added to " + name)
+	a.setFlash("+ " + i18n.Fmt("added to %s", name))
 	return a.enqueue(op{kind: "create", taskID: t.ID, fields: body})
 }
 

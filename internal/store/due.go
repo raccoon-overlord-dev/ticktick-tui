@@ -1,12 +1,12 @@
 package store
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 )
 
@@ -83,24 +83,24 @@ func DueLabel(t *api.Task, now time.Time) *Due {
 		}
 		return s
 	}
-	full := d.Format("Mon ") + parse.FmtDayMonth(d)
+	full := i18n.Date(d.Format("Mon ")) + parse.FmtDayMonth(d)
 	switch {
 	case day < 0:
-		short, long := fmt.Sprintf("%dd ago", -day), full
+		short, long := i18n.Fmt("%dd ago", -day), full
 		if day == -1 {
-			short, long = "yesterday", "Yesterday"
+			short, long = i18n.T("yesterday"), i18n.T("Yesterday")
 		}
-		return &Due{short, withTime(long) + " · overdue", "error"}
+		return &Due{short, withTime(long) + " · " + i18n.T("overdue"), "error"}
 	case day == 0:
-		short := "today"
+		short := i18n.T("today")
 		if tm != "" {
 			short = tm
 		}
-		return &Due{short, withTime("Today"), "secondary"}
+		return &Due{short, withTime(i18n.T("Today")), "secondary"}
 	case day == 1:
-		return &Due{"tomorrow", withTime("Tomorrow"), "sub"}
+		return &Due{i18n.T("tomorrow"), withTime(i18n.T("Tomorrow")), "sub"}
 	case day < 7:
-		return &Due{strings.ToLower(d.Format("Mon")), withTime(full), "muted"}
+		return &Due{strings.ToLower(i18n.Date(d.Format("Mon"))), withTime(full), "muted"}
 	}
 	return &Due{strings.ToLower(parse.FmtDayMonth(d)), withTime(full), "muted"}
 }

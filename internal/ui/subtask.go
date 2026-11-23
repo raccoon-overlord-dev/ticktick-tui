@@ -1,13 +1,13 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
 
@@ -65,7 +65,7 @@ func (a *App) toggleFold(t *api.Task) {
 		a.setFolded(p.ID, true)
 		a.taskID = p.ID
 	default:
-		a.setFlash("no subtasks to fold")
+		a.setFlash(i18n.T("no subtasks to fold"))
 	}
 }
 
@@ -83,7 +83,7 @@ func (a *App) toggleFoldAll() {
 		}
 	}
 	if len(parents) == 0 {
-		a.setFlash("no subtasks to fold")
+		a.setFlash(i18n.T("no subtasks to fold"))
 		return
 	}
 	if fold {
@@ -99,7 +99,7 @@ func (a *App) toggleFoldAll() {
 	}
 	a.cfg.Layout.Folded = f
 	a.save()
-	a.setFlash(map[bool]string{true: "folded all subtasks · Z to unfold", false: "unfolded all subtasks"}[fold])
+	a.setFlash(i18n.T(map[bool]string{true: "folded all subtasks · Z to unfold", false: "unfolded all subtasks"}[fold]))
 }
 
 func (a *App) setFolded(id string, on bool) {
@@ -130,7 +130,7 @@ func (a *App) indent(t *api.Task, out bool) tea.Cmd {
 		return cmd
 	}
 	if store.Done(t) {
-		a.setFlash("reopen it first")
+		a.setFlash(i18n.T("reopen it first"))
 		return nil
 	}
 	g, i, ok := a.row(t)
@@ -140,7 +140,7 @@ func (a *App) indent(t *api.Task, out bool) tea.Cmd {
 	if out {
 		pi := parentRow(g, i)
 		if pi < 0 {
-			a.setFlash("already a top-level task")
+			a.setFlash(i18n.T("already a top-level task"))
 			return nil
 		}
 		var parent *api.Task
@@ -151,11 +151,11 @@ func (a *App) indent(t *api.Task, out bool) tea.Cmd {
 	}
 	j := above(g, i, g.Depth[i])
 	if j < 0 {
-		a.setFlash("no task above at this level to nest it under")
+		a.setFlash(i18n.T("no task above at this level to nest it under"))
 		return nil
 	}
 	if g.Items[j].ProjectID != t.ProjectID {
-		a.setFlash("the task above is in another list")
+		a.setFlash(i18n.T("the task above is in another list"))
 		return nil
 	}
 	return a.setParent(t, g.Items[j], key)
@@ -164,9 +164,9 @@ func (a *App) indent(t *api.Task, out bool) tea.Cmd {
 // setParent makes t a subtask of p, or a top-level task with p nil. With an undo key, that
 // key undoes it while the message shows.
 func (a *App) setParent(t, p *api.Task, undo string) tea.Cmd {
-	id, msg := "", "→ top-level task"
+	id, msg := "", "→ "+i18n.T("top-level task")
 	if p != nil {
-		id, msg = p.ID, fmt.Sprintf("→ subtask of “%s”", p.Title)
+		id, msg = p.ID, "→ "+i18n.Fmt("subtask of “%s”", p.Title)
 		a.setFolded(p.ID, false)
 	}
 	if t == a.draft { // sent with the create
@@ -182,7 +182,7 @@ func (a *App) setParent(t, p *api.Task, undo string) tea.Cmd {
 	a.parentUndo = [2]string{}
 	if undo != "" {
 		a.parentUndo = [2]string{t.ID, t.ParentID}
-		msg += " · " + undo + " to undo"
+		msg += " · " + i18n.Fmt("%s to undo", undo)
 	}
 	a.setFlash(msg)
 	return a.update(t, map[string]any{"parentId": id}, func(t *api.Task) { t.ParentID = id })
@@ -195,14 +195,14 @@ func (a *App) undoParent(t *api.Task, key string) (tea.Cmd, bool) {
 	if real, ok := a.idMap[id]; ok {
 		id = real
 	}
-	if id != t.ID || !strings.HasSuffix(a.flash, " "+key+" to undo") {
+	if id != t.ID || !strings.HasSuffix(a.flash, i18n.Fmt("%s to undo", key)) {
 		return nil, false
 	}
 	a.parentUndo = [2]string{}
 	cmd := a.update(t, map[string]any{"parentId": old}, func(t *api.Task) { t.ParentID = old })
 	a.unfoldAbove(t)
 	a.taskID = t.ID
-	a.setFlash("undone")
+	a.setFlash(i18n.T("undone"))
 	return cmd, true
 }
 
@@ -212,13 +212,13 @@ func (a *App) parentPicker(t *api.Task) {
 	cur := a.st.Parent(t)
 	var items []cmdItem
 	if cur != nil && t != a.draft {
-		items = append(items, cmdItem{icon: "↑", iconRole: "accent", label: "Open “" + cur.Title + "”", group: "parent",
+		items = append(items, cmdItem{icon: "↑", iconRole: "accent", label: i18n.Fmt("Open “%s”", cur.Title), group: "parent",
 			run: func() tea.Cmd { a.openTask(cur.ID); return nil }})
 	}
-	none := cmdItem{icon: "×", iconRole: "dim", label: "None", hint: "top-level task", group: "subtask of",
+	none := cmdItem{icon: "×", iconRole: "dim", label: i18n.T("None"), hint: i18n.T("top-level task"), group: "subtask of",
 		run: func() tea.Cmd { return a.setParent(t, nil, "") }}
 	if cur == nil {
-		none.hint += " · current"
+		none.hint += " · " + i18n.T("current")
 	}
 	items = append(items, none)
 	skip := map[string]bool{t.ID: true} // a task can't go under itself or its own subtasks
@@ -234,7 +234,7 @@ func (a *App) parentPicker(t *api.Task) {
 			it := cmdItem{icon: "●", iconRole: store.PrioRole(c.Priority), label: strings.Repeat("  ", min(g.Depth[i], 6)) + c.Title,
 				group: "subtask of", run: func() tea.Cmd { return a.setParent(t, c, "") }}
 			if cur != nil && c.ID == cur.ID {
-				it.hint = "current"
+				it.hint = i18n.T("current")
 			}
 			items = append(items, it)
 		}
@@ -247,10 +247,10 @@ func (a *App) openSubDraft() {
 	p := a.selTask()
 	switch {
 	case p == nil:
-		a.setFlash("select a task first")
+		a.setFlash(i18n.T("select a task first"))
 		return
 	case store.Done(p):
-		a.setFlash("reopen it first · a completed task can't take subtasks")
+		a.setFlash(i18n.T("reopen it first · a completed task can't take subtasks"))
 		return
 	}
 	a.openDraft()
@@ -261,7 +261,7 @@ func (a *App) openSubDraft() {
 
 // openTask selects the task with id and opens its details (⏎ on a parent or subtask row).
 func (a *App) openTask(id string) {
-	n, _, _, _ := layout(a.w, a.cfg.Layout.Columns)
+	n, _, _, _ := layout(a.w, a.cfg.Layout.Columns, dens(a.cfg.Appearance.Density))
 	a.gotoTask(id)
 	a.openDetail(n)
 }

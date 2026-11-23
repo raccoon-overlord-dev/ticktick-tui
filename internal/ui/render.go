@@ -17,6 +17,7 @@ type pen struct {
 	th    *theme.Theme
 	bg    color.Color
 	faint bool
+	pad   int // inner horizontal padding per side, from Settings → Density
 }
 
 func (p pen) s(role string) lipgloss.Style {
@@ -40,15 +41,19 @@ func (p pen) sp(n int) string {
 	return p.s("text").Render(strings.Repeat(" ", n))
 }
 
+// inner is the content width of a row in a pane of width w: the row is w-2 wide (between the
+// borders), minus the pen's padding on each side.
+func (p pen) inner(w int) int { return w - 2 - 2*p.pad }
+
 // line lays out one row inside a pane of width w (the row is w-2 wide, between the borders):
-// 1 col padding, left, gap, right, 1 col padding. Content area is w-4. left is cut if both don't fit.
+// padding, left, gap, right, padding. Content area is p.inner(w). left is cut if both don't fit.
 func (p pen) line(w int, left, right string) string {
-	gap := w - 4 - lipgloss.Width(left) - lipgloss.Width(right)
+	gap := p.inner(w) - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 0 {
-		left = ansi.Truncate(left, max(w-4-lipgloss.Width(right)-1, 0), "")
-		gap = w - 4 - lipgloss.Width(left) - lipgloss.Width(right)
+		left = ansi.Truncate(left, max(p.inner(w)-lipgloss.Width(right)-1, 0), "")
+		gap = p.inner(w) - lipgloss.Width(left) - lipgloss.Width(right)
 	}
-	return p.sp(1) + left + p.sp(gap) + right + p.sp(1)
+	return p.sp(p.pad) + left + p.sp(gap) + right + p.sp(p.pad)
 }
 
 // linkify renders plain text in st with its URLs as clickable (OSC 8) links in linkSt,
@@ -178,8 +183,8 @@ func window(lines []string, sel, visible int, off *int) []string {
 }
 
 // layout returns the pane count and widths (lists, tasks, detail) for a terminal cols wide.
-// The frame has 1 col of outer padding each side and a 1 col gutter between panes.
-func layout(cols int, setting string) (n int, lists, tasks, detail int) {
+// d.gutter cols of outer padding each side and the same gutter between panes.
+func layout(cols int, setting string, d density) (n int, lists, tasks, detail int) {
 	switch setting {
 	case "3":
 		n = 3
@@ -195,18 +200,21 @@ func layout(cols int, setting string) (n int, lists, tasks, detail int) {
 			n = 2
 		}
 	}
-	avail := cols - 2
+	avail := cols - 2*d.gutter
 	switch n {
 	case 3:
-		lists = 24
-		if cols >= 140 {
-			lists = 28
+		lists = d.lists
+		if lists == 0 { // normal: a wider sidebar on a wide terminal
+			lists = 24
+			if cols >= 140 {
+				lists = 28
+			}
 		}
-		rest := avail - lists - 2
+		rest := avail - lists - 2*d.gutter
 		tasks = (rest + 1) / 2
 		detail = rest - tasks
 	case 2:
-		rest := avail - 1
+		rest := avail - d.gutter
 		tasks = int(float64(rest)*1.05/2.05 + 0.5)
 		detail = rest - tasks
 	default:

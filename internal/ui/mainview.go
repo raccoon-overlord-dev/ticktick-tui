@@ -11,6 +11,7 @@ import (
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/config"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
@@ -33,19 +34,19 @@ type sideItem struct {
 func (a *App) listMeta(id string) (name, icon, role string) {
 	switch id {
 	case "inbox":
-		return "Inbox", a.icon("", "*"), "ok"
+		return i18n.T("Inbox"), a.icon("", "*"), "ok"
 	case "today":
-		return "Today", a.icon("", "*"), "warn"
+		return i18n.T("Today"), a.icon("", "*"), "warn"
 	case "tomorrow":
-		return "Tomorrow", a.icon("", "*"), "secondary"
+		return i18n.T("Tomorrow"), a.icon("", "*"), "secondary"
 	case "next7":
-		return "Next 7 Days", a.icon("", "*"), "info"
+		return i18n.T("Next 7 Days"), a.icon("", "*"), "info"
 	case "f-high":
-		return "High · this week", a.icon("", "~"), "info"
+		return i18n.T("High · this week"), a.icon("", "~"), "info"
 	case "f-nodate":
-		return "No due date", a.icon("", "~"), "info"
+		return i18n.T("No due date"), a.icon("", "~"), "info"
 	case "completed":
-		return "Completed", a.icon("", "✓"), "ok"
+		return i18n.T("Completed"), a.icon("", "✓"), "ok"
 	}
 	if tag, ok := strings.CutPrefix(id, "tag:"); ok {
 		return tag, a.icon("", "#"), "secondary"
@@ -58,7 +59,7 @@ func (a *App) listMeta(id string) (name, icon, role string) {
 
 func (a *App) sideItems() []sideItem {
 	var rows []sideItem
-	sec := func(label string) { rows = append(rows, sideItem{header: true, label: label}) }
+	sec := func(label string) { rows = append(rows, sideItem{header: true, label: i18n.T(label)}) }
 	item := func(id, tree string) sideItem {
 		name, icon, role := a.listMeta(id)
 		return sideItem{key: "l:" + id, list: id, tree: tree, icon: icon, iconRole: role, label: name,
@@ -125,12 +126,13 @@ func (a *App) sideItems() []sideItem {
 }
 
 func (a *App) listsLines(p pen, w int, focused bool) ([]string, int) {
+	d := dens(a.cfg.Appearance.Density)
 	var lines []string
 	sel := -1
 	for i, r := range a.sideItems() {
 		if r.header {
 			if i > 0 {
-				lines = append(lines, "")
+				lines = append(lines, blanks(d.gap)...)
 			}
 			if r.label != "" {
 				lines = append(lines, p.line(w, p.s("dim").Render(r.label), ""))
@@ -162,7 +164,7 @@ func (a *App) listsLines(p pen, w int, focused bool) ([]string, int) {
 			}
 			count = cs.Render(fmt.Sprint(r.count))
 		}
-		room := w - 4 - lipgloss.Width(prefix) - 2 - lipgloss.Width(count) - 1
+		room := rp.inner(w) - lipgloss.Width(prefix) - 2 - lipgloss.Width(count) - 1
 		ls := rp.s(labelRole).Bold(r.active)
 		left := prefix + rp.s(r.iconRole).Render(r.icon) + rp.sp(1) + ls.Render(trunc(r.label, room))
 		lines = append(lines, rp.line(w, left, count))
@@ -216,21 +218,25 @@ func (a *App) selTask() *api.Task {
 }
 
 func (a *App) tasksLines(p pen, w int, focused bool) (lines []string, sel, pos, total int) {
+	d := dens(a.cfg.Appearance.Density)
 	gs := a.groups()
 	cur := a.selTask()
 	sel = -1
 	if len(gs) == 0 {
-		return []string{p.line(w, p.s("dim").Render("Nothing here · a to add a task"), "")}, -1, 0, 0
+		return []string{p.line(w, p.s("dim").Render(i18n.T("Nothing here · a to add a task")), "")}, -1, 0, 0
 	}
 	for gi, g := range gs {
 		if gi > 0 {
-			lines = append(lines, "")
+			lines = append(lines, blanks(d.gap)...)
 		}
 		if g.Label != "" { // Group by: none
 			lines = append(lines, a.groupHeader(p, g, w))
 		}
 		for i, t := range g.Items {
 			total++
+			if i > 0 {
+				lines = append(lines, blanks(d.rowGap)...)
+			}
 			isSel := cur != nil && t.ID == cur.ID
 			if isSel {
 				sel, pos = len(lines), total
@@ -259,7 +265,7 @@ func (a *App) groupHeader(p pen, g store.Group, w int) string {
 		return tp.line(w, tp.s(g.Role).Bold(true).Render(dot+" "+g.Label), tp.s(g.Role).Bold(true).Render(count))
 	}
 	left := p.s(g.Role).Bold(true).Render(dot+" "+strings.ToUpper(g.Label)) + p.sp(1)
-	fill := max(w-4-lipgloss.Width(left)-len(count)-1, 0)
+	fill := max(p.inner(w)-lipgloss.Width(left)-len(count)-1, 0)
 	return p.line(w, left+p.s("line").Render(strings.Repeat("─", fill))+p.sp(1), p.s("dim").Render(count))
 }
 
@@ -288,6 +294,9 @@ func (a *App) taskLine(p pen, t *api.Task, depth, hidden, w int, sel, focused bo
 			}
 		}
 		meta = append(meta, fmt.Sprintf("%d/%d", d, n))
+	}
+	if len(parse.Attachments(t.Content+"\n"+t.Desc)) > 0 {
+		meta = append(meta, a.icon("\uf0c6", "@"))
 	}
 	if len(t.Reminders) > 0 {
 		meta = append(meta, a.icon("\uf0f3", "!"))
@@ -320,7 +329,7 @@ func (a *App) taskLine(p pen, t *api.Task, depth, hidden, w int, sel, focused bo
 		titleRole = "dim"
 	}
 	indent := 2 * min(depth, 6)
-	room := w - 4 - 2 - indent - lipgloss.Width(right) - 1
+	room := rp.inner(w) - 2 - indent - lipgloss.Width(right) - 1
 	title := linkify(rp.s(titleRole).Strikethrough(done), rp.s("info").Strikethrough(done), t.Title, room)
 	return rp.line(w, rp.sp(indent)+dot+rp.sp(1)+title, right)
 }
@@ -364,16 +373,17 @@ func itemOrder(t *api.Task) []int {
 	return append(open, done...)
 }
 
-func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, int) {
+func (a *App) detailLines(p pen, t *api.Task, w int, focused bool, df int, off *int) ([]string, int) {
+	dn := dens(a.cfg.Appearance.Density)
 	if t == nil {
-		return []string{p.line(w, p.s("dim").Render("No task selected"), "")}, -1
+		return []string{p.line(w, p.s("dim").Render(i18n.T("No task selected")), "")}, -1
 	}
 	keys := a.detailKeys(t)
-	cw := w - 4
+	cw := p.inner(w)
 	var lines []string
 	sel := -1
 	pick := func(k string) pen {
-		if focused && a.df < len(keys) && keys[a.df] == k {
+		if focused && df < len(keys) && keys[df] == k {
 			sel = len(lines)
 			return p.on(a.selBg(true))
 		}
@@ -410,12 +420,12 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		lines = append(lines, tp.line(w, lead+b.String(), ""))
 	}
 	if t.Title == "" && !editing("title") { // a new task's empty title
-		lines = append(lines, tp.line(w, dot+tp.sp(1)+tp.s("dim").Render("title · ⏎ to type"), ""))
+		lines = append(lines, tp.line(w, dot+tp.sp(1)+tp.s("dim").Render(i18n.T("title · ⏎ to type")), ""))
 	}
-	lines = append(lines, "")
+	lines = append(lines, blanks(dn.gap)...)
 
 	// fields
-	placeholder := map[string]string{"due": "e.g. tomorrow 17:00", "tags": "#tag #another", "repeat": "e.g. every 2 weeks, 3rd wed, last workday"}
+	placeholder := map[string]string{"due": i18n.T("e.g. tomorrow 17:00"), "tags": "#tag #another", "repeat": i18n.T("e.g. every 2 weeks, 3rd wed, last workday")}
 	field := func(k, label, value, role string) {
 		fp := pick(k)
 		v := fp.s(role).Render(trunc(value, cw-9))
@@ -425,7 +435,7 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 				v += fp.s("dim").Render(placeholder[k])
 			}
 		}
-		lines = append(lines, fp.line(w, fp.s("muted").Render(fmt.Sprintf("%-9s", label))+v, ""))
+		lines = append(lines, fp.line(w, fp.s("muted").Render(padRight(i18n.T(label), 9))+v, ""))
 	}
 	if d := store.DueLabel(t, a.now); d != nil {
 		field("due", "Due", a.icon(" ", "")+d.Long, d.Role)
@@ -436,9 +446,9 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		if r == "Custom" || t.RepeatFrom == "1" {
 			r = parse.RepeatText(t.RepeatFlag, t.RepeatFrom == "1")
 		}
-		field("repeat", "Repeat", "↻ "+r, "text")
+		field("repeat", "Repeat", "↻ "+i18n.T(r), "text")
 	} else {
-		field("repeat", "Repeat", "never", "dim")
+		field("repeat", "Repeat", i18n.T("never"), "dim")
 	}
 	if len(t.Reminders) > 0 {
 		var rs []string
@@ -447,13 +457,13 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		}
 		field("reminder", "Remind", a.icon("\uf0f3 ", "")+strings.Join(rs, " · "), "text")
 	} else {
-		field("reminder", "Remind", "none", "dim")
+		field("reminder", "Remind", i18n.T("none"), "dim")
 	}
 	field("list", "List", a.st.ListPath(t.ProjectID), "text")
 	if par := a.st.Parent(t); par != nil {
 		field("parent", "Parent", "↑ "+par.Title, "text")
 	} else {
-		field("parent", "Parent", "none", "dim")
+		field("parent", "Parent", i18n.T("none"), "dim")
 	}
 	if len(t.Tags) > 0 {
 		field("tags", "Tags", "#"+strings.Join(t.Tags, "  #"), "secondary")
@@ -483,7 +493,8 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 		}
 		const barW = 14
 		fill := d * barW / n
-		lines = append(lines, "", p.line(w, p.s("sub").Render("Checklist ")+p.s("ok").Render(strings.Repeat("━", fill))+
+		lines = append(lines, blanks(dn.gap)...)
+		lines = append(lines, p.line(w, p.s("sub").Render(i18n.T("Checklist")+" ")+p.s("ok").Render(strings.Repeat("━", fill))+
 			p.s("line").Render(strings.Repeat("─", barW-fill))+p.sp(1)+p.s("sub").Render(fmt.Sprintf("%d/%d", d, n)), ""))
 		for _, i := range itemOrder(t) {
 			it := t.Items[i]
@@ -499,17 +510,17 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 			lines = append(lines, ip.line(w, mark+ip.sp(1)+text, ""))
 		}
 	} else {
-		lines = append(lines, "")
+		lines = append(lines, blanks(dn.gap)...)
 	}
 	ap := pick("additem")
 	if editing("additem") {
 		v := a.in.view(ap, "text", cw-2)
 		if a.in.value() == "" {
-			v += ap.s("dim").Render("new item · ⏎ add · esc done")
+			v += ap.s("dim").Render(i18n.T("new item · ⏎ add · esc done"))
 		}
 		lines = append(lines, ap.line(w, ap.s("ok").Render("+")+ap.sp(1)+v, ""))
 	} else {
-		lines = append(lines, ap.line(w, ap.s("dim").Render("+ add checklist item"), ""))
+		lines = append(lines, ap.line(w, ap.s("dim").Render(i18n.T("+ add checklist item")), ""))
 	}
 
 	// subtasks
@@ -520,7 +531,8 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 				d++
 			}
 		}
-		lines = append(lines, "", p.line(w, p.s("sub").Render("Subtasks ")+p.s("line").Render(strings.Repeat("─", max(cw-9-5, 0))), p.s("sub").Render(fmt.Sprintf("%d/%d", d, len(ss)))))
+		lines = append(lines, blanks(dn.gap)...)
+		lines = append(lines, p.line(w, p.s("sub").Render(i18n.T("Subtasks")+" ")+p.s("line").Render(strings.Repeat("─", max(cw-9-5, 0))), p.s("sub").Render(fmt.Sprintf("%d/%d", d, len(ss)))))
 		for _, s := range ss {
 			sp := pick("s:" + s.ID)
 			mark, text := sp.s(store.PrioRole(s.Priority)).Render("●"), linkify(sp.s("text"), sp.s("info"), s.Title, cw-2)
@@ -533,14 +545,15 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 	}
 
 	// notes
-	hint := p.s("dim").Render(" markdown")
+	hint := p.s("dim").Render(" " + i18n.T("markdown"))
 	if editing("notes") {
-		hint = p.s("dim").Render(" esc save")
+		hint = p.s("dim").Render(" " + i18n.T("esc save"))
 	}
-	lines = append(lines, "", p.line(w, p.s("sub").Render("Notes ")+p.s("line").Render(strings.Repeat("─", max(cw-6-9, 0))), hint))
+	lines = append(lines, blanks(dn.gap)...)
+	lines = append(lines, p.line(w, p.s("sub").Render(i18n.T("Notes")+" ")+p.s("line").Render(strings.Repeat("─", max(cw-6-9, 0))), hint))
 	a.notesTop = len(lines) - 1
 	np := pick("notes")
-	if sel >= 0 && keys[a.df] == "notes" && sel < a.offDetail { // scrolled into the notes: don't snap back to their top
+	if sel >= 0 && df < len(keys) && keys[df] == "notes" && sel < *off { // scrolled into the notes: don't snap back to their top
 		sel = -1
 	}
 	if editing("notes") {
@@ -554,7 +567,7 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 			lines = append(lines, np.line(w, l, ""))
 		}
 	} else if _, notes := t.Notes(); strings.TrimSpace(*notes) == "" {
-		lines = append(lines, np.line(w, np.s("dim").Render("no notes · i to write"), ""))
+		lines = append(lines, np.line(w, np.s("dim").Render(i18n.T("no notes · i to write")), ""))
 	} else {
 		lines = append(lines, a.markdownLines(np, *notes, w)...)
 	}
@@ -562,7 +575,7 @@ func (a *App) detailLines(p pen, t *api.Task, w int, focused bool) ([]string, in
 }
 
 func (a *App) markdownLines(p pen, src string, w int) []string {
-	cw := w - 4
+	cw := p.inner(w)
 	var out []string
 	for _, ml := range parse.Markdown(src) {
 		switch ml.Kind {
@@ -627,7 +640,8 @@ func (a *App) effFocus(n int) string {
 }
 
 func (a *App) viewMain() (string, [][2]string) {
-	n, lw, tw, dw := layout(a.w, a.cfg.Layout.Columns)
+	d := dens(a.cfg.Appearance.Density)
+	n, lw, tw, dw := layout(a.w, a.cfg.Layout.Columns, d)
 	ef := a.effFocus(n)
 	paneH := a.h - 1
 	overlay := a.settings || a.help || a.cmd != nil || (n == 1 && a.sheet) || a.draft != nil || a.rep != nil || a.rem != nil || a.cal != nil
@@ -637,7 +651,7 @@ func (a *App) viewMain() (string, [][2]string) {
 	var panes []string
 	if n == 3 {
 		lines, sel := a.listsLines(p, lw, ef == "lists")
-		panes = append(panes, a.frame(p, frameOpts{w: lw, h: paneH, title: "Lists", focused: ef == "lists",
+		panes = append(panes, a.frame(p, frameOpts{w: lw, h: paneH, title: i18n.T("Lists"), focused: ef == "lists",
 			body: window(lines, sel, paneH-2, &a.offLists)}))
 	}
 
@@ -652,32 +666,34 @@ func (a *App) viewMain() (string, [][2]string) {
 		br = fmt.Sprintf("%d/%d", pos, total)
 	}
 	panes = append(panes, a.frame(p, frameOpts{w: tw, h: paneH, title: title, focused: ef == "tasks",
-		topRight: fmt.Sprintf("%d open", a.st.OpenCount(a.list, a.now)), bottomRight: br,
+		topRight: i18n.Fmt("%d open", a.st.OpenCount(a.list, a.now)), bottomRight: br,
 		body: window(lines, sel, paneH-2, &a.offTasks)}))
 
+	df, offp := a.mainDetail()
 	detail := func(p pen, w, h int) string {
 		focused := ef == "detail"
-		lines, sel := a.detailLines(p, a.selTask(), w, focused)
-		br := "⏎ open"
+		lines, sel := a.detailLines(p, a.selTask(), w, focused, df, offp)
+		br := i18n.T("⏎ open")
 		if focused {
-			br = "i edit · esc back"
+			br = i18n.T("i edit · esc back")
 		}
-		body := window(lines, sel, h-2, &a.offDetail)
-		a.detailEnd = a.offDetail >= len(lines)-(h-2)
-		return a.frame(p, frameOpts{w: w, h: h, title: "Details", focused: focused, bottomRight: br, body: body})
+		body := window(lines, sel, h-2, offp)
+		a.detailEnd = *offp >= len(lines)-(h-2)
+		return a.frame(p, frameOpts{w: w, h: h, title: i18n.T("Details"), focused: focused, bottomRight: br, body: body})
 	}
 	if n >= 2 {
 		panes = append(panes, detail(p, dw, paneH))
 	}
 
-	parts := []string{" "}
+	gut := strings.Repeat(" ", d.gutter)
+	parts := []string{gut}
 	for i, pn := range panes {
 		if i > 0 {
-			parts = append(parts, " ")
+			parts = append(parts, gut)
 		}
 		parts = append(parts, pn)
 	}
-	base := lipgloss.JoinHorizontal(lipgloss.Top, append(parts, " ")...)
+	base := lipgloss.JoinHorizontal(lipgloss.Top, append(parts, gut)...)
 
 	var hints [][2]string
 	switch ef {
@@ -798,7 +814,7 @@ func (a *App) viewMain() (string, [][2]string) {
 // ---- keys ----
 
 func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
-	n, _, _, _ := layout(a.w, a.cfg.Layout.Columns)
+	n, _, _, _ := layout(a.w, a.cfg.Layout.Columns, dens(a.cfg.Appearance.Density))
 	ef := a.effFocus(n)
 	key := k.String()
 	if a.cfg.Keys.Keymap != "arrows" {
@@ -1085,10 +1101,10 @@ func (a *App) toggleSmartHidden() {
 	id, h := strings.TrimPrefix(r.list, "p:"), &a.cfg.Layout.SmartHidden
 	if i := slices.Index(*h, id); i >= 0 {
 		*h = slices.Delete(*h, i, i+1)
-		a.setFlash(r.label + " shown in smart lists")
+		a.setFlash(i18n.Fmt("%s shown in smart lists", r.label))
 	} else {
 		*h = append(*h, id)
-		a.setFlash(r.label + " hidden from smart lists")
+		a.setFlash(i18n.Fmt("%s hidden from smart lists", r.label))
 	}
 	a.st.SmartHidden = *h
 	a.save()
@@ -1097,7 +1113,7 @@ func (a *App) toggleSmartHidden() {
 func (a *App) toggleDueLabels() {
 	a.cfg.Tasks.DueLabel = !a.cfg.Tasks.DueLabel
 	a.save()
-	a.setFlash("due-date labels " + onOff(a.cfg.Tasks.DueLabel))
+	a.setFlash(i18n.Fmt("due-date labels %s", i18n.T(onOff(a.cfg.Tasks.DueLabel))))
 }
 
 func (a *App) openDetail(n int) {
@@ -1111,7 +1127,7 @@ func (a *App) openDetail(n int) {
 
 func (a *App) save() {
 	if err := config.Save(a.cfg); err != nil {
-		a.setFlash("couldn't save config: " + err.Error())
+		a.setFlash(i18n.Fmt("couldn't save config: %s", err.Error()))
 	}
 }
 

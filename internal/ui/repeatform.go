@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
@@ -35,7 +36,7 @@ var (
 func (a *App) openRepeatForm(t *api.Task) {
 	due, ok := store.DueTime(t)
 	if !ok {
-		a.setFlash("set a due date first · repeat needs one")
+		a.setFlash(i18n.T("set a due date first · repeat needs one"))
 		return
 	}
 	a.rep = &repForm{f: parse.FormFromRule(t.RepeatFlag, t.RepeatFrom, due.In(time.Now().Location())), task: t}
@@ -176,7 +177,7 @@ func (a *App) repKey(k tea.KeyPressMsg) tea.Cmd {
 			}
 			r.f.MonthDays = toggle(r.f.MonthDays, day)
 		case "dates":
-			c := &calendar{title: "repeat on", cur: midnight(time.Now()), multi: true, picked: map[string]bool{}}
+			c := &calendar{title: i18n.T("repeat on"), cur: midnight(time.Now()), multi: true, picked: map[string]bool{}}
 			for _, d := range r.f.Dates {
 				c.picked[d] = true
 			}
@@ -213,11 +214,11 @@ func (a *App) saveRepeat() tea.Cmd {
 	r := a.rep
 	rule, from := r.f.Rule()
 	if rule == "" {
-		a.setFlash("pick at least one date")
+		a.setFlash(i18n.T("pick at least one date"))
 		return nil
 	}
 	a.rep = nil
-	a.setFlash("repeat → " + parse.RepeatText(rule, from))
+	a.setFlash(i18n.T("repeat") + " → " + parse.RepeatText(rule, from))
 	return a.setRepeat(r.task, rule, from)
 }
 
@@ -243,16 +244,16 @@ func (a *App) viewRepeat() (string, int, int) {
 			}
 			return rp.s("text").Render(s)
 		}
-		label := func(s string) string { return rp.s("muted").Render(padRight(s, 11)) }
+		label := func(s string) string { return rp.s("muted").Render(padRight(i18n.T(s), 11)) }
 		switch row {
 		case "mode":
-			lines = append(lines, rp.line(w, label("Repeat")+choice(repLabels[f.Mode]), ""))
+			lines = append(lines, rp.line(w, label("Repeat")+choice(i18n.T(repLabels[f.Mode])), ""))
 		case "every":
 			lines = append(lines, rp.line(w, label("Every")+rp.s("text").Bold(on).Render(strconv.Itoa(f.Every)), hintIf(rp, on, "←→ or type")))
 		case "unit":
-			u := f.Unit
+			u := i18n.T(f.Unit)
 			if f.Every > 1 {
-				u += "s"
+				u = i18n.T(f.Unit + "s")
 			}
 			lines = append(lines, rp.line(w, label("Unit")+choice(u), ""))
 		case "days":
@@ -276,14 +277,14 @@ func (a *App) viewRepeat() (string, int, int) {
 			if f.Unit == "year" {
 				lbl = "Year by"
 			}
-			lines = append(lines, rp.line(w, label(lbl)+choice(repLabels[f.By]), ""))
+			lines = append(lines, rp.line(w, label(lbl)+choice(i18n.T(repLabels[f.By])), ""))
 		case "grid":
 			for gr := 0; gr*7 < 32; gr++ {
 				var b strings.Builder
 				for j := gr * 7; j < min(gr*7+7, 32); j++ {
 					day, txt := j+1, fmt.Sprintf("%2d", j+1)
 					if j == 31 {
-						day, txt = -1, "Last day"
+						day, txt = -1, i18n.T("Last day")
 					}
 					st := rp.s("text")
 					if slices.Contains(f.MonthDays, day) {
@@ -304,11 +305,11 @@ func (a *App) viewRepeat() (string, int, int) {
 				lines = append(lines, rp.line(w, lead+b.String(), right))
 			}
 		case "ord":
-			lines = append(lines, rp.line(w, label("On the")+choice(ordLabel[f.Ord]), ""))
+			lines = append(lines, rp.line(w, label("On the")+choice(i18n.T(ordLabel[f.Ord])), ""))
 		case "weekday":
 			lines = append(lines, rp.line(w, label("Weekday")+choice(parse.WeekdayName(f.Weekday)), ""))
 		case "workday":
-			lines = append(lines, rp.line(w, label("Workday")+choice(map[int]string{1: "First workday", -1: "Last workday"}[f.Workday]), ""))
+			lines = append(lines, rp.line(w, label("Workday")+choice(i18n.T(map[int]string{1: "First workday", -1: "Last workday"}[f.Workday])), ""))
 		case "month":
 			lines = append(lines, rp.line(w, label("Month")+choice(parse.MonthName(f.Month)), ""))
 		case "day":
@@ -318,7 +319,7 @@ func (a *App) viewRepeat() (string, int, int) {
 			if f.Skip {
 				box = "[x]"
 			}
-			lines = append(lines, rp.line(w, rp.s("accent").Render(box)+rp.sp(1)+rp.s("text").Render("Skip weekends"), hintIf(rp, on, "␣ toggle")))
+			lines = append(lines, rp.line(w, rp.s("accent").Render(box)+rp.sp(1)+rp.s("text").Render(i18n.T("Skip weekends")), hintIf(rp, on, "␣ toggle")))
 		case "dates":
 			var ds []string
 			for _, d := range f.Dates {
@@ -326,9 +327,9 @@ func (a *App) viewRepeat() (string, int, int) {
 					ds = append(ds, parse.FmtDayMonth(t))
 				}
 			}
-			v := rp.s("dim").Render("none yet")
+			v := rp.s("dim").Render(i18n.T("none yet"))
 			if len(ds) > 0 {
-				v = rp.s("text").Render(trunc(strings.Join(ds, ", "), w-4-11-10))
+				v = rp.s("text").Render(trunc(strings.Join(ds, ", "), rp.inner(w)-11-10))
 			}
 			lines = append(lines, rp.line(w, label("Dates")+v, hintIf(rp, on, "⏎ pick")))
 		case "ok":
@@ -339,20 +340,21 @@ func (a *App) viewRepeat() (string, int, int) {
 		}
 	}
 	rule, from := f.Rule()
-	summary := p.s("dim").Render("pick at least one date")
+	summary := p.s("dim").Render(i18n.T("pick at least one date"))
 	if rule != "" {
 		summary = p.s("secondary").Render("↻ " + trunc(parse.RepeatText(rule, from), w-6))
 	}
 	lines = append(lines, "", p.line(w, summary, ""), p.s("line").Render(strings.Repeat("─", w-2)),
-		p.line(w, p.s("dim").Render("↑↓ field · ←→ change · ␣ pick · ctrl+s save"), ""))
+		p.line(w, p.s("dim").Render(i18n.T("↑↓ field · ←→ change · ␣ pick · ctrl+s save")), ""))
 	body := window(lines, sel, max(a.h-3, 3), new(int))
 	h := len(body) + 2
-	return a.frame(p, frameOpts{w: w, h: h, title: "Custom repeat", modal: true, body: body}), w, h
+	return a.frame(p, frameOpts{w: w, h: h, title: i18n.T("Custom repeat"), modal: true, body: body}), w, h
 }
 
 func hintIf(p pen, on bool, s string) string {
 	if !on {
 		return ""
 	}
+	s = i18n.T(s)
 	return p.s("dim").Render(s)
 }

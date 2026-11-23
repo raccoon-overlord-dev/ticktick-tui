@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -10,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/auth"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 )
 
 // authScreen is the sign-in state (handoff §4, screenshots 6a-6c).
@@ -161,16 +161,16 @@ func (a *App) viewAuth() (string, [][2]string) {
 	}
 	head := []string{
 		st("accent").Render("❯") + " " + st("text").Bold(true).Render("ttui") + " " +
-			st("dim").Render(a.version+" · TickTick in your terminal"),
+			st("dim").Render(a.version+" · "+i18n.T("TickTick in your terminal")),
 		"",
-		st("text").Bold(true).Render("Sign in to TickTick"),
+		st("text").Bold(true).Render(i18n.T("Sign in to TickTick")),
 		"",
 	}
 	if s.notice != "" {
 		head = append(head, st("warn").Render(s.notice), "")
 	}
 	head = append(head,
-		tab("Browser (OAuth)", !s.tokenTab)+"   "+tab("API token", s.tokenTab),
+		tab(i18n.T("Browser (OAuth)"), !s.tokenTab)+"   "+tab(i18n.T("API token"), s.tokenTab),
 		"",
 	)
 
@@ -179,25 +179,25 @@ func (a *App) viewAuth() (string, [][2]string) {
 	spin := st("secondary").Render(spinnerFrames[a.spin%len(spinnerFrames)])
 	switch {
 	case s.success:
-		who := "Signed in"
+		who := i18n.T("Signed in")
 		if a.st.Email != "" {
-			who += " as " + a.st.Email
+			who = i18n.Fmt("Signed in as %s", a.st.Email)
 		}
-		box = a.box("Connected", "ok", w, []string{
+		box = a.box(i18n.T("Connected"), "ok", w, []string{
 			st("ok").Render("✓") + " " + st("text").Render(who),
-			"  " + st("muted").Render(fmt.Sprintf("Synced %d lists · %d tasks · %d tags", len(a.st.Projects)+1, a.st.OpenTotal(), len(a.st.Tags))),
+			"  " + st("muted").Render(i18n.Fmt("Synced %d lists · %d tasks · %d tags", len(a.st.Projects)+1, a.st.OpenTotal(), len(a.st.Tags))),
 			"",
-			st("accent").Render("⏎ continue to Today"),
+			st("accent").Render(i18n.T("⏎ continue to Today")),
 		})
 		hints = [][2]string{{"⏎", "continue"}}
 
 	case s.tokenTab:
-		role, lines := "line", []string{st("text").Render("Paste your personal API token"), ""}
+		role, lines := "line", []string{st("text").Render(i18n.T("Paste your personal API token")), ""}
 		mask := strings.Repeat("•", min(len(s.token), inner-4))
 		lines = append(lines, st("accent").Render("❯")+" "+st("text").Render(mask)+st("accent").Render("▏"), "")
 		switch {
 		case s.checking:
-			lines = append(lines, spin+" "+st("muted").Render("Checking token…"), "")
+			lines = append(lines, spin+" "+st("muted").Render(i18n.T("Checking token…")), "")
 		case s.tokenErr != "":
 			role = "error"
 			for _, l := range strings.Split(ansi.Wrap(s.tokenErr, inner, ""), "\n") {
@@ -205,30 +205,30 @@ func (a *App) viewAuth() (string, [][2]string) {
 			}
 			lines = append(lines, "")
 		}
-		lines = append(lines, st("dim").Render("Stored in ~/.config/ttui/auth.toml (0600)"))
-		box = a.box("API token", role, w, lines)
+		lines = append(lines, st("dim").Render(i18n.T("Stored in ~/.config/ttui/auth.toml (0600)")))
+		box = a.box(i18n.T("API token"), role, w, lines)
 		hints = [][2]string{{"⏎", "verify"}, {"tab", "use browser"}}
 
 	default:
 		var lines []string
 		if s.flow != nil {
-			lines = append(lines, st("text").Render("1  We opened your browser. If not, visit:"))
+			lines = append(lines, st("text").Render(i18n.T("1  We opened your browser. If not, visit:")))
 			for _, l := range strings.Split(ansi.Hardwrap(s.flow.URL, inner-3, false), "\n") {
 				lines = append(lines, "   "+st("info").Underline(true).Render(l))
 			}
-			lines = append(lines, "", st("text").Render("2  Approve access for ttui"), "",
-				spin+"  "+st("muted").Render("Waiting for callback on localhost:8421"))
+			lines = append(lines, "", st("text").Render(i18n.T("2  Approve access for ttui")), "",
+				spin+"  "+st("muted").Render(i18n.T("Waiting for callback on localhost:8421")))
 		} else if s.checking {
-			lines = append(lines, spin+"  "+st("muted").Render("Signing in…"))
+			lines = append(lines, spin+"  "+st("muted").Render(i18n.T("Signing in…")))
 		} else if s.oauthErr != "" {
 			for _, l := range strings.Split(ansi.Wrap("✗ "+s.oauthErr, inner, ""), "\n") {
 				lines = append(lines, st("error").Render(l))
 			}
-			lines = append(lines, "", st("muted").Render("Press o to try again, or tab to use an API token."))
+			lines = append(lines, "", st("muted").Render(i18n.T("Press o to try again, or tab to use an API token.")))
 		} else {
-			lines = append(lines, spin+"  "+st("muted").Render("Starting…"))
+			lines = append(lines, spin+"  "+st("muted").Render(i18n.T("Starting…")))
 		}
-		box = a.box("Browser", "accent", w, lines)
+		box = a.box(i18n.T("Browser"), "accent", w, lines)
 		hints = [][2]string{{"tab", "use token"}, {"o", "reopen browser"}, {"c", "copy url"}}
 	}
 	return lipgloss.NewStyle().Width(w).Render(strings.Join(head, "\n") + "\n" + box), hints

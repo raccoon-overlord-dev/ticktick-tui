@@ -19,31 +19,38 @@ func TestLayout(t *testing.T) {
 	cases := []struct {
 		cols    int
 		setting string
+		density string
 		n, l, t int
 	}{
-		{160, "auto", 3, 28, 64}, // 158-28-2=128 → 64/64
-		{120, "auto", 3, 24, 46}, // 118-24-2=92 → 46/46
-		{119, "auto", 2, 0, 60},  // 116 → 59.4 rounds to 59? see below
-		{100, "auto", 2, 0, 50},
-		{79, "auto", 1, 0, 77},
-		{160, "1", 1, 0, 158},
-		{90, "3", 3, 24, 31},
+		{160, "auto", "normal", 3, 28, 64}, // 158-28-2=128 → 64/64
+		{120, "auto", "normal", 3, 24, 46}, // 118-24-2=92 → 46/46
+		{119, "auto", "normal", 2, 0, 59},  // 116 → 59.4 rounds to 59
+		{100, "auto", "normal", 2, 0, 50},
+		{79, "auto", "normal", 1, 0, 77},
+		{160, "1", "normal", 1, 0, 158},
+		{90, "3", "normal", 3, 24, 31},
+		{160, "auto", "compact", 3, 20, 70}, // no gutters: 160-20=140 → 70/70
+		{160, "auto", "roomy", 3, 30, 61},   // 156-30-4=122 → 61/61
+		{100, "auto", "compact", 2, 0, 51},
+		{100, "auto", "roomy", 2, 0, 48},
+		{160, "1", "compact", 1, 0, 160},
 	}
 	for _, c := range cases {
-		n, l, tk, d := layout(c.cols, c.setting)
-		if n != c.n || l != c.l {
-			t.Errorf("layout(%d,%s) n=%d lists=%d", c.cols, c.setting, n, l)
+		dy := dens(c.density)
+		n, l, tk, d := layout(c.cols, c.setting, dy)
+		if n != c.n || l != c.l || tk != c.t {
+			t.Errorf("layout(%d,%s,%s) n=%d lists=%d tasks=%d", c.cols, c.setting, c.density, n, l, tk)
 		}
 		// Panes + gutters + outer padding must fill the terminal exactly.
-		used := 2 + tk
+		used := 2*dy.gutter + tk
 		switch n {
 		case 3:
-			used += l + d + 2
+			used += l + d + 2*dy.gutter
 		case 2:
-			used += d + 1
+			used += d + dy.gutter
 		}
 		if used != c.cols {
-			t.Errorf("layout(%d,%s) uses %d cols", c.cols, c.setting, used)
+			t.Errorf("layout(%d,%s,%s) uses %d cols", c.cols, c.setting, c.density, used)
 		}
 		if n == 2 && tk < d {
 			t.Errorf("2 panes: tasks %d should be ≥ detail %d", tk, d)

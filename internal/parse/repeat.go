@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 )
 
 // RepeatHelp is the hint shown in the Custom repeat editor.
@@ -29,7 +31,7 @@ var (
 // "last workday", "until 2026-12-31", "x5",
 // "skip weekends", "from completion", "curve" (Ebbinghaus), "dates fri, 2026-10-22".
 func ParseRepeat(s string, now time.Time) (rule string, fromCompletion bool, err error) {
-	w := strings.Fields(strings.NewReplacer(",", " ", ";", " ").Replace(strings.ToLower(s)))
+	w := strings.Fields(itNormalize(strings.ToLower(s)))
 	if len(w) == 0 {
 		return "", false, errors.New("empty repeat")
 	}
@@ -174,7 +176,7 @@ func ParseRepeat(s string, now time.Time) (rule string, fromCompletion bool, err
 func RepeatText(rule string, fromCompletion bool) string {
 	s := repeatText(rule)
 	if fromCompletion {
-		s += " from completion"
+		s += " " + i18n.T("from completion")
 	}
 	return s
 }
@@ -185,7 +187,7 @@ func repeatText(rule string) string {
 		p := ruleParts(r)
 		switch p["NAME"] {
 		case "FORGETTINGCURVE":
-			return "curve"
+			return i18n.T("curve")
 		case "CUSTOM":
 			var ds []string
 			for _, d := range strings.Split(p["BYDATE"], ",") {
@@ -193,7 +195,7 @@ func repeatText(rule string) string {
 					ds = append(ds, t.Format("2006-01-02"))
 				}
 			}
-			return "dates " + strings.Join(ds, " ")
+			return i18n.T("dates") + " " + strings.Join(ds, " ")
 		}
 		return rule
 	}
@@ -203,18 +205,18 @@ func repeatText(rule string) string {
 		return rule
 	}
 	if n := p["INTERVAL"]; n != "" && n != "1" {
-		out = append(out, "every "+n+" "+unit+"s")
+		out = append(out, i18n.T("every")+" "+n+" "+i18n.T(unit+"s"))
 	} else {
-		out = append(out, "every "+unit)
+		out = append(out, i18n.T("every")+" "+i18n.T(unit))
 	}
 	known := map[string]bool{"FREQ": true, "INTERVAL": true, "BYMONTH": true}
 	if m, err := strconv.Atoi(p["BYMONTH"]); err == nil && m >= 1 && m <= 12 {
-		out = append(out, months[m-1][:3])
+		out = append(out, i18n.T(months[m-1][:3]))
 	}
 	if d := p["BYDAY"]; d != "" {
 		known["BYDAY"] = true
 		if d == "MO,TU,WE,TH,FR" {
-			out = append(out, "weekdays")
+			out = append(out, i18n.T("weekdays"))
 		} else {
 			var ws []string
 			for _, x := range strings.Split(d, ",") {
@@ -223,9 +225,9 @@ func repeatText(rule string) string {
 				if i < 0 {
 					return rule
 				}
-				name := weekdays[i][:3]
+				name := i18n.T(weekdays[i][:3])
 				if n != "" {
-					name = ordText[n] + " " + name
+					name = i18n.T(ordText[n]) + " " + name
 				}
 				ws = append(ws, name)
 			}
@@ -234,16 +236,16 @@ func repeatText(rule string) string {
 	}
 	switch wd, md := p["TT_WORKDAY"], p["BYMONTHDAY"]; {
 	case wd == "1":
-		out = append(out, "first workday")
+		out = append(out, i18n.T("first workday"))
 	case wd == "-1":
-		out = append(out, "last workday")
+		out = append(out, i18n.T("last workday"))
 	case md != "":
 		var ds []string
 		for _, x := range strings.Split(md, ",") {
 			if n, _ := strconv.Atoi(x); n > 0 {
 				ds = append(ds, Ordinal(n))
 			} else {
-				ds = append(ds, "last day")
+				ds = append(ds, i18n.T("last day"))
 			}
 		}
 		out = append(out, strings.Join(ds, ","))
@@ -254,11 +256,15 @@ func repeatText(rule string) string {
 	}
 	if u := p["UNTIL"]; len(u) >= 8 {
 		if t, err := time.Parse("20060102", u[:8]); err == nil {
-			out = append(out, "until "+t.Format("2006-01-02"))
+			out = append(out, i18n.T("until")+" "+t.Format("2006-01-02"))
 		}
 	}
 	if s := p["TT_SKIP"]; s != "" {
-		out = append(out, "skip "+strings.ToLower(strings.ReplaceAll(s, ",", " ")))
+		ws := strings.Split(strings.ToLower(s), ",")
+		for i, x := range ws {
+			ws[i] = i18n.T(x)
+		}
+		out = append(out, i18n.T("skip")+" "+strings.Join(ws, " "))
 	}
 	known["COUNT"], known["UNTIL"], known["TT_SKIP"] = true, true, true
 	for k, v := range p {
@@ -322,6 +328,9 @@ func monthDayNum(w string) int {
 
 // Ordinal writes 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st.
 func Ordinal(n int) string {
+	if i18n.Lang == "it" {
+		return fmt.Sprint(n, "°")
+	}
 	suf := "th"
 	if n%100 < 11 || n%100 > 13 {
 		if s, ok := map[int]string{1: "st", 2: "nd", 3: "rd"}[n%10]; ok {

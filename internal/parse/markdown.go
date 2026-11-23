@@ -40,6 +40,10 @@ type Line struct {
 // urlRe is a bare http(s) URL, minus trailing sentence punctuation.
 const urlRe = `https?://[^\s<>()\[\]]*[^\s<>()\[\].,;:!?'"]`
 
+// attachRe is a TickTick attachment: an image link whose target is a relative "<id>/<name>" path
+// (a real markdown image has an http(s) target). TickTick writes one per attached file into the body.
+var attachRe = regexp.MustCompile(`!\[[^\]]*\]\(([^)\s:]+/[^)]+)\)`)
+
 var (
 	inlineRe = regexp.MustCompile("\\*\\*[^*]+\\*\\*|`[^`]+`|\\[[^\\]]+\\]\\(" + urlRe + "\\)|" + urlRe)
 	linkRe   = regexp.MustCompile(urlRe)
@@ -104,6 +108,16 @@ func Links(s string) []Span {
 	}
 	if last < len(s) {
 		out = append(out, Span{Text: s[last:], Kind: Plain})
+	}
+	return out
+}
+
+// Attachments returns the refs ("<id>/<name>") of the files attached to a task, which TickTick
+// writes into the task's markdown body; the Open API has no attachment field.
+func Attachments(src string) []string {
+	var out []string
+	for _, m := range attachRe.FindAllStringSubmatch(src, -1) {
+		out = append(out, m[1])
 	}
 	return out
 }

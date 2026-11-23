@@ -39,7 +39,7 @@ var weekdays = []string{"sunday", "monday", "tuesday", "wednesday", "thursday", 
 // ISO dates ("2026-10-08"),
 // returning days from now. A weekday means its next occurrence (today's weekday = +7).
 func ParseDay(w string, now time.Time) (int, bool) {
-	switch w = strings.ToLower(w); w {
+	switch w = itWord(strings.ToLower(w)); w {
 	case "today", "tod":
 		return 0, true
 	case "tomorrow", "tmr", "tom":
@@ -133,11 +133,11 @@ func QuickAdd(term string, lists []List, defList string, defDue *Due, now time.T
 	for _, w := range strings.Fields(term) {
 		lw := strings.ToLower(w)
 		switch {
-		case lw == "!h" || lw == "!high" || lw == "!3":
+		case lw == "!h" || lw == "!high" || lw == "!alta" || lw == "!3":
 			a.Prio, a.PrioSet = 5, true
-		case lw == "!m" || lw == "!med" || lw == "!medium" || lw == "!2":
+		case lw == "!m" || lw == "!med" || lw == "!medium" || lw == "!media" || lw == "!2":
 			a.Prio, a.PrioSet = 3, true
-		case lw == "!l" || lw == "!low" || lw == "!1":
+		case lw == "!l" || lw == "!low" || lw == "!bassa" || lw == "!1":
 			a.Prio, a.PrioSet = 1, true
 		case len(lw) > 1 && lw[0] == '#':
 			a.Tags = append(a.Tags, lw[1:])

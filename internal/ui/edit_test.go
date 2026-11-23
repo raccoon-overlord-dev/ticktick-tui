@@ -72,7 +72,7 @@ func TestNotesCursorAfterNewline(t *testing.T) {
 	}
 	in := newInput("hello")
 	in.insert("\n")
-	ls, row := in.lines(pen{th: th}, "text", 40)
+	ls, row := in.lines(pen{th: th, pad: 1}, "text", 40)
 	if len(ls) != 2 || ansi.Strip(ls[1]) != " " || row != 1 {
 		t.Fatalf("got %q row %d", ls, row)
 	}
@@ -94,7 +94,7 @@ func TestLongNotes(t *testing.T) {
 		t.Fatalf("up: cur %d", in.cur)
 	}
 	in.cur = 8 // "i" lands on the 2nd row when wrapped at 4
-	if _, row := in.lines(pen{th: th}, "text", 4); row != 2 {
+	if _, row := in.lines(pen{th: th, pad: 1}, "text", 4); row != 2 {
 		t.Fatalf("row %d", row)
 	}
 

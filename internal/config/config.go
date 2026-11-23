@@ -15,12 +15,14 @@ var defaultTOML string
 
 type Config struct {
 	Appearance struct {
+		Language        string `toml:"language"` // en | it: the language ttui shows (input reads both)
 		Theme           string `toml:"theme"`
 		Mode            string `toml:"mode"` // system | dark | light: which variant of a palette theme
 		Background      string `toml:"background"`
 		PriorityHeaders string `toml:"priority_headers"`
 		FocusedPanel    string `toml:"focused_panel"`
 		NerdFontIcons   bool   `toml:"nerd_font_icons"`
+		Density         string `toml:"density"` // compact | normal | roomy: spacing, padding and pane widths
 	} `toml:"appearance"`
 	Layout struct {
 		Columns       string   `toml:"columns"`

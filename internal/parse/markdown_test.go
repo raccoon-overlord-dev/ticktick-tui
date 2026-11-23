@@ -68,3 +68,23 @@ func TestLinks(t *testing.T) {
 		t.Fatalf("url lost: %#v", ls)
 	}
 }
+
+func TestAttachments(t *testing.T) {
+	cases := []struct {
+		src  string
+		want []string
+	}{
+		{"", nil},
+		{"![file](6af8506f8c6c4f0220332154/piano-di-lavoro.pdf)", []string{"6af8506f8c6c4f0220332154/piano-di-lavoro.pdf"}},
+		{"notes\n![file](a1/one.pdf)\n![file](b2/two with space.png)\n", []string{"a1/one.pdf", "b2/two with space.png"}},
+		{"![alt](https://host/pic.png)", nil},             // a real markdown image
+		{"[piano](https://host/x/y.pdf) plain text", nil}, // a link, not an attachment
+		{"![file](nofilename)", nil},                      // no "<id>/<name>" shape
+	}
+	for _, c := range cases {
+		got := Attachments(c.src)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("Attachments(%q) = %q, want %q", c.src, got, c.want)
+		}
+	}
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/api"
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/parse"
 	"github.com/raccoon-overlord-dev/ticktick-tui/internal/store"
 )
@@ -20,7 +21,7 @@ import (
 // presets toggle on and off (a task can have several), Custom opens the dialog.
 func (a *App) reminderPicker(t *api.Task) {
 	if _, ok := store.DueTime(t); !ok {
-		a.setFlash("set a due date first · reminders need one")
+		a.setFlash(i18n.T("set a due date first · reminders need one"))
 		return
 	}
 	var presets []time.Duration
@@ -51,11 +52,11 @@ func (a *App) reminderPicker(t *api.Task) {
 				return cmd
 			}}
 		if slices.Contains(t.Reminders, trig) {
-			it.iconRole, it.hint = "ok", "✓ on · ⏎ off"
+			it.iconRole, it.hint = "ok", i18n.T("✓ on · ⏎ off")
 		}
 		items = append(items, it)
 	}
-	items = append(items, cmdItem{icon: "…", iconRole: "dim", label: "Custom", hint: "days or weeks early, at a time",
+	items = append(items, cmdItem{icon: "…", iconRole: "dim", label: i18n.T("Custom"), hint: i18n.T("days or weeks early, at a time"),
 		run: func() tea.Cmd { a.openReminderForm(t); return nil }})
 	a.openPick("remind", items)
 }
@@ -68,7 +69,7 @@ func (a *App) toggleReminder(t *api.Task, trig string) tea.Cmd {
 // (an empty list only drops the first; see docs/api-notes.md), so that is refused.
 func (a *App) setReminders(t *api.Task, rs []string) tea.Cmd {
 	if len(rs) == 0 && t != a.draft {
-		a.flashError("✗ the API can't remove a task's last reminder · remove it in the TickTick app")
+		a.flashError(i18n.T("✗ the API can't remove a task's last reminder · remove it in the TickTick app"))
 		return nil
 	}
 	return a.update(t, map[string]any{"reminders": rs}, func(t *api.Task) {
@@ -197,7 +198,7 @@ func (a *App) saveReminder() tea.Cmd {
 	if slices.Contains(f.task.Reminders, trig) {
 		return nil
 	}
-	a.setFlash("reminder → " + parse.ReminderText(trig, f.allDay))
+	a.setFlash(i18n.T("reminder") + " → " + parse.ReminderText(trig, f.allDay))
 	return a.setReminders(f.task, append(slices.Clone(f.task.Reminders), trig))
 }
 
@@ -214,17 +215,18 @@ func (a *App) viewReminder() (string, int, int) {
 		if on {
 			sel, rp = len(lines), p.on(a.selBg(true))
 		}
-		label := func(s string) string { return rp.s("muted").Render(padRight(s, 15)) }
+		label := func(s string) string { return rp.s("muted").Render(padRight(i18n.T(s), 15)) }
 		switch row {
 		case "unit":
-			u := strings.ToUpper(f.unit[:1]) + f.unit[1:]
+			u := i18n.T(f.unit)
+			u = strings.ToUpper(u[:1]) + u[1:]
 			v := rp.s("text").Render(u)
 			if on {
 				v = rp.s("accent").Render("‹ ") + rp.s("text").Bold(true).Render(u) + rp.s("accent").Render(" ›")
 			}
 			lines = append(lines, rp.line(w, label("Remind by")+v, ""))
 		case "n":
-			lines = append(lines, rp.line(w, label(f.unit+"s early")+rp.s("text").Bold(on).Render(strconv.Itoa(f.n)), hintIf(rp, on, "←→ or type")))
+			lines = append(lines, rp.line(w, label(i18n.Fmt("%s early", i18n.T(f.unit+"s")))+rp.s("text").Bold(on).Render(strconv.Itoa(f.n)), hintIf(rp, on, "←→ or type")))
 		case "at":
 			v := parse.FmtTime(time.Date(2000, 1, 1, f.at/60, f.at%60, 0, 0, time.UTC))
 			if f.atBuf != "" {
@@ -241,13 +243,13 @@ func (a *App) viewReminder() (string, int, int) {
 	summary := ""
 	if due, ok := store.DueTime(f.task); ok {
 		at := parse.FireTime(due, f.allDay, f.offset())
-		summary = "Remind at " + parse.FmtTime(at) + " on " + parse.FmtLongDate(at)
+		summary = i18n.Fmt("Remind at %s on %s", parse.FmtTime(at), parse.FmtLongDate(at))
 	}
 	lines = append(lines, "", p.line(w, p.s("secondary").Render(summary), ""), p.s("line").Render(strings.Repeat("─", w-2)),
-		p.line(w, p.s("dim").Render("↑↓ field · ←→ change · ctrl+s add"), ""))
+		p.line(w, p.s("dim").Render(i18n.T("↑↓ field · ←→ change · ctrl+s add")), ""))
 	body := window(lines, sel, max(a.h-3, 3), new(int))
 	h := len(body) + 2
-	return a.frame(p, frameOpts{w: w, h: h, title: "Custom reminder", modal: true, body: body}), w, h
+	return a.frame(p, frameOpts{w: w, h: h, title: i18n.T("Custom reminder"), modal: true, body: body}), w, h
 }
 
 // checkReminders notifies the reminders that came due since the last check (Settings →
@@ -303,7 +305,7 @@ func notify(mode, title, body string) tea.Cmd {
 			err = exec.Command("notify-send", "-a", "ttui", title, body).Run()
 		}
 		if err != nil {
-			return flashMsg("✗ notification failed: " + err.Error())
+			return flashMsg(i18n.Fmt("✗ notification failed: %s", err.Error()))
 		}
 		return nil
 	}

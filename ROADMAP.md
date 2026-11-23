@@ -4,7 +4,7 @@ Ideas planned after v1. Not implemented yet.
 
 ## Next release
 
-- **Attachments**: show an indicator on tasks that have attachments, and a way to upload attachments to a task and download them.
+- **Attachments: upload and download**. The paperclip indicator is done (counted from the `![file](<id>/<name>)` links TickTick leaves in the task body). Moving the files is blocked: the Open API has no attachment endpoint, so it would need the private web API (`api.ticktick.com/api/v2`, session login instead of OAuth, undocumented endpoints).
 
 ## Known bugs
 
@@ -42,6 +42,10 @@ Ideas planned after v1. Not implemented yet.
 ## Calendar
 
 - Calendar view like the TickTick app: month, week and day views of tasks by due date (timed tasks placed by hour in week / day), move between periods with the keyboard, open a task from it, and change a task's date from the calendar.
+
+## Languages
+
+- More languages beyond English and Italian (Settings → Language), and translated docs. Each one is a table in `internal/i18n`, plus the input words in `internal/parse/italian.go`'s shape.
 
 ## Themes
 
