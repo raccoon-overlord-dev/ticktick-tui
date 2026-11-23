@@ -737,7 +737,7 @@ func (a *App) viewMain() (string, [][2]string) {
 			layer(box, bw, (paneH-bh)/2)
 			hints = [][2]string{{"↑↓", "field"}, {"⏎", "edit"}, {"ctrl+s", "create"}, {"esc", "cancel"}}
 			if a.edit != "" {
-				hints = [][2]string{{"esc", "save"}, {"⏎", map[bool]string{true: "newline", false: "save"}[a.edit == "notes"]}}
+				hints = [][2]string{{"esc", "save"}, {"⏎", map[bool]string{true: "newline", false: "save"}[a.edit == "notes"]}, {"ctrl+g", "editor"}}
 				if len(a.tagSuggest()) > 0 {
 					hints = append(hints, [2]string{"tab", "complete"}, [2]string{"↑↓", "pick tag"})
 				}
@@ -779,7 +779,7 @@ func (a *App) viewMain() (string, [][2]string) {
 		case "additem":
 			enter = "add"
 		}
-		hints = [][2]string{{"esc", "save"}, {"⏎", enter}}
+		hints = [][2]string{{"esc", "save"}, {"⏎", enter}, {"ctrl+g", "editor"}}
 		if len(a.tagSuggest()) > 0 {
 			hints = append(hints, [2]string{"tab", "complete"}, [2]string{"↑↓", "pick tag"})
 		}

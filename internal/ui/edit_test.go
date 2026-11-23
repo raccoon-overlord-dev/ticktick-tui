@@ -743,3 +743,26 @@ func TestExternalEditField(t *testing.T) {
 		t.Fatalf("no $EDITOR should only flash: cmd=%v role=%q", cmd != nil, a.flashRole)
 	}
 }
+
+// GUI editors need their waiting flag, or ttui reads the file back before anything is typed.
+func TestEditorArgs(t *testing.T) {
+	for _, c := range []struct {
+		env  string
+		want []string
+	}{
+		{"code", []string{"code", "-w"}},
+		{"/usr/local/bin/code", []string{"/usr/local/bin/code", "-w"}},
+		{"code -w", []string{"code", "-w"}}, // already waiting: don't repeat it
+		{"code -n", []string{"code", "-n"}}, // their own flags: theirs to get right
+		{"zed", []string{"zed", "--wait"}},
+		{"vim", []string{"vim"}}, // terminal editors are left alone
+		{"emacs -nw", []string{"emacs", "-nw"}},
+		{"", nil},
+	} {
+		t.Setenv("VISUAL", "")
+		t.Setenv("EDITOR", c.env)
+		if got := editorArgs(); !slices.Equal(got, c.want) {
+			t.Errorf("editorArgs() for %q = %q, want %q", c.env, got, c.want)
+		}
+	}
+}

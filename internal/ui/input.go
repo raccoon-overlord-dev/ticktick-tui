@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"unicode"
@@ -297,11 +298,28 @@ type externEditMsg struct {
 	err             error
 }
 
+// waitFlag tells a GUI editor to wait: without it the command hands the file to a window that is
+// already open and returns at once, so ttui would read the file back before anything is typed.
+var waitFlag = map[string]string{"code": "-w", "code-insiders": "-w", "codium": "-w", "cursor": "-w",
+	"windsurf": "-w", "subl": "-w", "sublime_text": "-w", "zed": "--wait", "mate": "-w"}
+
+// editorArgs is the $VISUAL / $EDITOR command, without the file yet; nil when neither is set.
+func editorArgs() []string {
+	args := strings.Fields(cmp.Or(os.Getenv("VISUAL"), os.Getenv("EDITOR"))) // $EDITOR may carry flags
+	if len(args) == 0 {
+		return nil
+	}
+	if w := waitFlag[filepath.Base(args[0])]; w != "" && len(args) == 1 { // flags of their own: theirs to get right
+		args = append(args, w)
+	}
+	return args
+}
+
 // externalEdit opens the field being edited in $VISUAL / $EDITOR (ctrl+g). The text comes
 // back into the field; ⏎ / esc still does the saving, as it does for anything typed here.
 func (a *App) externalEdit() tea.Cmd {
-	args := strings.Fields(cmp.Or(os.Getenv("VISUAL"), os.Getenv("EDITOR"))) // $EDITOR may carry flags
-	if len(args) == 0 {
+	args := editorArgs()
+	if args == nil {
 		a.flashError(i18n.T("✗ set $EDITOR to edit in an editor"))
 		return nil
 	}
@@ -319,7 +337,8 @@ func (a *App) externalEdit() tea.Cmd {
 		return nil
 	}
 	field, id, name := a.edit, a.editID, f.Name()
-	return tea.ExecProcess(exec.Command(args[0], append(args[1:], name)...), func(err error) tea.Msg {
+	args = append(args, name)
+	return tea.ExecProcess(exec.Command(args[0], args[1:]...), func(err error) tea.Msg {
 		defer os.Remove(name)
 		b, rerr := os.ReadFile(name)
 		return externEditMsg{field, id, string(b), errors.Join(err, rerr)}
