@@ -92,6 +92,10 @@ func (a *App) draftKey(k tea.KeyPressMsg) tea.Cmd {
 		a.startEdit("additem")
 	case "C":
 		return a.convert(t)
+	case "D", "delete":
+		if item {
+			a.askDeleteItem(t, field)
+		}
 	}
 	return nil
 }

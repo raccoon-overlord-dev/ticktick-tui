@@ -350,7 +350,7 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "m", desc: "Move to another list"},
 	{key: "c", desc: "Add checklist items"},
 	{key: "C", desc: "Convert note ↔ checklist (a line per item)"},
-	{key: "D  del", desc: "Delete (asks first; repeating: this one or all)"},
+	{key: "D  del", desc: "Delete (asks first); on an item: that item"},
 	{key: "A", desc: "New subtask of this task"},
 	{key: "> <", desc: "Nest under the task above / move up a level (again: undo)"},
 	{key: "z", desc: "Fold / unfold subtasks"},
@@ -376,6 +376,7 @@ var helpKeys = []struct{ sec, key, desc string }{
 	{key: "shift+←→", desc: "Select (shift+↑↓ in notes)"},
 	{key: "ctrl+c x", desc: "Copy / cut the selection"},
 	{key: "ctrl+z y", desc: "Undo / redo (until the field is saved)"},
+	{key: "ctrl+g", desc: "Open the field in $EDITOR (⏎ then saves)"},
 }
 
 func (a *App) helpKey(k tea.KeyPressMsg) tea.Cmd {

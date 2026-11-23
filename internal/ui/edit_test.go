@@ -665,3 +665,81 @@ func TestThemeDropdown(t *testing.T) {
 		t.Fatal("system mode on a light terminal should be light")
 	}
 }
+
+// key is a single key press as a terminal sends it ("D" is the shifted d).
+func key(s string) tea.KeyPressMsg { return tea.KeyPressMsg{Code: []rune(s)[0], Text: s} }
+
+// D on a checklist item deletes that item after its own prompt; anywhere else it still
+// deletes the task.
+func TestDeleteChecklistItem(t *testing.T) {
+	a := testApp(t)
+	tk := a.st.Task("a")
+	tk.Items = []api.Item{{Title: "one"}, {Title: "two"}, {Title: "three"}}
+	a.w, a.h = 160, 40 // three panes, so the details pane really has the focus
+	a.focus, a.df = "detail", slices.Index(a.detailKeys(tk), "c1")
+
+	a.mainKey(key("D"))
+	if a.delID != "a" || a.delItem != "c1" || len(tk.Items) != 3 {
+		t.Fatalf("no item prompt: delID=%q delItem=%q items=%+v", a.delID, a.delItem, tk.Items)
+	}
+	a.deleteKey(key("n")) // anything but y cancels
+	if len(tk.Items) != 3 || a.delID != "" || a.delItem != "" {
+		t.Fatalf("n deleted or left the prompt open: %+v delID=%q", tk.Items, a.delID)
+	}
+
+	a.mainKey(key("D"))
+	a.deleteKey(key("y"))
+	if len(tk.Items) != 2 || tk.Items[0].Title != "one" || tk.Items[1].Title != "three" {
+		t.Fatalf("wrong item deleted: %+v", tk.Items)
+	}
+	last := a.queue[len(a.queue)-1]
+	if items, _ := last.fields["items"].([]api.Item); last.kind != "update" || len(items) != 2 {
+		t.Fatalf("item delete not sent as the whole array: %+v", last.fields)
+	}
+	if a.st.Task("a") == nil || a.delItem != "" {
+		t.Fatalf("the task itself went away: delItem=%q", a.delItem)
+	}
+
+	// On a field that isn't an item, D still asks about the task.
+	a.df = slices.Index(a.detailKeys(tk), "title")
+	a.mainKey(key("D"))
+	if a.delItem != "" || a.delID != "a" {
+		t.Fatalf("D on the title asked about an item: delItem=%q", a.delItem)
+	}
+	a.deleteKey(key("y"))
+	if a.st.Task("a") != nil && len(a.trash) == 0 {
+		t.Fatalf("task not deleted")
+	}
+}
+
+// ctrl+g hands the field to $EDITOR; the text comes back into the input, not to the server.
+func TestExternalEditField(t *testing.T) {
+	if got := externText("notes", "a\nb\n"); got != "a\nb" {
+		t.Errorf("notes: %q", got) // newlines kept, the editor's last one dropped
+	}
+	if got := externText("title", "a\nb\n"); got != "a b" {
+		t.Errorf("title: %q", got) // one-line field: newlines become spaces
+	}
+
+	a := testApp(t)
+	tk := a.st.Task("a")
+	a.startEdit("notes")
+	a.onExternEdit(externEditMsg{field: "notes", id: tk.ID, text: "from vim\n"})
+	if a.in.value() != "from vim" || tk.Content != "" {
+		t.Fatalf("text not back in the field, or saved too early: %q notes=%q", a.in.value(), tk.Content)
+	}
+	a.onExternEdit(externEditMsg{field: "title", id: tk.ID, text: "stale"})
+	if a.in.value() != "from vim" { // the field changed while the editor was open
+		t.Fatalf("stale editor result applied: %q", a.in.value())
+	}
+	a.onExternEdit(externEditMsg{field: "notes", id: tk.ID, err: errors.New("boom")})
+	if a.flashRole != "error" || a.in.value() != "from vim" {
+		t.Fatalf("editor error not reported: %q %q", a.flashRole, a.flash)
+	}
+
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "")
+	if cmd := a.externalEdit(); cmd != nil || a.flashRole != "error" {
+		t.Fatalf("no $EDITOR should only flash: cmd=%v role=%q", cmd != nil, a.flashRole)
+	}
+}

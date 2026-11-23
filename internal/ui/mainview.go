@@ -986,6 +986,12 @@ func (a *App) mainKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 		switch key {
 		case "D", "delete":
+			// on a checklist item in the details pane D deletes that item, not the task
+			keys := a.detailKeys(t)
+			if k := keys[min(a.df, len(keys)-1)]; ef == "detail" && k != "additem" && strings.HasPrefix(k, "c") {
+				a.askDeleteItem(t, k)
+				return nil
+			}
 			a.askDelete(t)
 		case "m":
 			a.movePicker(t)

@@ -340,7 +340,36 @@ func (a *App) askDelete(t *api.Task) {
 	a.flash, a.flashRole, a.flashUntil = q, "warn", time.Now().Add(time.Hour)
 }
 
+// askDeleteItem asks before deleting one checklist item (D on it in the details pane).
+func (a *App) askDeleteItem(t *api.Task, field string) {
+	var i int
+	if _, err := fmt.Sscanf(field, "c%d", &i); err != nil || i >= len(t.Items) {
+		return
+	}
+	a.delID, a.delItem = t.ID, field
+	a.flash, a.flashRole, a.flashUntil = i18n.Fmt("Delete item “%s”? y / N", t.Items[i].Title), "warn", time.Now().Add(time.Hour)
+}
+
+// deleteItemKey answers the item prompt. Items are sent as the whole array, as everywhere else.
+func (a *App) deleteItemKey(k tea.KeyPressMsg) tea.Cmd {
+	field, t := a.delItem, a.taskByID(a.delID) // taskByID: also the New task panel's draft
+	a.delID, a.delItem, a.flash = "", "", ""
+	var i int
+	if _, err := fmt.Sscanf(field, "c%d", &i); err != nil || t == nil || i >= len(t.Items) || k.String() != "y" {
+		return nil
+	}
+	gone := t.Items[i].Title
+	items := slices.Delete(slices.Clone(t.Items), i, i+1)
+	cmd := a.update(t, map[string]any{"items": items}, func(t *api.Task) { t.Items = items })
+	a.df = min(a.df, len(a.detailKeys(t))-1)
+	a.setFlash(i18n.Fmt("deleted item “%s”", gone))
+	return cmd
+}
+
 func (a *App) deleteKey(k tea.KeyPressMsg) tea.Cmd {
+	if a.delItem != "" {
+		return a.deleteItemKey(k)
+	}
 	t := a.st.Task(a.delID)
 	a.delID, a.flash = "", ""
 	if t == nil {

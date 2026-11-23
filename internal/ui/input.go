@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"cmp"
+	"errors"
+	"os"
+	"os/exec"
 	"slices"
 	"strings"
 	"unicode"
@@ -8,6 +12,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/raccoon-overlord-dev/ticktick-tui/internal/i18n"
 )
 
 // textInput is a minimal line editor (optionally multi-line) with a cursor, a selection
@@ -281,4 +287,61 @@ func (t *textInput) cursor(p pen, role string) string {
 		c = string(t.r[t.cur])
 	}
 	return p.s(role).Reverse(!t.hidden).Render(c)
+}
+
+// ---- $EDITOR (ctrl+g) ----
+
+// externEditMsg carries back the text an external editor saved.
+type externEditMsg struct {
+	field, id, text string
+	err             error
+}
+
+// externalEdit opens the field being edited in $VISUAL / $EDITOR (ctrl+g). The text comes
+// back into the field; ⏎ / esc still does the saving, as it does for anything typed here.
+func (a *App) externalEdit() tea.Cmd {
+	args := strings.Fields(cmp.Or(os.Getenv("VISUAL"), os.Getenv("EDITOR"))) // $EDITOR may carry flags
+	if len(args) == 0 {
+		a.flashError(i18n.T("✗ set $EDITOR to edit in an editor"))
+		return nil
+	}
+	ext := ".txt"
+	if a.edit == "notes" {
+		ext = ".md" // the notes are markdown: let the editor highlight them
+	}
+	f, err := os.CreateTemp("", "ttui-*"+ext)
+	if err == nil {
+		_, err = f.WriteString(a.in.value())
+		f.Close()
+	}
+	if err != nil {
+		a.flashError("✗ " + err.Error())
+		return nil
+	}
+	field, id, name := a.edit, a.editID, f.Name()
+	return tea.ExecProcess(exec.Command(args[0], append(args[1:], name)...), func(err error) tea.Msg {
+		defer os.Remove(name)
+		b, rerr := os.ReadFile(name)
+		return externEditMsg{field, id, string(b), errors.Join(err, rerr)}
+	})
+}
+
+// externText fits the text an editor saved to the field it came from.
+func externText(field, raw string) string {
+	s := strings.TrimRight(raw, "\n") // editors end the file with a newline
+	if field != "notes" {
+		s = strings.ReplaceAll(s, "\n", " ") // one-line fields, as PasteMsg does on the command bar
+	}
+	return s
+}
+
+func (a *App) onExternEdit(m externEditMsg) {
+	switch {
+	case m.err != nil:
+		a.flashError("✗ " + m.err.Error())
+	case a.edit != m.field || a.editID != m.id: // the field changed while the editor was open
+	default:
+		a.in = newInput(externText(m.field, m.text))
+		a.setFlash(i18n.T("back from the editor · ⏎ saves"))
+	}
 }

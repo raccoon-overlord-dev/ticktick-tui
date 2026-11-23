@@ -127,6 +127,7 @@ type App struct {
 	tmpN       int
 	lastDone   []string  // for "x to undo": the task completed last, then the subtasks completed with it
 	delID      string    // task the "delete?" prompt is about
+	delItem    string    // checklist item field ("c3") the prompt is about, "" for the whole task
 	parentUndo [2]string // task and its previous parent id, for "< to undo" / "> to undo"
 	syncGen    int
 	syncing    bool
@@ -246,6 +247,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case updateDoneMsg:
 		return a, a.onUpdated(msg)
+	case externEditMsg:
+		a.onExternEdit(msg)
+		return a, nil
 	case syncTickMsg:
 		if int(msg) == a.syncGen {
 			return a, a.syncNow()
@@ -323,6 +327,8 @@ func (a *App) editKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 		a.setFlash(i18n.T("copied"))
 		return tea.SetClipboard(s)
+	case key == "ctrl+g":
+		return a.externalEdit()
 	case key == "enter" && a.edit == "additem" && strings.TrimSpace(a.in.value()) != "":
 		cmd, _ := a.commitEdit()
 		a.startEdit("additem") // stay open for the next item
