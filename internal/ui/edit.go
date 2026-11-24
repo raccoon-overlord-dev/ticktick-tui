@@ -97,18 +97,36 @@ func (a *App) pump() tea.Cmd {
 	}
 }
 
+// apiLag is how long the API's reads can trail a write: a sync that starts within it after
+// a write is dropped, and a repeating task's re-read is retried for about that long.
+const apiLag = 5 * time.Second
+
+var rereadWait = 1500 * time.Millisecond // a var so tests don't sleep
+
 // completeTask completes id, then re-reads it: a repeating task stays open with its next
-// due date. For a non-repeating task a read that still says open is stale (the API lags
-// behind the complete), so nil is returned and the local completed state stands.
+// due date. A read that still shows the task as before (open, same due date) is stale, as
+// the API lags behind the complete: a repeating task is re-read a few times, then nil is
+// returned and the local completed state stands until a later sync. So does a failed read.
 func completeTask(ctx context.Context, c *api.Client, pid, id string, before *api.Task) (*api.Task, error) {
 	if err := c.CompleteTask(ctx, pid, id); err != nil {
 		return nil, err
 	}
-	t, err := c.GetTask(ctx, pid, id)
-	if err != nil || t == nil || (before != nil && before.RepeatFlag == "" && !store.Done(t)) {
-		return nil, nil // the complete succeeded: ignore a failed or stale re-read
+	repeats := before != nil && before.RepeatFlag != ""
+	for try := 0; ; try++ {
+		t, err := c.GetTask(ctx, pid, id)
+		stale := err != nil || t == nil || (!store.Done(t) && (!repeats || sameTime(t.DueDate, before.DueDate)))
+		if !stale {
+			return t, nil
+		}
+		if !repeats || try == 2 {
+			return nil, nil // the complete succeeded: ignore a failed or stale re-read
+		}
+		select {
+		case <-ctx.Done():
+			return nil, nil
+		case <-time.After(rereadWait):
+		}
 	}
-	return t, nil
 }
 
 // skipOccurrence deletes only the current occurrence of a repeating task. The API has no

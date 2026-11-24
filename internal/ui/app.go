@@ -131,7 +131,7 @@ type App struct {
 	parentUndo [2]string // task and its previous parent id, for "< to undo" / "> to undo"
 	syncGen    int
 	syncing    bool
-	lastWrite  time.Time // when the last op returned, to drop a sync that started earlier
+	lastWrite  time.Time // when the last op returned, to drop a sync that started before it or within apiLag after
 
 	flash      string
 	flashRole  string
@@ -384,9 +384,9 @@ func (a *App) onStore(msg storeMsg) tea.Cmd {
 			a.err = msg.err.Error()
 		case msg.err != nil:
 			a.flashError(i18n.Fmt("⟳ sync failed: %s", shortErr(msg.err)))
-		case a.busy || len(a.queue) > 0 || a.lastWrite.After(msg.start):
-			// local edits in flight, or saved after this fetch started; the next sync
-			// picks up the server state
+		case a.busy || len(a.queue) > 0 || a.lastWrite.Add(apiLag).After(msg.start):
+			// local edits in flight, or saved after this fetch started or just before it
+			// (the API's reads lag behind writes); the next sync picks up the server state
 		default:
 			a.setStore(msg.st)
 			a.err = ""

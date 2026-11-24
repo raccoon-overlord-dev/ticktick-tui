@@ -258,6 +258,7 @@ These come from TickTick's public API (details in [`docs/api-notes.md`](api-note
 - Smart lists (Today, Tomorrow, Next 7 Days) and filters are computed in ttui, not read from your TickTick filters.
 - A list's "Show in smart list" setting isn't readable through the API, so ttui ignores it; press `H` on the list to hide it in ttui instead.
 - Completed tasks cover the last 7 days by default; Settings → Completed history (`completed_days`) raises it to 30, 90 or 365.
+- For a second or two after a task is completed, the API can still report it as open (and list it as open and completed at the same time). ttui keeps your completed state rather than that answer, and ignores a sync that starts within 5 seconds of any change, so a completed task stays done and a reopened one stays open. If the API lags longer than that, a sync can still show the old state until the next one. A repeating task is re-read for a few seconds to get its next occurrence; if that read stays stale or fails, it shows as completed until a later sync.
 - Moving a task to the Inbox needs at least one task already in the Inbox (that's the only way the API reveals its id).
 - The API allows 100 requests a minute; ttui retries with backoff when it hits the limit.
 - dida365.com accounts aren't supported.
