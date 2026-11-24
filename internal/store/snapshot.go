@@ -37,5 +37,6 @@ func LoadSnapshot() *Store {
 	if json.Unmarshal(b, &s) != nil {
 		return nil
 	}
+	s.Tasks = dedupe(s.Tasks) // a snapshot written by an older build may hold duplicates
 	return &s
 }

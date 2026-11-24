@@ -113,8 +113,30 @@ func openByList(ctx context.Context, c *api.Client, ps []api.Project) ([]api.Tas
 	return slices.Concat(res...), nil
 }
 
+// dedupe drops repeated task ids, keeping the last one and the original order. Fetch
+// appends the completed tasks after the open ones, and a task just completed can still
+// come back in both lists while the API catches up; the completed copy is the newer truth.
+// Duplicates would otherwise be invisible to Task and Upsert (they match the first entry)
+// and would put a done task in a group even with completed tasks hidden.
+func dedupe(ts []api.Task) []api.Task {
+	last := make(map[string]int, len(ts))
+	for i, t := range ts {
+		last[t.ID] = i
+	}
+	if len(last) == len(ts) {
+		return ts
+	}
+	out := make([]api.Task, 0, len(last))
+	for i, t := range ts {
+		if last[t.ID] == i {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 func New(ps []api.Project, gs []api.Group, ts []api.Task, email string, synced time.Time) *Store {
-	s := &Store{Groups: gs, Tasks: ts, Email: email, SyncedAt: synced}
+	s := &Store{Groups: gs, Tasks: dedupe(ts), Email: email, SyncedAt: synced}
 	for _, p := range ps {
 		if !p.Closed {
 			s.Projects = append(s.Projects, p)

@@ -131,6 +131,7 @@ type App struct {
 	parentUndo [2]string // task and its previous parent id, for "< to undo" / "> to undo"
 	syncGen    int
 	syncing    bool
+	lastWrite  time.Time // when the last op returned, to drop a sync that started earlier
 
 	flash      string
 	flashRole  string
@@ -149,6 +150,7 @@ type (
 	storeMsg struct {
 		st      *store.Store
 		err     error
+		start   time.Time  // when the fetch started: an older one must not undo a newer write
 		pending *auth.Auth // auth to save if the fetch succeeds (sign-in); nil on startup
 	}
 )
@@ -382,8 +384,9 @@ func (a *App) onStore(msg storeMsg) tea.Cmd {
 			a.err = msg.err.Error()
 		case msg.err != nil:
 			a.flashError(i18n.Fmt("⟳ sync failed: %s", shortErr(msg.err)))
-		case a.busy || len(a.queue) > 0:
-			// local edits in flight; the next sync picks up the server state
+		case a.busy || len(a.queue) > 0 || a.lastWrite.After(msg.start):
+			// local edits in flight, or saved after this fetch started; the next sync
+			// picks up the server state
 		default:
 			a.setStore(msg.st)
 			a.err = ""
@@ -439,8 +442,9 @@ func (a *App) fetchStore(token string, pending *auth.Auth) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
+		start := time.Now()
 		st, err := store.Fetch(ctx, api.New(token), days)
-		return storeMsg{st: st, err: err, pending: pending}
+		return storeMsg{st: st, err: err, start: start, pending: pending}
 	}
 }
 

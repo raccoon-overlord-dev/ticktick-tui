@@ -82,10 +82,7 @@ func (a *App) pump() tea.Cmd {
 		case "update":
 			t, err = c.UpdateTask(ctx, id, pid, o.fields)
 		case "complete":
-			if err = c.CompleteTask(ctx, pid, id); err == nil {
-				// re-read: a repeating task stays open with its next due date
-				t, err = c.GetTask(ctx, pid, id)
-			}
+			t, err = completeTask(ctx, c, pid, id, o.before)
 		case "move":
 			to := o.fields["to"].(string)
 			if err = c.MoveTask(ctx, o.fields["from"].(string), to, id); err == nil {
@@ -98,6 +95,20 @@ func (a *App) pump() tea.Cmd {
 		}
 		return opDoneMsg{o, t, err}
 	}
+}
+
+// completeTask completes id, then re-reads it: a repeating task stays open with its next
+// due date. For a non-repeating task a read that still says open is stale (the API lags
+// behind the complete), so nil is returned and the local completed state stands.
+func completeTask(ctx context.Context, c *api.Client, pid, id string, before *api.Task) (*api.Task, error) {
+	if err := c.CompleteTask(ctx, pid, id); err != nil {
+		return nil, err
+	}
+	t, err := c.GetTask(ctx, pid, id)
+	if err != nil || t == nil || (before != nil && before.RepeatFlag == "" && !store.Done(t)) {
+		return nil, nil // the complete succeeded: ignore a failed or stale re-read
+	}
+	return t, nil
 }
 
 // skipOccurrence deletes only the current occurrence of a repeating task. The API has no
@@ -196,6 +207,7 @@ func (a *App) onOpDone(m opDoneMsg) tea.Cmd {
 		a.st.Remove(m.op.taskID)
 	}
 	a.st.Save()
+	a.lastWrite = time.Now()
 	return tea.Batch(a.pump(), a.restartIfIdle())
 }
 

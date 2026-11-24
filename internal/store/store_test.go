@@ -332,3 +332,23 @@ func TestSubtaskTree(t *testing.T) {
 		t.Errorf("loop descendants = %q", got)
 	}
 }
+
+// A task completed just before a sync can come back from both the open and the completed
+// request: New keeps one copy (the completed one), so it doesn't show up as still open and
+// doesn't bring a Completed group along with completed tasks hidden.
+func TestDedupeJustCompleted(t *testing.T) {
+	open := api.Task{ID: "a", ProjectID: "p1", Title: "Pay the rent", DueDate: due(0, "09:00")}
+	done := open
+	done.Status, done.CompletedTime = 2, due(0, "09:30")
+	s := New([]api.Project{{ID: "p1", Name: "One"}}, nil, []api.Task{open, done}, "", now)
+	if len(s.Tasks) != 1 || !Done(&s.Tasks[0]) {
+		t.Fatalf("tasks = %+v", s.Tasks)
+	}
+	so := config.Sort{GroupBy: "priority", SortBy: "date"}
+	if gs := s.TaskGroups(s.TasksFor("p:p1", now), so, false, now); len(gs) != 0 {
+		t.Errorf("hidden completed: groups = %+v", gs)
+	}
+	if gs := s.TaskGroups(s.TasksFor("p:p1", now), so, true, now); len(gs) != 1 || gs[0].Label != "Completed" {
+		t.Errorf("shown completed: groups = %+v", gs)
+	}
+}
